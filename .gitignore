@@ -34,6 +34,12 @@ yarn-error.log*
 # claude code local settings (personal, not team-shared)
 .claude/settings.local.json
 
+# database backups — schema + data dumps, never committed
+/backups/
+
+# supabase CLI local cache
+/supabase/.temp/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
