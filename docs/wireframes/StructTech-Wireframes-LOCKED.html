@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&family=Architects+Daughter&display=swap" rel="stylesheet">
+<style>
+  body{margin:0;background:#eeece6;font-family:'Kalam',cursive;color:#1a1a1a;}
+  .dv-turn{padding:40px 44px 60px;border-bottom:1px solid rgba(0,0,0,.1);scroll-margin-top:16px;}
+  .dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 24px;}
+  .dv-tid{font:700 12px 'Kalam',cursive;padding:3px 9px;background:#1a1a1a;color:#fff;border-radius:4px;text-decoration:none;}
+  .dv-tname{font:700 16px 'Kalam',cursive;color:#1a1a1a;}
+  .dv-opts{display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start;}
+  .dv-opt{flex:none;display:flex;flex-direction:column;gap:10px;scroll-margin-top:16px;}
+  .dv-oid{font:700 12px 'Kalam',cursive;padding:3px 9px;background:rgba(0,0,0,.08);color:#1a1a1a;border-radius:5px;text-decoration:none;}
+  .dv-olabel{display:flex;align-items:baseline;gap:8px;font:400 14px 'Kalam',cursive;color:rgba(0,0,0,.6);}
+  .dv-card{max-width:100%;background:#fdfcf9;border:2px solid #1a1a1a;border-radius:2px;box-shadow:3px 3px 0 rgba(0,0,0,.15);overflow:hidden;}
+  .dv-opt:target .dv-oid{background:#2a63c9;color:#fff;}
+  .dv-next{margin:26px 0 0;font:14px/1.6 'Kalam',cursive;color:rgba(0,0,0,.55);}
+  .sk-sub{font:700 11px 'Kalam',cursive;color:rgba(0,0,0,.4);text-transform:uppercase;letter-spacing:.03em;margin:0 0 6px;}
+  .sk-block{border:1.5px dashed #1a1a1a;background:repeating-linear-gradient(135deg,rgba(0,0,0,.03) 0 10px,transparent 10px 20px);}
+  .sk-txt{font:14px 'Kalam',cursive;}
+  .sk-mono{font:12px 'Architects Daughter',cursive;}
+  .accent{color:#2a63c9;}
+  .accent-bg{background:#2a63c9;color:#fff;}
+</style>
+</helmet>
+
+<section class="dv-turn" id="t3">
+  <div class="dv-thd"><a class="dv-tid" href="#t3">3</a><span class="dv-tname">Field module, fleshed out — riff on <a class="dv-oid" href="#2f">2f</a></span></div>
+  <div class="dv-opts">
+
+    <div class="dv-opt" id="3a">
+      <div class="dv-olabel"><a class="dv-oid" href="#3a">3a</a>Field crew module — Today home, daily check-in, production packet (mobile, role = crew)</div>
+      <div class="dv-card" style="width:760px;padding:16px;background:#1a1a1a;">
+        <div style="display:flex;gap:16px;">
+          <div style="width:220px;">
+            <div class="sk-sub" style="color:#ccc;">1 · Today — assigned jobs list</div>
+            <div style="border:2px solid #fff;border-radius:20px;height:460px;padding:14px;display:flex;flex-direction:column;gap:10px;background:#000;">
+              <div class="sk-txt" style="color:#fff;font-weight:700;font-size:18px;">Today · Crew A</div>
+              <div class="sk-txt" style="color:rgba(255,255,255,.5);font-size:11px;">Tue Jul 9 — outdoor mode on</div>
+              <div style="border:2px solid #2a63c9;border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:4px;">
+                <div class="sk-txt" style="color:#fff;font-weight:700;font-size:15px;">Riverside Corp Campus</div>
+                <div class="sk-mono" style="color:#bcd;font-size:11px;">Roof replace · Day 2 of 3</div>
+                <div class="sk-txt accent-bg" style="text-align:center;padding:12px;border-radius:8px;font-size:15px;margin-top:6px;">Open job</div>
+              </div>
+              <div style="border:2px solid rgba(255,255,255,.3);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:4px;">
+                <div class="sk-txt" style="color:#fff;font-weight:700;font-size:15px;">Elm St Residence</div>
+                <div class="sk-mono" style="color:rgba(255,255,255,.5);font-size:11px;">Gutter repair · not started</div>
+              </div>
+              <div style="margin-top:auto;display:flex;flex-direction:column;gap:8px;">
+                <div class="sk-txt accent-bg" style="text-align:center;padding:16px;border-radius:10px;font-size:16px;">📸 Daily check-in</div>
+              </div>
+            </div>
+          </div>
+          <div style="width:220px;">
+            <div class="sk-sub" style="color:#ccc;">2 · Daily check-in — under 60 sec</div>
+            <div style="border:2px solid #fff;border-radius:20px;height:460px;padding:14px;display:flex;flex-direction:column;gap:10px;background:#000;">
+              <div class="sk-txt" style="color:#fff;font-weight:700;font-size:16px;">Check-in · Riverside</div>
+              <div class="sk-block" style="height:70px;border-radius:8px;border-color:#fff;"></div>
+              <div class="sk-txt" style="color:rgba(255,255,255,.6);font-size:11px;">📷 tap to add job photos</div>
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <div class="sk-txt" style="color:#fff;font-size:14px;">Hours today</div>
+                <div class="sk-txt" style="color:#fff;font-weight:700;font-size:18px;">7.5</div>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <div class="sk-txt" style="color:#fff;font-size:14px;">Materials used</div>
+                <div class="sk-txt accent" style="font-size:13px;">18 panels ▾</div>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <div class="sk-txt" style="color:#fff;font-size:14px;">Blockers?</div>
+                <div class="sk-txt" style="color:rgba(255,255,255,.5);font-size:13px;border:1.5px solid rgba(255,255,255,.4);border-radius:6px;padding:4px 10px;">None ▾</div>
+              </div>
+              <div class="sk-txt accent-bg" style="margin-top:auto;text-align:center;padding:18px;border-radius:10px;font-size:17px;">Submit check-in</div>
+            </div>
+          </div>
+          <div style="width:220px;">
+            <div class="sk-sub" style="color:#ccc;">3 · Visual production packet</div>
+            <div style="border:2px solid #fff;border-radius:20px;height:460px;padding:14px;display:flex;flex-direction:column;gap:8px;background:#000;overflow:hidden;">
+              <div class="sk-txt" style="color:#fff;font-weight:700;font-size:15px;">Riverside — packet</div>
+              <div class="sk-txt" style="color:rgba(255,255,255,.5);font-size:10px;">↳ built from work order + sign-off photos</div>
+              <div class="sk-sub" style="color:#ccc;margin-top:2px;">Trim map</div>
+              <div class="sk-block" style="height:90px;border-color:#fff;position:relative;">
+                <div style="position:absolute;top:8px;left:10px;width:10px;height:10px;border-radius:50%;background:#2a63c9;border:2px solid #fff;"></div>
+                <div style="position:absolute;bottom:10px;right:14px;width:10px;height:10px;border-radius:50%;background:#2a63c9;border:2px solid #fff;"></div>
+              </div>
+              <div class="sk-sub" style="color:#ccc;">Boot / vent placements</div>
+              <div class="sk-block" style="height:70px;border-color:#fff;"></div>
+              <div class="sk-sub" style="color:#ccc;">Custom detail callouts</div>
+              <div class="sk-txt" style="color:#fff;font-size:11px;">① Skylight flash — copper</div>
+              <div class="sk-txt" style="color:#fff;font-size:11px;">② Chimney boot — offset 6in</div>
+            </div>
+          </div>
+        </div>
+        <div class="sk-txt" style="color:rgba(255,255,255,.55);font-size:11px;margin-top:10px;">Black bg = outdoor high-contrast default for this role. Buttons ≥56dp, single thumb column, no Pipeline/$ anywhere.</div>
+      </div>
+    </div>
+
+  </div>
+  <p class="dv-next">Try next: "write SCOPE.md + BUILD_PLAN_3WEEK.md from this IA" · "hi-fi the whole system" · "adjust <a class="dv-oid" href="#3a">3a</a> packet layout"</p>
+</section>
+
+<section class="dv-turn" id="t2">
+  <div class="dv-thd"><a class="dv-tid" href="#t2">2</a><span class="dv-tname">Agency layer, roles, journey &amp; missing screens — riffing on <a class="dv-oid" href="#1a">1a</a>–<a class="dv-oid" href="#1e">1e</a></span></div>
+  <div class="dv-opts">
+
+    <!-- 2a: shell v2 -->
+    <div class="dv-opt" id="2a">
+      <div class="dv-olabel"><a class="dv-oid" href="#2a">2a</a>Shell v2 — top bar + org/tenant switcher (riff on <a class="dv-oid" href="#1a">1a</a>)</div>
+      <div class="dv-card" style="width:920px;padding:16px;display:flex;flex-direction:column;gap:10px;">
+        <div class="sk-sub">Operating StructTech's own workspace</div>
+        <div style="border:2px solid #1a1a1a;height:340px;display:flex;flex-direction:column;">
+          <div style="display:flex;align-items:center;gap:10px;border-bottom:2px solid #1a1a1a;padding:8px 12px;">
+            <div class="sk-block" style="width:20px;height:20px;border-radius:4px;"></div>
+            <div class="sk-txt" style="border:1.5px solid #1a1a1a;border-radius:6px;padding:4px 10px;font-size:12px;">▾ StructTech (agency view)</div>
+            <div class="sk-block" style="flex:1;height:20px;border-radius:10px;max-width:220px;"></div>
+            <div class="sk-txt" style="margin-left:auto;font-size:12px;">+ Add</div>
+            <div class="sk-txt" style="font-size:12px;">🔔</div>
+            <div class="sk-block" style="width:22px;height:22px;border-radius:50%;"></div>
+          </div>
+          <div style="flex:1;display:flex;">
+            <div style="width:150px;border-right:2px solid #1a1a1a;padding:10px;display:flex;flex-direction:column;gap:6px;">
+              <div class="sk-txt accent-bg" style="padding:6px 8px;border-radius:3px;">Dashboard</div>
+              <div class="sk-txt" style="padding:6px 8px;">Pipeline</div>
+              <div class="sk-txt" style="padding:6px 8px;">Scan / Roadmap</div>
+              <div class="sk-txt" style="padding:6px 8px;">Delivery</div>
+              <div class="sk-txt" style="padding:6px 8px;margin-top:auto;">Settings</div>
+            </div>
+            <div style="flex:1;padding:12px;"><div class="sk-block" style="height:100%;"></div></div>
+          </div>
+        </div>
+        <div class="sk-sub" style="margin-top:6px;">Switching into a client tenant — same top bar, different doors</div>
+        <div style="border:2px solid #1a1a1a;height:280px;display:flex;flex-direction:column;">
+          <div style="display:flex;align-items:center;gap:10px;border-bottom:2px solid #1a1a1a;padding:8px 12px;background:rgba(42,99,201,.08);">
+            <div class="sk-block" style="width:20px;height:20px;border-radius:4px;"></div>
+            <div class="sk-txt accent" style="border:1.5px solid #2a63c9;border-radius:6px;padding:4px 10px;font-size:12px;font-weight:700;">▾ Brothers Metal Roofing ↩ back to StructTech</div>
+            <div class="sk-txt" style="margin-left:auto;font-size:11px;color:rgba(0,0,0,.5);">viewing as: agency admin</div>
+            <div class="sk-block" style="width:22px;height:22px;border-radius:50%;"></div>
+          </div>
+          <div style="flex:1;display:flex;">
+            <div style="width:150px;border-right:2px solid #1a1a1a;padding:10px;display:flex;flex-direction:column;gap:6px;">
+              <div class="sk-txt accent-bg" style="padding:6px 8px;border-radius:3px;">Pipeline</div>
+              <div class="sk-txt" style="padding:6px 8px;">Estimating</div>
+              <div class="sk-txt" style="padding:6px 8px;">Coordination</div>
+              <div class="sk-txt" style="padding:6px 8px;">Field</div>
+              <div class="sk-txt" style="padding:6px 8px;border-top:1px dashed #1a1a1a;margin-top:4px;padding-top:8px;">StructTech Roadmap</div>
+              <div class="sk-txt" style="padding:6px 8px;margin-top:auto;">Settings</div>
+            </div>
+            <div style="flex:1;padding:12px;"><div class="sk-block" style="height:100%;"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2b: pipeline v2 -->
+    <div class="dv-opt" id="2b">
+      <div class="dv-olabel"><a class="dv-oid" href="#2b">2b</a>Pipeline v2 — per-tenant stages + next-action + follow-up (riff on <a class="dv-oid" href="#1b">1b</a>)</div>
+      <div class="dv-card" style="width:900px;padding:16px;">
+        <div class="sk-sub">BMR funnel (config'd by tenant)</div>
+        <div style="border:2px solid #1a1a1a;height:180px;display:flex;gap:10px;padding:12px;overflow:hidden;margin-bottom:14px;">
+          <div style="width:150px;display:flex;flex-direction:column;gap:6px;">
+            <div class="sk-txt" style="font-weight:700;font-size:12px;">Estimate Sent</div>
+            <div class="sk-block" style="height:70px;border-radius:3px;border:2px solid #2a63c9;position:relative;">
+              <div class="sk-txt accent-bg" style="position:absolute;top:-8px;right:-8px;font-size:9px;padding:2px 5px;border-radius:8px;">↻ follow up</div>
+            </div>
+            <div class="sk-txt" style="font-size:10px;color:rgba(0,0,0,.5);">next action: call Jul 10</div>
+          </div>
+          <div style="width:150px;display:flex;flex-direction:column;gap:6px;">
+            <div class="sk-txt" style="font-weight:700;font-size:12px;">Negotiation</div>
+          </div>
+        </div>
+        <div class="sk-sub">StructTech's own funnel is a different config, same board component</div>
+        <div style="border:2px solid #1a1a1a;height:100px;display:flex;gap:10px;padding:12px;overflow:hidden;">
+          <div class="sk-txt" style="font-size:11px;padding:4px 8px;border:1px solid #1a1a1a;border-radius:3px;">new_scan</div>
+          <div class="sk-txt" style="font-size:11px;padding:4px 8px;border:1px solid #1a1a1a;border-radius:3px;">contacted</div>
+          <div class="sk-txt" style="font-size:11px;padding:4px 8px;border:1px solid #1a1a1a;border-radius:3px;">call_booked</div>
+          <div class="sk-txt" style="font-size:11px;padding:4px 8px;border:1px solid #1a1a1a;border-radius:3px;">…</div>
+          <div class="sk-txt" style="font-size:11px;padding:4px 8px;border:1px solid #2a63c9;border-radius:3px;color:#2a63c9;">closed_won</div>
+        </div>
+        <div class="sk-sub" style="margin-top:14px;">Detail panel — next action &amp; scheduled follow-up added</div>
+        <div style="border:2px solid #1a1a1a;width:230px;padding:12px;display:flex;flex-direction:column;gap:6px;">
+          <div class="sk-txt" style="font-weight:700;">Riverside Corp Campus</div>
+          <div class="sk-mono">Stage: Estimate Sent</div>
+          <div class="sk-txt accent-bg" style="padding:5px 8px;border-radius:3px;font-size:11px;">Next action: Call to confirm</div>
+          <div class="sk-txt" style="font-size:11px;color:rgba(0,0,0,.5);">Auto follow-up scheduled: Jul 10 (day 5)</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2c: estimating v2 -->
+    <div class="dv-opt" id="2c">
+      <div class="dv-olabel"><a class="dv-oid" href="#2c">2c</a>Estimating v2 — linked to lead + line items (riff on <a class="dv-oid" href="#1c">1c</a>)</div>
+      <div class="dv-card" style="width:660px;padding:16px;">
+        <div style="display:flex;gap:16px;">
+          <div style="width:210px;">
+            <div class="sk-sub">1 · Preliminary (auto-generated from lead)</div>
+            <div style="border:2px solid #1a1a1a;border-radius:16px;height:380px;padding:12px;display:flex;flex-direction:column;gap:8px;">
+              <div class="sk-txt" style="font-size:11px;color:rgba(0,0,0,.5);">↳ from lead: Riverside Corp Campus</div>
+              <div class="sk-txt" style="font-weight:700;">123 Elm St · Roof replace</div>
+              <div class="sk-block" style="height:70px;"></div>
+              <div class="sk-txt" style="font-weight:700;font-size:18px;">$14,200 – $17,800</div>
+              <div class="sk-txt accent-bg" style="margin-top:auto;text-align:center;padding:14px;border-radius:8px;font-size:15px;">Start on-site visit</div>
+            </div>
+          </div>
+          <div style="width:210px;">
+            <div class="sk-sub">3 · Present — line items above total</div>
+            <div style="border:2px solid #1a1a1a;border-radius:16px;height:380px;padding:12px;display:flex;flex-direction:column;gap:6px;">
+              <div class="sk-txt" style="font-weight:700;font-size:13px;">Line items</div>
+              <div style="display:flex;justify-content:space-between;"><div class="sk-txt" style="font-size:12px;">Metal panels</div><div class="sk-mono">$9,800</div></div>
+              <div style="display:flex;justify-content:space-between;"><div class="sk-txt" style="font-size:12px;">Labor</div><div class="sk-mono">$5,200</div></div>
+              <div style="display:flex;justify-content:space-between;"><div class="sk-txt" style="font-size:12px;">Skylight flash</div><div class="sk-mono">$400</div></div>
+              <div style="border-top:1.5px solid #1a1a1a;margin-top:6px;padding-top:8px;">
+                <div class="sk-txt" style="font-weight:700;font-size:24px;">$16,650</div>
+              </div>
+              <div class="sk-txt accent-bg" style="margin-top:auto;text-align:center;padding:14px;border-radius:8px;font-size:15px;">Present to client</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2d: coordination v2 -->
+    <div class="dv-opt" id="2d">
+      <div class="dv-olabel"><a class="dv-oid" href="#2d">2d</a>Coordination v2 — sign-off gate + material dependency (riff on <a class="dv-oid" href="#1d">1d</a>)</div>
+      <div class="dv-card" style="width:920px;padding:16px;">
+        <div class="sk-sub">Signed → homeowner sign-off (colors/finishes) → work order → materials → schedule</div>
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;">
+          <div class="sk-txt" style="font-size:11px;padding:6px 10px;border:1px solid #1a1a1a;border-radius:3px;">Signed job</div>
+          <div class="sk-txt">→</div>
+          <div class="sk-txt accent-bg" style="font-size:11px;padding:6px 10px;border-radius:3px;">Sign-off: colors &amp; finishes</div>
+          <div class="sk-txt">→</div>
+          <div class="sk-txt" style="font-size:11px;padding:6px 10px;border:1px solid #1a1a1a;border-radius:3px;">Work order</div>
+          <div class="sk-txt">→</div>
+          <div class="sk-txt" style="font-size:11px;padding:6px 10px;border:1px solid #1a1a1a;border-radius:3px;">Materials</div>
+          <div class="sk-txt">→</div>
+          <div class="sk-txt" style="font-size:11px;padding:6px 10px;border:1px solid #1a1a1a;border-radius:3px;">Schedule</div>
+        </div>
+        <div style="display:flex;gap:14px;">
+          <div style="width:280px;">
+            <div class="sk-sub">Material list — ready-by gates schedule</div>
+            <div style="border:2px solid #1a1a1a;padding:10px;height:200px;display:flex;flex-direction:column;gap:8px;">
+              <div class="sk-txt" style="font-size:12px;">— Metal panels ×24 · ready Jul 12</div>
+              <div class="sk-txt" style="font-size:12px;">— Ridge cap ×6 · ready Jul 10</div>
+              <div class="sk-txt accent" style="font-size:12px;font-weight:700;">— Underlayment ⚠ delayed → Jul 14</div>
+            </div>
+          </div>
+          <div style="flex:1;">
+            <div class="sk-sub">Schedule board — earliest start clamped to latest ready-by</div>
+            <div style="border:2px solid #1a1a1a;height:200px;display:flex;flex-direction:column;">
+              <div style="display:flex;border-bottom:2px solid #1a1a1a;">
+                <div class="sk-txt" style="width:100px;padding:6px;font-weight:700;font-size:11px;">Crew</div>
+                <div class="sk-txt" style="flex:1;padding:6px;text-align:center;font-size:11px;">Jul 10</div>
+                <div class="sk-txt" style="flex:1;padding:6px;text-align:center;font-size:11px;">Jul 12</div>
+                <div class="sk-txt" style="flex:1;padding:6px;text-align:center;font-size:11px;">Jul 14</div>
+                <div class="sk-txt" style="flex:1;padding:6px;text-align:center;font-size:11px;">Jul 16</div>
+              </div>
+              <div style="display:flex;flex:1;align-items:center;">
+                <div class="sk-txt" style="width:100px;padding:6px;font-size:11px;">Crew A</div>
+                <div style="flex:2;"></div>
+                <div style="flex:2;margin:4px;background:repeating-linear-gradient(135deg,rgba(200,0,0,.15) 0 8px,transparent 8px 16px);border:1.5px dashed #a00;"></div>
+                <div style="flex:2;margin:4px;" class="sk-block accent"></div>
+              </div>
+              <div class="sk-txt" style="font-size:10px;color:#a00;padding-left:6px;">red = blocked on materials</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2e: client portal v2 -->
+    <div class="dv-opt" id="2e">
+      <div class="dv-olabel"><a class="dv-oid" href="#2e">2e</a>Client portal v2 — expandable milestones + branding (riff on <a class="dv-oid" href="#1e">1e</a>)</div>
+      <div class="dv-card" style="width:640px;padding:16px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+          <div class="sk-block" style="width:24px;height:24px;border-radius:4px;"></div>
+          <div class="sk-txt" style="font-weight:700;">Brothers Metal Roofing — client portal</div>
+          <div class="sk-txt" style="margin-left:auto;font-size:10px;color:rgba(0,0,0,.4);">white-labeled</div>
+        </div>
+        <div style="border:2px solid #1a1a1a;padding:14px;display:flex;flex-direction:column;gap:8px;">
+          <div class="sk-txt accent-bg" style="padding:8px 12px;border-radius:4px;font-weight:700;font-size:13px;">WIN CONDITION — Level 3: Structural sign-off by Jul 18</div>
+          <div style="display:flex;align-items:center;gap:8px;font-weight:700;">
+            <div class="sk-txt" style="width:110px;">Level 3 ▾ ●</div>
+            <div style="width:280px;height:26px;border-radius:13px;background:#2a63c9;border:2px solid #1a1a1a;"></div>
+          </div>
+          <div style="margin-left:120px;border-left:2px solid #1a1a1a;padding-left:12px;display:flex;flex-direction:column;gap:6px;">
+            <div class="sk-txt" style="font-size:12px;">☑ ASSESS — site survey <span style="color:rgba(0,0,0,.4);">(owner: PM)</span></div>
+            <div class="sk-txt" style="font-size:12px;">☑ BUILD — structural calc <span style="color:rgba(0,0,0,.4);">(owner: Engineer)</span></div>
+            <div class="sk-txt" style="font-size:12px;font-weight:700;">☐ ADOPT — sign-off review <span style="color:rgba(0,0,0,.4);">(owner: Client)</span> <span class="accent" style="font-size:10px;">[client can attest ✓]</span></div>
+            <div class="sk-txt" style="font-size:12px;color:rgba(0,0,0,.4);">☐ PROVE / HANDOFF</div>
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:8px;">
+            <div class="sk-txt" style="border:1.5px solid #1a1a1a;border-radius:20px;padding:6px 14px;font-size:12px;">Next check-in: Jul 15</div>
+            <div class="sk-txt accent-bg" style="border-radius:20px;padding:6px 14px;font-size:12px;">Confirm / reschedule</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2f: field crew role view -->
+    <div class="dv-opt" id="2f">
+      <div class="dv-olabel"><a class="dv-oid" href="#2f">2f</a>New — Field crew mobile home (role-scoped, not tenant-scoped)</div>
+      <div class="dv-card" style="width:230px;padding:16px;">
+        <div class="sk-sub">Role: crew (not sales, not PM)</div>
+        <div style="border:2px solid #1a1a1a;border-radius:16px;height:400px;padding:12px;display:flex;flex-direction:column;gap:10px;">
+          <div class="sk-txt" style="font-weight:700;">Today · Crew A</div>
+          <div class="sk-block" style="height:60px;border-radius:8px;"></div>
+          <div class="sk-txt" style="font-size:13px;">Riverside Corp Campus</div>
+          <div class="sk-mono" style="font-size:11px;">Roof replace · 22.4 sq</div>
+          <div class="sk-txt" style="font-size:11px;color:rgba(0,0,0,.5);">Materials on-site ✓</div>
+          <div class="sk-txt accent-bg" style="text-align:center;padding:14px;border-radius:8px;font-size:15px;margin-top:auto;">Mark job started</div>
+        </div>
+        <div class="sk-txt" style="font-size:11px;color:rgba(0,0,0,.5);margin-top:8px;">No Pipeline, no $ values — nav bends to role.</div>
+      </div>
+    </div>
+
+    <!-- 2g: journey flow frame -->
+    <div class="dv-opt" id="2g">
+      <div class="dv-olabel"><a class="dv-oid" href="#2g">2g</a>New — client journey flow frame (the handoffs)</div>
+      <div class="dv-card" style="width:920px;padding:20px;">
+        <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">
+          <div class="sk-txt" style="font-size:12px;padding:8px 10px;border:1.5px solid #1a1a1a;border-radius:4px;">Lead</div>
+          <div class="sk-txt accent" style="font-size:10px;">generates ↝</div>
+          <div class="sk-txt" style="font-size:12px;padding:8px 10px;border:1.5px solid #1a1a1a;border-radius:4px;">Preliminary estimate</div>
+          <div class="sk-txt accent" style="font-size:10px;">validated on-roof ↝</div>
+          <div class="sk-txt" style="font-size:12px;padding:8px 10px;border:1.5px solid #1a1a1a;border-radius:4px;">Signed estimate</div>
+          <div class="sk-txt accent" style="font-size:10px;">generates ↝</div>
+          <div class="sk-txt" style="font-size:12px;padding:8px 10px;border:1.5px solid #1a1a1a;border-radius:4px;">Work order</div>
+          <div class="sk-txt accent" style="font-size:10px;">gates ↝</div>
+          <div class="sk-txt" style="font-size:12px;padding:8px 10px;border:1.5px solid #1a1a1a;border-radius:4px;">Materials + schedule</div>
+          <div class="sk-txt accent" style="font-size:10px;">→</div>
+          <div class="sk-txt" style="font-size:12px;padding:8px 10px;border:1.5px solid #1a1a1a;border-radius:4px;">Field / done</div>
+          <div class="sk-txt accent" style="font-size:10px;">→</div>
+          <div class="sk-txt accent-bg" style="font-size:12px;padding:8px 10px;border-radius:4px;">Testimonial</div>
+        </div>
+        <div class="sk-txt" style="font-size:12px;color:rgba(0,0,0,.55);margin-top:12px;">No re-entry: each step is generated from the last, not re-keyed. This connective tissue is what 1a–1e as static screens miss.</div>
+      </div>
+    </div>
+
+    <!-- 2h: login / tenant select -->
+    <div class="dv-opt" id="2h">
+      <div class="dv-olabel"><a class="dv-oid" href="#2h">2h</a>New — login / tenant-select</div>
+      <div class="dv-card" style="width:280px;padding:16px;">
+        <div style="border:2px solid #1a1a1a;height:340px;padding:16px;display:flex;flex-direction:column;gap:10px;align-items:center;">
+          <div class="sk-block" style="width:36px;height:36px;border-radius:8px;margin-top:10px;"></div>
+          <div class="sk-txt" style="font-weight:700;">Sign in</div>
+          <div class="sk-block" style="width:100%;height:28px;border-radius:6px;"></div>
+          <div class="sk-block" style="width:100%;height:28px;border-radius:6px;"></div>
+          <div class="sk-txt accent-bg" style="width:100%;text-align:center;padding:10px;border-radius:6px;">Continue</div>
+          <div class="sk-sub" style="margin-top:10px;align-self:flex-start;">You belong to 2 workspaces</div>
+          <div class="sk-txt" style="width:100%;padding:8px;border:1px solid #1a1a1a;border-radius:6px;font-size:12px;">StructTech (agency)</div>
+          <div class="sk-txt" style="width:100%;padding:8px;border:1px solid #1a1a1a;border-radius:6px;font-size:12px;">Brothers Metal Roofing</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2i: delivery admin -->
+    <div class="dv-opt" id="2i">
+      <div class="dv-olabel"><a class="dv-oid" href="#2i">2i</a>New — StructTech "Delivery" admin (operator counterpart to <a class="dv-oid" href="#1e">1e</a>)</div>
+      <div class="dv-card" style="width:640px;padding:16px;">
+        <div class="sk-sub">Internal view — drives what clients see on the portal</div>
+        <div style="border:2px solid #1a1a1a;padding:12px;height:280px;display:flex;flex-direction:column;gap:8px;">
+          <div class="sk-txt" style="font-weight:700;">Engagements in delivery</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #1a1a1a;padding-bottom:6px;">
+            <div class="sk-txt" style="font-size:12px;">Brothers Metal Roofing — Level 3</div>
+            <div class="sk-txt accent" style="font-size:11px;">on track</div>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #1a1a1a;padding-bottom:6px;">
+            <div class="sk-txt" style="font-size:12px;">Riverside Corp — Level 1</div>
+            <div class="sk-txt" style="font-size:11px;color:#a00;">at risk</div>
+          </div>
+          <div class="sk-txt" style="font-size:12px;margin-top:6px;">▾ Selected: Brothers Metal Roofing</div>
+          <div class="sk-block" style="height:50px;"></div>
+          <div class="sk-txt accent-bg" style="text-align:center;padding:8px;border-radius:6px;font-size:12px;">Mark milestone complete → updates client portal</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+  <p class="dv-next">Try next: "hi-fi <a class="dv-oid" href="#2a">2a</a> shell + tenant switcher" · "flesh out <a class="dv-oid" href="#2f">2f</a> field module" · "hi-fi everything in this turn"</p>
+</section>
+
+<section class="dv-turn" id="t1">
+  <div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">StructTech OS — structural wireframes, all screens</span></div>
+  <div class="dv-opts">
+
+    <!-- 1a: App shell + nav, two tenants -->
+    <div class="dv-opt" id="1a">
+      <div class="dv-olabel"><a class="dv-oid" href="#1a">1a</a>App shell + nav — same UI, two tenants (desktop)</div>
+      <div class="dv-card" style="width:920px;padding:16px;display:flex;gap:16px;">
+        <div style="flex:1;display:flex;flex-direction:column;gap:8px;">
+          <div class="sk-sub">StructTech tenant — full entitlements</div>
+          <div style="border:2px solid #1a1a1a;display:flex;height:360px;">
+            <div style="width:150px;border-right:2px solid #1a1a1a;padding:10px;display:flex;flex-direction:column;gap:6px;">
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;"><div class="sk-block" style="width:22px;height:22px;border-radius:4px;"></div><div class="sk-txt" style="font-weight:700;">StructTech</div></div>
+              <div class="sk-txt accent-bg" style="padding:6px 8px;border-radius:3px;">Dashboard</div>
+              <div class="sk-txt" style="padding:6px 8px;">Pipeline</div>
+              <div class="sk-txt" style="padding:6px 8px;">Scan / Roadmap</div>
+              <div class="sk-txt" style="padding:6px 8px;">Delivery</div>
+              <div class="sk-txt" style="padding:6px 8px;margin-top:auto;">Settings</div>
+            </div>
+            <div style="flex:1;padding:14px;display:flex;flex-direction:column;gap:10px;">
+              <div class="sk-txt" style="font-weight:700;">Dashboard</div>
+              <div style="display:flex;gap:10px;">
+                <div class="sk-block" style="flex:1;height:60px;"></div>
+                <div class="sk-block" style="flex:1;height:60px;"></div>
+                <div class="sk-block" style="flex:1;height:60px;"></div>
+              </div>
+              <div class="sk-block" style="flex:1;"></div>
+            </div>
+          </div>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:8px;">
+          <div class="sk-sub">Brothers Metal Roofing tenant — limited entitlements</div>
+          <div style="border:2px solid #1a1a1a;display:flex;height:360px;">
+            <div style="width:150px;border-right:2px solid #1a1a1a;padding:10px;display:flex;flex-direction:column;gap:6px;">
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;"><div class="sk-block" style="width:22px;height:22px;border-radius:4px;"></div><div class="sk-txt" style="font-weight:700;">Brothers Metal</div></div>
+              <div class="sk-txt accent-bg" style="padding:6px 8px;border-radius:3px;">Pipeline</div>
+              <div class="sk-txt" style="padding:6px 8px;">Estimating</div>
+              <div class="sk-txt" style="padding:6px 8px;">Coordination</div>
+              <div class="sk-txt" style="padding:6px 8px;">Field</div>
+            </div>
+            <div style="flex:1;padding:14px;display:flex;flex-direction:column;gap:10px;">
+              <div class="sk-txt" style="font-weight:700;">Pipeline</div>
+              <div class="sk-block" style="flex:1;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="dv-olabel" style="font-size:12px;">Same shell chrome, nav items driven by module entitlements per tenant. Accent = current section only.</div>
+    </div>
+
+    <!-- 1b: Pipeline CRM -->
+    <div class="dv-opt" id="1b">
+      <div class="dv-olabel"><a class="dv-oid" href="#1b">1b</a>Pipeline / CRM — kanban + deal detail panel (desktop)</div>
+      <div class="dv-card" style="width:920px;padding:16px;">
+        <div class="sk-sub">Populated — with detail panel open</div>
+        <div style="border:2px solid #1a1a1a;height:400px;display:flex;">
+          <div style="flex:1;display:flex;gap:10px;padding:12px;overflow:hidden;">
+            <div style="width:130px;display:flex;flex-direction:column;gap:8px;">
+              <div class="sk-txt" style="font-weight:700;">New Lead</div>
+              <div class="sk-block" style="height:50px;border-radius:3px;"></div>
+              <div class="sk-block" style="height:50px;border-radius:3px;"></div>
+            </div>
+            <div style="width:130px;display:flex;flex-direction:column;gap:8px;">
+              <div class="sk-txt" style="font-weight:700;">Site Visit</div>
+              <div class="sk-block" style="height:50px;border-radius:3px;"></div>
+            </div>
+            <div style="width:130px;display:flex;flex-direction:column;gap:8px;">
+              <div class="sk-txt" style="font-weight:700;">Estimate Sent</div>
+              <div class="sk-block accent" style="height:50px;border-radius:3px;border:2px solid #2a63c9;"></div>
+              <div class="sk-mono" style="text-align:center;">$18,400</div>
+            </div>
+            <div style="width:130px;display:flex;flex-direction:column;gap:8px;">
+              <div class="sk-txt" style="font-weight:700;">Negotiation</div>
+            </div>
+            <div style="width:130px;display:flex;flex-direction:column;gap:8px;">
+              <div class="sk-txt" style="font-weight:700;">Won</div>
+              <div class="sk-block" style="height:50px;border-radius:3px;"></div>
+            </div>
+          </div>
+          <div style="width:230px;border-left:2px solid #1a1a1a;padding:12px;display:flex;flex-direction:column;gap:8px;">
+            <div class="sk-txt" style="font-weight:700;">Riverside Corp Campus</div>
+            <div class="sk-mono">Stage: Estimate Sent</div>
+            <div class="sk-mono accent">Value: $18,400</div>
+            <div class="sk-sub" style="margin-top:8px;">Notes</div>
+            <div class="sk-block" style="height:40px;"></div>
+            <div class="sk-sub" style="margin-top:4px;">Activity</div>
+            <div class="sk-txt" style="font-size:11px;">— Estimate emailed, Jul 3</div>
+            <div class="sk-txt" style="font-size:11px;">— Site visit done, Jun 28</div>
+            <div style="display:flex;gap:6px;margin-top:auto;">
+              <div class="sk-txt accent-bg" style="padding:5px 8px;border-radius:3px;font-size:11px;">Call</div>
+              <div class="sk-txt" style="padding:5px 8px;border-radius:3px;border:1px solid #1a1a1a;font-size:11px;">Move stage</div>
+            </div>
+          </div>
+        </div>
+        <div class="sk-sub" style="margin-top:14px;">Empty state</div>
+        <div style="border:2px solid #1a1a1a;height:100px;display:flex;align-items:center;justify-content:center;">
+          <div class="sk-txt" style="color:rgba(0,0,0,.4);">"No deals yet — add your first lead" + button</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 1c: Live estimating mobile -->
+    <div class="dv-opt" id="1c">
+      <div class="dv-olabel"><a class="dv-oid" href="#1c">1c</a>Live estimating — mobile field flow</div>
+      <div class="dv-card" style="width:900px;padding:16px;">
+        <div style="display:flex;gap:16px;">
+          <div style="width:210px;">
+            <div class="sk-sub">1 · Preliminary estimate (pre-visit)</div>
+            <div style="border:2px solid #1a1a1a;border-radius:16px;height:400px;padding:12px;display:flex;flex-direction:column;gap:10px;">
+              <div class="sk-txt" style="font-weight:700;">Brothers Metal Roofing</div>
+              <div class="sk-mono">123 Elm St · Roof replace</div>
+              <div class="sk-block" style="height:80px;"></div>
+              <div class="sk-txt" style="font-weight:700;font-size:20px;">$14,200 – $17,800</div>
+              <div class="sk-txt" style="font-size:11px;color:rgba(0,0,0,.5);">est. from sq footage + roof type</div>
+              <div class="sk-txt accent-bg" style="margin-top:auto;text-align:center;padding:14px;border-radius:8px;font-size:16px;">Start on-site visit</div>
+            </div>
+          </div>
+          <div style="width:210px;">
+            <div class="sk-sub">2 · On-roof validate & adjust</div>
+            <div style="border:2px solid #1a1a1a;border-radius:16px;height:400px;padding:12px;display:flex;flex-direction:column;gap:10px;">
+              <div class="sk-txt" style="font-weight:700;">Validate measurements</div>
+              <div class="sk-block" style="height:90px;"></div>
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <div class="sk-txt">Roof squares</div>
+                <div class="sk-txt" style="font-weight:700;">22.4</div>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <div class="sk-txt">Pitch</div>
+                <div class="sk-txt" style="font-weight:700;">6/12</div>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <div class="sk-txt">Add: skylight flash</div>
+                <div class="sk-txt accent">+$400</div>
+              </div>
+              <div class="sk-txt accent-bg" style="margin-top:auto;text-align:center;padding:14px;border-radius:8px;font-size:16px;">Recalculate</div>
+            </div>
+          </div>
+          <div style="width:210px;">
+            <div class="sk-sub">3 · Present number</div>
+            <div style="border:2px solid #1a1a1a;border-radius:16px;height:400px;padding:12px;display:flex;flex-direction:column;gap:10px;align-items:center;">
+              <div class="sk-txt" style="font-weight:700;">Final estimate</div>
+              <div class="sk-txt" style="font-weight:700;font-size:28px;">$16,650</div>
+              <div class="sk-block" style="width:100%;height:120px;"></div>
+              <div class="sk-txt accent-bg" style="margin-top:auto;width:100%;text-align:center;padding:14px;border-radius:8px;font-size:16px;">Present to client</div>
+            </div>
+          </div>
+          <div style="width:210px;">
+            <div class="sk-sub">4 · Sign (mobile signing state)</div>
+            <div style="border:2px solid #1a1a1a;border-radius:16px;height:400px;padding:12px;display:flex;flex-direction:column;gap:10px;">
+              <div class="sk-txt" style="font-weight:700;">Sign to accept — $16,650</div>
+              <div class="sk-block" style="flex:1;border-style:solid;"></div>
+              <div class="sk-txt" style="font-size:11px;text-align:center;color:rgba(0,0,0,.5);">customer signs here</div>
+              <div class="sk-txt accent-bg" style="text-align:center;padding:14px;border-radius:8px;font-size:16px;">Confirm & send copy</div>
+            </div>
+          </div>
+        </div>
+        <div class="sk-sub" style="margin-top:14px;">Outdoor high-contrast toggle (mobile)</div>
+        <div style="display:flex;gap:16px;">
+          <div style="border:2px solid #1a1a1a;border-radius:16px;width:210px;height:120px;padding:12px;background:#fff;display:flex;flex-direction:column;justify-content:center;gap:6px;">
+            <div class="sk-txt">Normal mode</div>
+            <div class="sk-txt" style="font-size:20px;">$16,650</div>
+          </div>
+          <div style="border:2px solid #1a1a1a;border-radius:16px;width:210px;height:120px;padding:12px;background:#000;color:#fff;display:flex;flex-direction:column;justify-content:center;gap:6px;">
+            <div class="sk-txt" style="color:#fff;">☀ Outdoor mode — toggle top-right</div>
+            <div class="sk-txt" style="font-size:26px;font-weight:700;color:#fff;">$16,650</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 1d: Project coordination -->
+    <div class="dv-opt" id="1d">
+      <div class="dv-olabel"><a class="dv-oid" href="#1d">1d</a>Project coordination — work order → materials → week scheduling (desktop)</div>
+      <div class="dv-card" style="width:920px;padding:16px;">
+        <div style="display:flex;gap:14px;">
+          <div style="width:280px;">
+            <div class="sk-sub">Work order (from signed job)</div>
+            <div style="border:2px solid #1a1a1a;padding:10px;height:280px;display:flex;flex-direction:column;gap:8px;">
+              <div class="sk-txt" style="font-weight:700;">WO-1042 · Riverside Corp Campus</div>
+              <div class="sk-mono">Signed Jul 5 · Roof replace, 22.4 sq</div>
+              <div class="sk-block" style="flex:1;"></div>
+              <div class="sk-sub" style="margin-top:6px;">Material list</div>
+              <div class="sk-txt" style="font-size:12px;">— Metal panels ×24 · ready Jul 12</div>
+              <div class="sk-txt" style="font-size:12px;">— Ridge cap ×6 · ready Jul 10</div>
+              <div class="sk-txt" style="font-size:12px;">— Underlayment ×3 rolls · ready Jul 9</div>
+            </div>
+          </div>
+          <div style="flex:1;">
+            <div class="sk-sub">Week-view scheduling board</div>
+            <div style="border:2px solid #1a1a1a;height:280px;display:flex;flex-direction:column;">
+              <div style="display:flex;border-bottom:2px solid #1a1a1a;">
+                <div class="sk-txt" style="width:100px;padding:6px;font-weight:700;">Crew</div>
+                <div class="sk-txt" style="flex:1;padding:6px;text-align:center;">Mon</div>
+                <div class="sk-txt" style="flex:1;padding:6px;text-align:center;">Tue</div>
+                <div class="sk-txt" style="flex:1;padding:6px;text-align:center;">Wed</div>
+                <div class="sk-txt" style="flex:1;padding:6px;text-align:center;">Thu</div>
+                <div class="sk-txt" style="flex:1;padding:6px;text-align:center;">Fri</div>
+              </div>
+              <div style="display:flex;flex:1;border-bottom:1px solid #1a1a1a;align-items:center;">
+                <div class="sk-txt" style="width:100px;padding:6px;">Crew A</div>
+                <div style="flex:3;margin:4px;" class="sk-block accent" ></div>
+                <div style="flex:2;"></div>
+              </div>
+              <div style="display:flex;flex:1;align-items:center;">
+                <div class="sk-txt" style="width:100px;padding:6px;">Crew B</div>
+                <div style="flex:1;"></div>
+                <div style="flex:2;margin:4px;" class="sk-block"></div>
+                <div style="flex:2;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 1e: Client portal -->
+    <div class="dv-opt" id="1e">
+      <div class="dv-olabel"><a class="dv-oid" href="#1e">1e</a>Client portal — engagement timeline (Gantt-style, read-only)</div>
+      <div class="dv-card" style="width:920px;padding:16px;">
+        <div class="sk-sub">Populated — level 3 active</div>
+        <div style="border:2px solid #1a1a1a;padding:14px;height:300px;display:flex;flex-direction:column;gap:10px;">
+          <div class="sk-txt accent-bg" style="padding:8px 12px;border-radius:4px;font-weight:700;">WIN CONDITION — Level 3: Structural sign-off by Jul 18</div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div class="sk-txt" style="width:110px;">Level 1</div>
+            <div class="sk-block" style="width:120px;height:20px;border-radius:10px;"></div>
+            <div style="width:14px;height:14px;background:#1a1a1a;transform:rotate(45deg);"></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div class="sk-txt" style="width:110px;">Level 2</div>
+            <div class="sk-block" style="width:200px;height:20px;border-radius:10px;margin-left:120px;"></div>
+            <div style="width:14px;height:14px;background:#1a1a1a;transform:rotate(45deg);"></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div class="sk-txt" style="width:110px;font-weight:700;">Level 3 ●</div>
+            <div style="width:280px;height:26px;border-radius:13px;margin-left:320px;background:#2a63c9;border:2px solid #1a1a1a;"></div>
+            <div style="width:16px;height:16px;background:#2a63c9;transform:rotate(45deg);border:2px solid #1a1a1a;"></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;opacity:.4;">
+            <div class="sk-txt" style="width:110px;">Level 4</div>
+          </div>
+          <div style="margin-top:auto;display:flex;justify-content:flex-end;">
+            <div class="sk-txt" style="border:1.5px solid #1a1a1a;border-radius:20px;padding:6px 14px;font-size:12px;">Next check-in: Jul 15</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+  <p class="dv-next">Try next: "make <a class="dv-oid" href="#1c">1c</a> the desktop version too" · "3 stage-name variants for <a class="dv-oid" href="#1b">1b</a>" · "move to hi-fi on all of these"</p>
+</section>
+
+</x-dc>
+</body>
+</html>

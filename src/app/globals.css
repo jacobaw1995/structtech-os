@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Design tokens — locked in CLAUDE.md, sourced from docs/wireframes/StructTech OS - HiFi (standalone).html */
+:root {
+  --bg: oklch(98% 0.004 90);
+  --surface: oklch(99.5% 0.002 90);
+  --surface2: oklch(95.3% 0.004 90);
+  --text: oklch(22% 0.006 90);
+  --muted: oklch(48% 0.006 90);
+  --border: oklch(88% 0.006 90);
+
+  --accent: oklch(0.55 0.16 250);
+  --accent-strong: oklch(0.42 0.16 250);
+  --accent-soft: oklch(0.93 0.03 250);
+
+  --warn: oklch(0.55 0.15 45);
+  --warn-soft: oklch(0.94 0.04 45);
+}
+
+body {
+  color: var(--text);
+  background: var(--bg);
+  font-family: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
