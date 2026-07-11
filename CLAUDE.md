@@ -50,10 +50,10 @@ These are learned from repeated debugging. Every violation causes silent RLS fai
 4. **All single-record fetches (`by id`) go through security-definer RPCs.** Direct `.select().eq('id', x).single()` fails RLS. Always pass `org_id` for RLS context.
 5. **List queries are fine with direct table access** after `getSession()` — they resolve through the RLS helper.
 6. **Server actions `redirect()`, never `return` data.**
-7. **All RLS policies use the `get_my_org_ids()` helper** — never subquery `memberships` directly in a policy (infinite recursion).
+7. **All RLS policies use the existing `my_org_ids()` helper** — never subquery `org_members` directly in a policy (infinite recursion). (This function already exists and is used by 8 live policies; reuse it, don't recreate or alias it.)
    ```sql
    create policy "t_select" on <table> for select
-     using (org_id in (select get_my_org_ids()));
+     using (org_id in (select my_org_ids()));
    ```
 8. **`Cannot find module './vendor-chunks/...'` / `ChunkLoadError`** = stale build cache, not a code bug: `rm -rf .next && npm run dev`.
 9. **R2 browser uploads require CORS** on the bucket (`GET PUT POST DELETE HEAD`, `AllowedHeaders: *`, `ExposeHeaders: ETag`) — set before testing in-browser.
@@ -64,12 +64,12 @@ RPC templates (insert returns uuid; fetch returns `setof <table>`, `stable`) liv
 
 ## Multi-tenancy model — the core of the whole build
 
-- **Every domain table carries `org_id`.** RLS scopes every read/write by org via `get_my_org_ids()`.
+- **Every domain table carries `org_id`.** RLS scopes every read/write by org via `my_org_ids()`.
 - **`organizations`** — one row per tenant. `tenant_type` ∈ (`internal`, `contractor`).
 - **`memberships`** — (`org_id`, `user_id`, `role`). A user can belong to multiple orgs.
 - **`tenant_modules`** — (`org_id`, `module_key`, `enabled`, `config` jsonb). This is the entitlement layer. Nav and route guards render from it.
 - **Two axes of access:** *tenant entitlements* (which modules exist for the org) × *user role* (which screens within them). Nav bends to both.
-- **Agency operator layer:** StructTech admins operate inside client tenants. Model this simply as a **membership in the client org with role `agency_admin`** — so `get_my_org_ids()` returns it and RLS needs no special case. The top-bar tenant switcher changes the active org context.
+- **Agency operator layer:** StructTech admins operate inside client tenants. Model this simply as a **membership in the client org with role `agency_admin`** — so `my_org_ids()` returns it and RLS needs no special case. The top-bar tenant switcher changes the active org context.
 - **License activation = inserting rows** (`organizations` + `tenant_modules` + `memberships`), never provisioning a new database.
 - **Escape hatch:** a future enterprise client needing hard isolation can be siloed onto its own Supabase project with the same code — do not design anything that blocks that, but do not build it now.
 
@@ -114,7 +114,9 @@ Map these into the Tailwind theme / CSS variables. Pull exact spacing/radius fro
 
 **Extend the existing `structtech` Supabase project — do not start a new database.**
 
-- **Add (Week 1 foundation):** `organizations`, `memberships`, `tenant_modules`; the `get_my_org_ids()` RLS helper; org-scoped policies; security-definer insert/fetch RPCs. Backfill `org_id` onto existing tables.
+> **Reality note (confirmed 7/9):** `organizations` and `org_members` **already exist** in the live project (serving `org_systems`, `tickets`, `org_invoices`, `org_invites`, and the `engagement_*` FKs). They ARE the tenant/workspace concept — **extend them, never create a parallel org concept.** Concretely: add `tenant_type` to `organizations` (+ backfill); use the existing **`org_members` as the membership table** ("memberships" in this doc = `org_members`; expand its role values for `owner`/`agency_admin`/office/crew); `my_org_ids()` reads from `org_members`. Only **`tenant_modules`** is genuinely new. Because this alters tables live features depend on, **branch-test before applying.**
+
+- **Add (Week 1 foundation):** extend `organizations` (add `tenant_type`), extend `org_members` (roles), add `tenant_modules`; the `my_org_ids()` RLS helper (reads `org_members`); org-scoped policies; security-definer insert/fetch RPCs. Backfill `org_id` onto existing tables as a **separate** migration.
 - **Reuse (already live — see `docs/reference/`):** `audit_leads`, `client_roadmaps`, `roadmap_playbook()`, `deals` + `follow_ups`, `engagements` / `engagement_levels` / `engagement_milestones` / `engagement_checkins`.
 - **Later phases add per module:** estimates + line_items + signatures; work_orders + material_items + schedule_blocks; check_ins + production_packets.
 
@@ -122,7 +124,7 @@ Map these into the Tailwind theme / CSS variables. Pull exact spacing/radius fro
 
 ## Design so as not to preclude (North Star)
 
-Do **not** build these now, but do **not** make choices that block them (full detail: `docs/SCOPE.md` §12):
+Do **not** build these now, but do **not** make choices that block them (full detail: `docs/SCOPE.md` §12–13):
 - **Business logic lives in server actions / RPCs, never buried in components** — this action layer becomes the AI assistant's tool surface later.
 - **Append-only activity/history on every domain entity** — it's the audit trail and the AI's "what changed" source.
 - **Estimate line items (Week 2) must allow an optional `product_id`** link, not free-text only — client catalogs and the shop plug in here.
@@ -137,7 +139,7 @@ Do **not** build these now, but do **not** make choices that block them (full de
 
 Deliverables:
 1. Next.js 14 App Router + TS + Tailwind scaffold (themed to the tokens above); `@/lib/supabase/{server,client,middleware}` with the getSession pattern.
-2. Schema migration: `organizations`, `memberships`, `tenant_modules`; `get_my_org_ids()`; RLS on all; security-definer RPCs. **Author as a reviewable migration file; ask before applying to the live project.**
+2. Schema migration: `organizations`, `memberships`, `tenant_modules`; `my_org_ids()`; RLS on all; security-definer RPCs. **Author as a reviewable migration file; ask before applying to the live project.**
 3. **Supabase Auth** replacing any soft/password gate. Login + workspace-select when a user has >1 org (wireframe 7 / 2h).
 4. **App shell:** top bar + tenant switcher (agency admin can switch into a client tenant and back) + entitlement-driven sidebar + role-scoped nav (wireframe 1 / 2a).
 5. Seed two orgs: **StructTech** (`internal`, all modules) and **Brothers Metal Roofing** (`contractor`: crm, estimating, coordination, field, + read-only delivery).
