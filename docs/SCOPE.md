@@ -90,6 +90,7 @@ Each artifact is generated from the prior one, never re-keyed. This flow is the 
 3. **Portal interaction:** read-only for level/milestone **status** (StructTech marks those), but the client **can confirm/reschedule check-ins and attest their own ADOPT/PROVE behaviors.** Amends the "read-only v1" line in the schedule spec. *(Confirmed 7/8.)*
 4. **DB consolidation via strangler, not big-bang.** Build the OS on the `structtech` Supabase project (richer schema: deals, engagements, roadmap). BMR keeps running on its own project during this week's fixes; folds in as tenant #1 at parity. No risky one-shot migration of a live client's data.
 5. **Auth:** Supabase Auth + org-scoped RLS replaces the admin's soft SHA-256 gate. This is the merge-enabler, built first.
+6. **Agency access = `agency_admin` membership model, NOT `is_staff()` (confirmed 7/9).** StructTech operators see a client's data by holding an `agency_admin` membership row in that client org (`my_org_ids()` returns it) — no blanket bypass on new OS tables. Two consequences: (a) **Provisioning** (create org / add member / set entitlement) is gated on being owner/`agency_admin` of a StructTech `internal`-type org — a membership-based platform-admin check; the first internal org + owner are **bootstrap-seeded** directly since there's no admin to gate on yet. (b) The **legacy tables** (`org_systems`, `tickets`, `engagements`, etc.) keep their existing `is_staff()` policies for now — migrating them to the membership model is the separate **security workstream**, not part of Week 1.
 
 ---
 
