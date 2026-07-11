@@ -1,11 +1,9 @@
 import { createBrowserClient } from "@supabase/ssr";
-
-// TODO(week 1, schema stage): pass the generated `Database` type once the
-// foundation migration lands.
+import type { Database } from "@/lib/supabase/database.types";
 
 /** Browser-side Supabase client. Use only in Client Components. */
 export function createClient() {
-  return createBrowserClient(
+  return createBrowserClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
