@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { requireModuleAccess } from "@/lib/workspace/context";
-import { createClient } from "@/lib/supabase/server";
 import { parseCrmStages } from "@/lib/crm/stages";
 import { DealCard } from "@/components/crm/DealCard";
 import { DealPanel } from "@/components/crm/DealPanel";
@@ -23,7 +22,15 @@ export default async function CrmPage({
   searchParams: { deal?: string; new?: string; error?: string };
 }) {
   const ctx = await requireModuleAccess(params.orgId, "crm");
-  const supabase = createClient();
+  // Reuse the client requireModuleAccess already authenticated (its
+  // getSession() already ran) — a fresh createClient() here has no session
+  // loaded until getSession()/getUser() is called on THAT instance
+  // (CLAUDE.md rule 1). That gap was the deal-panel bug: the deals LIST
+  // query still returned rows for a staff caller via the is_staff()
+  // bypass policy, masking that this second client had no session; fetch_deal
+  // has no is_staff() path (my_org_ids() only), so it silently returned
+  // nothing and the panel never rendered.
+  const supabase = ctx.supabase;
 
   // List queries — fine direct per CLAUDE.md rule 5, RLS already scopes by
   // org, the explicit .eq(org_id) additionally pins this to the ACTIVE org
@@ -143,7 +150,14 @@ export default async function CrmPage({
           )}
 
           <div className="flex flex-1 gap-4 overflow-hidden">
-            <div className="flex flex-1 gap-4 overflow-x-auto pb-2">
+            {/* min-w-0 is load-bearing: a flex child defaults to
+                min-width:auto, which refuses to shrink below its content's
+                intrinsic width — with 8 columns that pushed the panel
+                sibling off-screen instead of letting this div scroll
+                internally. This was the second bug: fetch_deal/org-guard
+                were fine, the panel just rendered clipped past the
+                viewport edge with no way to scroll to it. */}
+            <div className="flex flex-1 min-w-0 gap-4 overflow-x-auto pb-2">
               {stages.map((stage) => {
                 const stageDeals = byStage.get(stage.key) ?? [];
                 return (

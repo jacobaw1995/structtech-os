@@ -168,7 +168,12 @@ export function WorkspaceShell({
           })}
         </nav>
 
-        <main className="flex-1 p-6">{children}</main>
+        {/* min-w-0 is load-bearing: a flex item defaults to min-width:auto,
+            which refuses to shrink below its content's intrinsic width. Any
+            module page wide enough to need its own horizontal scroll (the
+            crm board, first to hit this) would otherwise force this whole
+            element past the viewport instead of respecting flex-1. */}
+        <main className="min-w-0 flex-1 p-6">{children}</main>
       </div>
     </div>
   );

@@ -16,6 +16,13 @@ import {
 
 export type WorkspaceContext = {
   session: Session;
+  // The already-authenticated client used to load this context — reuse
+  // THIS instance for further queries in the same request rather than
+  // calling createClient() again. A fresh createClient() has no session
+  // loaded into it until getSession()/getUser() is called on that specific
+  // instance (CLAUDE.md rule 1); creating a second client and skipping
+  // that call is exactly the bug this field exists to make hard to repeat.
+  supabase: ReturnType<typeof createClient>;
   orgs: ActiveMembership[];
   active: ActiveMembership;
   visibleModules: ModuleKey[];
@@ -58,7 +65,7 @@ export const getWorkspaceContext = cache(
       active.entitled_modules ?? []
     );
 
-    return { session, orgs, active, visibleModules };
+    return { session, supabase, orgs, active, visibleModules };
   }
 );
 
