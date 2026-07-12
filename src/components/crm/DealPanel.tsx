@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { StageSelect } from "@/components/crm/StageSelect";
 import { addDealNote } from "@/lib/crm/actions";
+import { createEstimateFromDeal } from "@/lib/estimating/actions";
+import { estimateStatusLabel, estimateStatusClasses } from "@/lib/estimating/status";
 import { formatMoney, formatDate, daysBetween, type CrmStage } from "@/lib/crm/stages";
 import type { Database } from "@/lib/supabase/database.types";
 
@@ -8,6 +10,7 @@ type Deal = Database["public"]["Tables"]["deals"]["Row"];
 type DealNote = Database["public"]["Tables"]["deal_notes"]["Row"];
 type DealActivity = Database["public"]["Tables"]["deal_activity"]["Row"];
 type FollowUp = Database["public"]["Tables"]["follow_ups"]["Row"];
+type Estimate = Database["public"]["Tables"]["estimates"]["Row"];
 
 function activityLabel(entry: DealActivity): string {
   switch (entry.action) {
@@ -35,6 +38,8 @@ export function DealPanel({
   nextFollowUp,
   closeHref,
   errorMessage,
+  estimates,
+  canCreateEstimate,
 }: {
   orgId: string;
   deal: Deal;
@@ -44,6 +49,8 @@ export function DealPanel({
   nextFollowUp: FollowUp | null;
   closeHref: string;
   errorMessage?: string;
+  estimates: Estimate[];
+  canCreateEstimate: boolean;
 }) {
   const nextActionText =
     stages.find((s) => s.key === deal.stage)?.next_action ?? null;
@@ -108,6 +115,47 @@ export function DealPanel({
           </span>
         </div>
       </div>
+
+      {canCreateEstimate && (
+        <div className="flex flex-col gap-2">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">
+            Estimates
+          </h3>
+          <div className="flex flex-col gap-1.5">
+            {estimates.length === 0 && (
+              <p className="text-xs text-muted">No estimates yet.</p>
+            )}
+            {estimates.map((estimate) => (
+              <Link
+                key={estimate.id}
+                href={`/w/${orgId}/estimating/${estimate.id}`}
+                className="flex items-center justify-between rounded-md bg-surface2 px-3 py-2 text-sm text-text hover:bg-accent-soft"
+              >
+                <span className="font-mono">
+                  {formatMoney(estimate.presented_total ?? estimate.subtotal)}
+                </span>
+                <span
+                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${estimateStatusClasses(
+                    estimate.status
+                  )}`}
+                >
+                  {estimateStatusLabel(estimate.status)}
+                </span>
+              </Link>
+            ))}
+          </div>
+          <form action={createEstimateFromDeal}>
+            <input type="hidden" name="orgId" value={orgId} />
+            <input type="hidden" name="dealId" value={deal.id} />
+            <button
+              type="submit"
+              className="w-full rounded-md border border-accent-strong px-3 py-1.5 text-xs font-medium text-accent-strong hover:bg-accent-soft"
+            >
+              + Create estimate
+            </button>
+          </form>
+        </div>
+      )}
 
       <div className="flex flex-col gap-2">
         <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">

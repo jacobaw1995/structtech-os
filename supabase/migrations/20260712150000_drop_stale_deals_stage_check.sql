@@ -1,0 +1,24 @@
+-- Fix: deals_stage_check hardcodes StructTech's own stage vocabulary
+-- (new_scan/contacted/call_booked/call_done/proposal_sent/negotiating/
+-- closed_won/closed_lost) from before Week 2 Stage 1 made CRM stages
+-- per-tenant config (20260712130000_crm_stage_config_and_rpcs.sql). That
+-- migration taught create_deal()/update_deal_stage() to read/validate
+-- against each org's tenant_modules.config, but never touched this
+-- constraint — so every contractor tenant (BMR's stages are New Lead /
+-- Qualified / Site Visit / Estimate Presented / Won / Lost, none of which
+-- are in the hardcoded list) fails create_deal() at the database level.
+-- Found while smoke-testing Stage 4 (estimating always starts from a
+-- deal): BMR couldn't create a deal to hang an estimate off of at all.
+--
+-- Not replaced with another hardcoded list — a CHECK can't validate
+-- against another table's jsonb config, and stage validity already lives
+-- at the right layer: update_deal_stage() checks the target stage against
+-- crm_stage_config(org_id), create_deal() sets the org's configured first
+-- stage. Both are the mandated insert path (CLAUDE.md rule 3); this
+-- constraint was only ever redundant with them for StructTech and
+-- actively wrong for every other tenant.
+--
+-- Low-risk: dropping a CHECK can't corrupt existing rows, and every
+-- current row (StructTech's own deals) already satisfies it.
+
+alter table public.deals drop constraint if exists deals_stage_check;

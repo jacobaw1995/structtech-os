@@ -13,6 +13,7 @@ type Deal = Database["public"]["Tables"]["deals"]["Row"];
 type DealNote = Database["public"]["Tables"]["deal_notes"]["Row"];
 type DealActivity = Database["public"]["Tables"]["deal_activity"]["Row"];
 type FollowUp = Database["public"]["Tables"]["follow_ups"]["Row"];
+type Estimate = Database["public"]["Tables"]["estimates"]["Row"];
 
 export default async function CrmPage({
   params,
@@ -68,6 +69,12 @@ export default async function CrmPage({
   let notes: DealNote[] = [];
   let activity: DealActivity[] = [];
   let nextFollowUp: FollowUp | null = null;
+  let estimates: Estimate[] = [];
+
+  // estimating is contractor-only (CLAUDE.md module registry) — only fetch
+  // and offer "Create estimate" when this org is actually entitled, same
+  // gate the route guard applies to /w/[orgId]/estimating.
+  const canCreateEstimate = ctx.visibleModules.includes("estimating");
 
   if (searchParams.deal) {
     // Single-record fetch RPC (rule 4), not a direct .select().single().
@@ -83,7 +90,7 @@ export default async function CrmPage({
     if (candidate && candidate.org_id === params.orgId) {
       selectedDeal = candidate;
 
-      const [{ data: notesData }, { data: activityData }, { data: followUpData }] =
+      const [{ data: notesData }, { data: activityData }, { data: followUpData }, { data: estimatesData }] =
         await Promise.all([
           supabase
             .from("deal_notes")
@@ -102,11 +109,19 @@ export default async function CrmPage({
             .eq("status", "pending")
             .order("send_at", { ascending: true })
             .limit(1),
+          canCreateEstimate
+            ? supabase
+                .from("estimates")
+                .select("*")
+                .eq("deal_id", candidate.id)
+                .order("created_at", { ascending: false })
+            : Promise.resolve({ data: [] as Estimate[] }),
         ]);
 
       notes = (notesData ?? []) as DealNote[];
       activity = (activityData ?? []) as DealActivity[];
       nextFollowUp = (followUpData?.[0] ?? null) as FollowUp | null;
+      estimates = (estimatesData ?? []) as Estimate[];
     }
   }
 
@@ -220,6 +235,8 @@ export default async function CrmPage({
                 nextFollowUp={nextFollowUp}
                 closeHref={boardHref}
                 errorMessage={searchParams.error}
+                estimates={estimates}
+                canCreateEstimate={canCreateEstimate}
               />
             )}
           </div>
