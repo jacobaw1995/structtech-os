@@ -150,7 +150,18 @@ StructTech's online metal-roofing supply shop, baked in: a roofer's estimate pri
   - **Price snapshot** — estimate lines capture the price at time-of-estimate (lock the quote) while referencing the live price for reorder.
   - **Order/commerce domain** extends the no-re-entry journey: estimate (priced from shop) → signed → purchase order to the shop → fulfillment.
 
-**Non-negotiable now (so none of the above gets boxed out):** business logic lives in RPCs/server actions (not components); append-only activity everywhere; org isolation is the default but not so hard-wired that a shared supplier catalog becomes impossible.
+### D. Native mobile app (Apple App Store + Google Play)
+The web app doesn't ship to app stores — a native app does. §8's stack already plans **React Native + Expo + PowerSync** for the field-first modules (estimating, field/crew): a genuinely native, offline-first client deployed to both stores via Expo EAS.
+- **Why the foundation already supports it:** everything is API-first (Supabase + security-definer RPCs + org-scoped RLS), so the native app is just another client on the same backend — no rewrite. Web for office/desktop, native for the field (camera, offline-on-a-roof, push — also what clears Apple review vs. a thin web wrapper).
+- **Model:** one multi-tenant StructTech OS app; users log into their workspace (not a per-client app — white-label branding lives inside the one app).
+- **Phase:** distinct workstream AFTER the web platform + go-live (see `docs/GO_LIVE_PLAN.md` §4).
+
+### E. Tenant-customizable document templates
+Each tenant (and StructTech) customizes templates for **estimates, invoices, work orders, proposals, and contracts** — branding (logo, colors, company info), layout, and terms. Documents render from those templates to PDF (stored in R2).
+- **Why the foundation supports it:** documents render from structured data (estimates/line-items/signatures already model the data) through a swappable renderer.
+- **Preserve now:** keep PDF/document generation in an isolated, **tenant-parameterized renderer** (branding + terms pulled from config), never a hardcoded single-tenant layout — so the editable-template system drops in later without a rewrite. `signatures.pdf_url` (and future equivalents) stay nullable until R2 storage is set up.
+
+**Non-negotiable now (so none of the above gets boxed out):** business logic lives in RPCs/server actions (not components); append-only activity everywhere; org isolation is the default but not so hard-wired that a shared supplier catalog becomes impossible; document generation stays parameterized so tenant-custom templates can replace it later.
 
 ---
 

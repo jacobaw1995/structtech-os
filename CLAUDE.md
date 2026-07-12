@@ -133,20 +133,23 @@ Do **not** build these now, but do **not** make choices that block them (full de
 
 ---
 
-## CURRENT PHASE — Week 1: Foundation
+## CURRENT PHASE — Week 2: Pipeline + Live Estimating (revenue layer)
 
-**Goal:** a multi-tenant shell people log into, seeing only what they're entitled to.
+**Week 1 (Foundation) is COMPLETE** — Supabase Auth, org/tenant model (`organizations` + `org_members` + `tenant_modules`), `my_org_ids()` + `is_platform_admin()`, the entitlement/role-driven shell + tenant switcher, and the seed: StructTech (`internal`, 4 modules: crm/scan/roadmap/delivery) + BMR (`contractor`, 5: crm/estimating/coordination/field/delivery-read-only). All live on the `structtech` project.
+
+**Goal:** the shared CRM/pipeline (both tenants) + BMR's live on-site estimating (lead → estimate → sign).
+
+**Prerequisite — do first:** apply the deferred `org_id` backfill migration (`supabase/migrations/20260711120100_backfill_org_id_crm.sql`) so `deals`/`deal_notes`/`deal_activity`/`follow_ups`/`audit_leads` become org-scoped. Back up first, ask before applying (same as Week 1). It's additive.
 
 Deliverables:
-1. Next.js 14 App Router + TS + Tailwind scaffold (themed to the tokens above); `@/lib/supabase/{server,client,middleware}` with the getSession pattern.
-2. Schema migration: `organizations`, `memberships`, `tenant_modules`; `my_org_ids()`; RLS on all; security-definer RPCs. **Author as a reviewable migration file; ask before applying to the live project.**
-3. **Supabase Auth** replacing any soft/password gate. Login + workspace-select when a user has >1 org (wireframe 7 / 2h).
-4. **App shell:** top bar + tenant switcher (agency admin can switch into a client tenant and back) + entitlement-driven sidebar + role-scoped nav (wireframe 1 / 2a).
-5. Seed two orgs: **StructTech** (`internal`, all modules) and **Brothers Metal Roofing** (`contractor`: crm, estimating, coordination, field, + read-only delivery).
+1. **Pipeline (`crm`) — serves both tenants.** Per-tenant **stage config** (StructTech's `new_scan…closed_won` vs BMR's `New Lead…Won`) — config-driven, **not** a hardcoded enum. Reuse the existing `deals`/`deal_notes`/`deal_activity`/`follow_ups` tables; org-scope via RLS (`org_id in (select my_org_ids())`). Kanban board + deal detail panel (value, stage, append-only notes + activity, next-action chip, scheduled day-2/day-5 follow-up). Wireframes 1b/2b. Inserts/single-fetches via security-definer RPCs.
+2. **Live estimating (`contractor` / BMR only).** New tables: `estimates`, `estimate_line_items`, `signatures`. Flow: preliminary estimate **generated from the lead** (no re-entry) → on-roof validate & adjust → line-item present → sign (mobile; reuse pdf-lib + sign-token patterns). Field-first: outdoor high-contrast, ≥56dp. Wireframes 1c/2c.
+   - **`estimate_line_items` carries a nullable `product_id`** (SCOPE §12B) — catalogs/shop plug in later; lines are not free-text only.
+   - Snapshot the presented total on the estimate (price-lock habit, SCOPE §12C).
 
-**Done =** log in → land in your workspace → see only your entitled modules → an agency admin can switch into BMR and back → RLS provably isolates one org's data from another.
+**Done =** in BMR, a lead moves across the pipeline → an estimate is generated from it → validated → presented with line items → signed on a phone. StructTech's own pipeline works with its own stages on the same board component.
 
-Do not start Week 2 (pipeline/estimating) until this is reviewed and accepted.
+Do **not** build coordination, field, `proposals`, or the shop this phase. `proposals` (StructTech's quote + Present Mode) is queued next, separate from contractor estimating.
 
 ---
 
