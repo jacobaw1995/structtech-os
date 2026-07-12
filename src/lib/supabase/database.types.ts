@@ -26,6 +26,7 @@ export type Database = {
           monthly_leak: number | null
           name: string | null
           notes: string | null
+          org_id: string | null
           risk_level: string | null
           score: number | null
           source: string | null
@@ -43,6 +44,7 @@ export type Database = {
           monthly_leak?: number | null
           name?: string | null
           notes?: string | null
+          org_id?: string | null
           risk_level?: string | null
           score?: number | null
           source?: string | null
@@ -60,13 +62,22 @@ export type Database = {
           monthly_leak?: number | null
           name?: string | null
           notes?: string | null
+          org_id?: string | null
           risk_level?: string | null
           score?: number | null
           source?: string | null
           top_leaks?: string[] | null
           trade?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "audit_leads_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       audits: {
         Row: {
@@ -188,6 +199,7 @@ export type Database = {
           deal_id: string
           from_value: string | null
           id: string
+          org_id: string | null
           to_value: string | null
         }
         Insert: {
@@ -196,6 +208,7 @@ export type Database = {
           deal_id: string
           from_value?: string | null
           id?: string
+          org_id?: string | null
           to_value?: string | null
         }
         Update: {
@@ -204,6 +217,7 @@ export type Database = {
           deal_id?: string
           from_value?: string | null
           id?: string
+          org_id?: string | null
           to_value?: string | null
         }
         Relationships: [
@@ -214,6 +228,13 @@ export type Database = {
             referencedRelation: "deals"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "deal_activity_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
         ]
       }
       deal_notes: {
@@ -222,18 +243,21 @@ export type Database = {
           created_at: string
           deal_id: string
           id: string
+          org_id: string | null
         }
         Insert: {
           content: string
           created_at?: string
           deal_id: string
           id?: string
+          org_id?: string | null
         }
         Update: {
           content?: string
           created_at?: string
           deal_id?: string
           id?: string
+          org_id?: string | null
         }
         Relationships: [
           {
@@ -241,6 +265,13 @@ export type Database = {
             columns: ["deal_id"]
             isOneToOne: false
             referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_notes_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -256,6 +287,7 @@ export type Database = {
           id: string
           lead_id: string | null
           lost_reason: string | null
+          org_id: string | null
           phone: string | null
           proposal_notes: string | null
           proposal_tier: string | null
@@ -275,6 +307,7 @@ export type Database = {
           id?: string
           lead_id?: string | null
           lost_reason?: string | null
+          org_id?: string | null
           phone?: string | null
           proposal_notes?: string | null
           proposal_tier?: string | null
@@ -294,6 +327,7 @@ export type Database = {
           id?: string
           lead_id?: string | null
           lost_reason?: string | null
+          org_id?: string | null
           phone?: string | null
           proposal_notes?: string | null
           proposal_tier?: string | null
@@ -309,6 +343,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "audit_leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deals_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -565,6 +606,7 @@ export type Database = {
           created_at: string
           deal_id: string
           id: string
+          org_id: string | null
           send_at: string
           sent_at: string | null
           status: string
@@ -576,6 +618,7 @@ export type Database = {
           created_at?: string
           deal_id: string
           id?: string
+          org_id?: string | null
           send_at: string
           sent_at?: string | null
           status?: string
@@ -587,6 +630,7 @@ export type Database = {
           created_at?: string
           deal_id?: string
           id?: string
+          org_id?: string | null
           send_at?: string
           sent_at?: string | null
           status?: string
@@ -599,6 +643,13 @@ export type Database = {
             columns: ["deal_id"]
             isOneToOne: false
             referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "follow_ups_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -1426,6 +1477,10 @@ export type Database = {
         Args: { p_full_name?: string; p_token: string }
         Returns: undefined
       }
+      add_deal_note: {
+        Args: { p_content: string; p_deal_id: string }
+        Returns: string
+      }
       add_org_member: {
         Args: {
           p_full_name?: string
@@ -1439,6 +1494,20 @@ export type Database = {
         Args: { p_answers: Json; p_crew: number }
         Returns: Json
       }
+      create_deal: {
+        Args: {
+          p_company?: string
+          p_contact_name: string
+          p_crew_size?: number
+          p_email?: string
+          p_org_id: string
+          p_phone?: string
+          p_source?: string
+          p_trade?: string
+          p_value?: number
+        }
+        Returns: string
+      }
       create_engagement_from_roadmap: {
         Args: { p_deal_id: string }
         Returns: string
@@ -1446,6 +1515,44 @@ export type Database = {
       create_organization: {
         Args: { p_name: string; p_tenant_type: string; p_trade?: string }
         Returns: string
+      }
+      crm_follow_up_cadence_days: {
+        Args: { p_org_id: string }
+        Returns: number[]
+      }
+      crm_stage_config: { Args: { p_org_id: string }; Returns: Json }
+      crm_stage_entry: {
+        Args: { p_org_id: string; p_stage_key: string }
+        Returns: Json
+      }
+      fetch_deal: {
+        Args: { p_deal_id: string }
+        Returns: {
+          closed_at: string | null
+          company: string | null
+          contact_name: string
+          created_at: string
+          crew_size: number | null
+          email: string | null
+          id: string
+          lead_id: string | null
+          lost_reason: string | null
+          org_id: string | null
+          phone: string | null
+          proposal_notes: string | null
+          proposal_tier: string | null
+          source: string | null
+          stage: string
+          trade: string | null
+          updated_at: string
+          value: number | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "deals"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       fetch_membership_context: {
         Args: never
@@ -1497,6 +1604,10 @@ export type Database = {
           p_org_id: string
         }
         Returns: string
+      }
+      update_deal_stage: {
+        Args: { p_deal_id: string; p_new_stage: string }
+        Returns: undefined
       }
     }
     Enums: {
@@ -1670,4 +1781,3 @@ export const Constants = {
     },
   },
 } as const
-
