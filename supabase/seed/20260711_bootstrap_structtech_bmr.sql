@@ -28,12 +28,17 @@
 
 -- ============================================================================
 -- 1. Create StructTech's internal org, jacob@structtek.com as its owner, and
--- all 7 module entitlements — one statement (chained data-modifying CTEs) so
+-- its module entitlements — one statement (chained data-modifying CTEs) so
 -- the generated org id never has to be copied by hand. The final insert
 -- explicitly joins through new_owner (rather than just new_org) so its
 -- execution is guaranteed by the join, not by the (also-correct, but less
 -- obvious on a read-through) rule that Postgres always executes
 -- data-modifying CTEs even when their output goes unreferenced.
+--
+-- crm/scan/roadmap/delivery only, per SCOPE.md §4's module registry:
+-- estimating/coordination/field are contractor-only. StructTech reaches
+-- those by operating inside a client tenant (agency_admin membership),
+-- never in its own workspace.
 -- ============================================================================
 with new_org as (
   insert into public.organizations (name, tenant_type, trade)
@@ -49,7 +54,7 @@ new_owner as (
 insert into public.tenant_modules (org_id, module_key, enabled)
 select new_owner.org_id, module_key, true
 from new_owner, unnest(array[
-  'crm', 'estimating', 'coordination', 'field', 'delivery', 'scan', 'roadmap'
+  'crm', 'scan', 'roadmap', 'delivery'
 ]) as module_key;
 
 -- ============================================================================
@@ -93,8 +98,8 @@ values (
 );
 
 -- ============================================================================
--- 5. Verify — expect StructTech/owner with all 7 modules, BMR/agency_admin
--- with exactly crm/estimating/coordination/field/delivery (no scan/roadmap).
+-- 5. Verify — expect StructTech/owner with exactly crm/delivery/roadmap/scan,
+-- BMR/agency_admin with exactly crm/estimating/coordination/field/delivery.
 -- The jacobaw1995@gmail.com row should be gone entirely.
 -- ============================================================================
 select

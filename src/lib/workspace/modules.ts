@@ -56,7 +56,10 @@ export function modulesVisibleForRole(
   role: string | null,
   entitled: string[]
 ): ModuleKey[] {
-  const entitledKeys = entitled.filter(isModuleKey);
+  // fetch_membership_context()'s array_agg has no ORDER BY, so entitled's
+  // order isn't guaranteed — re-sort to MODULE_ORDER so the sidebar has a
+  // stable, intentional order regardless of what Postgres happens to return.
+  const entitledKeys = MODULE_ORDER.filter((m) => entitled.includes(m));
 
   switch (role) {
     case "owner":

@@ -47,6 +47,7 @@ Productized delivery that carries a client from **scan → sold → delivered �
 |---|---|---|---|
 | `crm` / Pipeline | all | Kanban with **per-tenant stage config**, deal panel, next-action + auto follow-up | 1b, 2b |
 | `estimating` | contractor | Live on-site estimate: preliminary (from lead) → on-roof validate → line-item present → sign | 1c, 2c |
+| `proposals` | internal only | **Distinct from contractor `estimating`.** StructTech's own quote/proposal builder + **Present Mode** for video sales calls (service tiers, engagement pricing, roadmap/investment slide). Not yet built — see `docs/reference/EXISTING_CRM_SCHEMA.md` (proposals/quotes) + the legacy `PRESENT_MODE_PLAN.md`. | — |
 | `coordination` | contractor | Homeowner sign-off gate → work order → material list → schedule (material ready-by **gates** scheduling) | 1d, 2d |
 | `field` | contractor | Crew mobile: Today home, daily check-in, visual production packet (role = crew) | 2f (+ pending frame) |
 | `delivery` | internal (operator) + surfaced read-only in client tenant | Engagement execution: levels/milestones/check-ins that drive the client portal | 2i (admin) / 2e (client) |
