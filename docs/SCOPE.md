@@ -69,8 +69,6 @@ Entitlements decide the module set; **roles decide the screens within it.** Cano
 
 Three-layer RBAC from the controller skill applies: per-module level (None/Read/Standard/Admin) → granular flags → item-level roles. Subcontractors/crew never see budget or financials.
 
-Three-layer RBAC from the controller skill applies: per-module level (None/Read/Standard/Admin) → granular flags → item-level roles. Subcontractors/crew never see budget or financials.
-
 ---
 
 ## 6. The client journey (no re-entry) — wireframe 2g
@@ -126,6 +124,7 @@ Next.js 14 App Router + TypeScript (web) · Supabase (Auth + Postgres + Realtime
 - Field module frame (daily check-in + visual production packet) — back from designer.
 - Codebase anchor final call — after BMR feedback fixes.
 - Security workstream (granular RLS on all tables, enable RLS on `structtech_state`) — dedicated session before client-visible data goes live.
+  - `audit_leads` carries a standing "Allow authenticated read" policy (`qual = true`) — any authenticated user can already read every lead regardless of org. The Week 2 org-scoped `my_org_ids()` read policy added alongside it (`20260712120000_org_scoped_rls_crm.sql`) is a no-op until this broader policy is tightened. Must fix before any client user (e.g. BMR office/field) gets an account — right now a non-staff org member could read every StructTech lead, not just their own org's.
 - Targeted hi-fi on client-facing surfaces only: portal (2e) + estimating (2c).
 
 ---
