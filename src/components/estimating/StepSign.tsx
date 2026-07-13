@@ -4,7 +4,6 @@ import { useRef, useState, useTransition } from "react";
 import { signEstimate } from "@/lib/estimating/actions";
 import { formatMoney } from "@/lib/crm/stages";
 import { SignaturePad, type SignaturePadHandle } from "@/components/estimating/SignaturePad";
-import { useOutdoorMode } from "@/lib/estimating/outdoor-context";
 import type { Database } from "@/lib/supabase/database.types";
 
 type Estimate = Database["public"]["Tables"]["estimates"]["Row"];
@@ -25,7 +24,6 @@ export function StepSign({
   signature: Signature | null;
   errorMessage?: string;
 }) {
-  const outdoor = useOutdoorMode();
   const padRef = useRef<SignaturePadHandle>(null);
   const [hasInk, setHasInk] = useState(false);
   const [signerName, setSignerName] = useState("");
