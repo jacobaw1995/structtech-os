@@ -600,6 +600,138 @@ export type Database = {
           },
         ]
       }
+      estimate_line_items: {
+        Row: {
+          created_at: string
+          description: string
+          estimate_id: string
+          id: string
+          line_total: number | null
+          org_id: string
+          product_id: string | null
+          quantity: number
+          sort_order: number
+          unit_price: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          estimate_id: string
+          id?: string
+          line_total?: number | null
+          org_id: string
+          product_id?: string | null
+          quantity?: number
+          sort_order?: number
+          unit_price?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          estimate_id?: string
+          id?: string
+          line_total?: number | null
+          org_id?: string
+          product_id?: string | null
+          quantity?: number
+          sort_order?: number
+          unit_price?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "estimate_line_items_estimate_id_fkey"
+            columns: ["estimate_id"]
+            isOneToOne: false
+            referencedRelation: "estimates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "estimate_line_items_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      estimates: {
+        Row: {
+          company: string | null
+          contact_name: string | null
+          created_at: string
+          deal_id: string
+          email: string | null
+          id: string
+          org_id: string
+          phone: string | null
+          pitch: string | null
+          presented_at: string | null
+          presented_total: number | null
+          signed_at: string | null
+          site_address: string | null
+          squares: number | null
+          status: string
+          subtotal: number
+          updated_at: string
+        }
+        Insert: {
+          company?: string | null
+          contact_name?: string | null
+          created_at?: string
+          deal_id: string
+          email?: string | null
+          id?: string
+          org_id: string
+          phone?: string | null
+          pitch?: string | null
+          presented_at?: string | null
+          presented_total?: number | null
+          signed_at?: string | null
+          site_address?: string | null
+          squares?: number | null
+          status?: string
+          subtotal?: number
+          updated_at?: string
+        }
+        Update: {
+          company?: string | null
+          contact_name?: string | null
+          created_at?: string
+          deal_id?: string
+          email?: string | null
+          id?: string
+          org_id?: string
+          phone?: string | null
+          pitch?: string | null
+          presented_at?: string | null
+          presented_total?: number | null
+          signed_at?: string | null
+          site_address?: string | null
+          squares?: number | null
+          status?: string
+          subtotal?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "estimates_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "estimates_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       follow_ups: {
         Row: {
           body: string
@@ -1265,6 +1397,60 @@ export type Database = {
         }
         Relationships: []
       }
+      signatures: {
+        Row: {
+          created_at: string
+          estimate_id: string
+          id: string
+          org_id: string
+          pdf_url: string | null
+          sign_token: string | null
+          signature_data: string
+          signed_at: string
+          signer_name: string
+          signer_role: string
+        }
+        Insert: {
+          created_at?: string
+          estimate_id: string
+          id?: string
+          org_id: string
+          pdf_url?: string | null
+          sign_token?: string | null
+          signature_data: string
+          signed_at?: string
+          signer_name: string
+          signer_role: string
+        }
+        Update: {
+          created_at?: string
+          estimate_id?: string
+          id?: string
+          org_id?: string
+          pdf_url?: string | null
+          sign_token?: string | null
+          signature_data?: string
+          signed_at?: string
+          signer_name?: string
+          signer_role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signatures_estimate_id_fkey"
+            columns: ["estimate_id"]
+            isOneToOne: false
+            referencedRelation: "estimates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signatures_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff_invites: {
         Row: {
           accepted_at: string | null
@@ -1481,6 +1667,17 @@ export type Database = {
         Args: { p_content: string; p_deal_id: string }
         Returns: string
       }
+      add_estimate_line_item: {
+        Args: {
+          p_description: string
+          p_estimate_id: string
+          p_product_id?: string
+          p_quantity?: number
+          p_sort_order?: number
+          p_unit_price?: number
+        }
+        Returns: string
+      }
       add_org_member: {
         Args: {
           p_full_name?: string
@@ -1512,6 +1709,10 @@ export type Database = {
         Args: { p_deal_id: string }
         Returns: string
       }
+      create_estimate_from_deal: {
+        Args: { p_deal_id: string }
+        Returns: string
+      }
       create_organization: {
         Args: { p_name: string; p_tenant_type: string; p_trade?: string }
         Returns: string
@@ -1524,6 +1725,10 @@ export type Database = {
       crm_stage_entry: {
         Args: { p_org_id: string; p_stage_key: string }
         Returns: Json
+      }
+      delete_estimate_line_item: {
+        Args: { p_line_item_id: string }
+        Returns: undefined
       }
       fetch_deal: {
         Args: { p_deal_id: string }
@@ -1550,6 +1755,34 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "deals"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      fetch_estimate: {
+        Args: { p_estimate_id: string }
+        Returns: {
+          company: string | null
+          contact_name: string | null
+          created_at: string
+          deal_id: string
+          email: string | null
+          id: string
+          org_id: string
+          phone: string | null
+          pitch: string | null
+          presented_at: string | null
+          presented_total: number | null
+          signed_at: string | null
+          site_address: string | null
+          squares: number | null
+          status: string
+          subtotal: number
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "estimates"
           isOneToOne: false
           isSetofReturn: true
         }
@@ -1595,6 +1828,7 @@ export type Database = {
       my_open_pipeline_value: { Args: never; Returns: number }
       my_org_ids: { Args: never; Returns: string[] }
       my_win_rate: { Args: never; Returns: number }
+      present_estimate: { Args: { p_estimate_id: string }; Returns: undefined }
       roadmap_playbook: { Args: { q: string }; Returns: Json }
       set_tenant_module: {
         Args: {
@@ -1605,8 +1839,36 @@ export type Database = {
         }
         Returns: string
       }
+      sign_estimate: {
+        Args: {
+          p_estimate_id: string
+          p_signature_data: string
+          p_signer_name: string
+          p_signer_role: string
+        }
+        Returns: string
+      }
       update_deal_stage: {
         Args: { p_deal_id: string; p_new_stage: string }
+        Returns: undefined
+      }
+      update_estimate_details: {
+        Args: {
+          p_estimate_id: string
+          p_pitch?: string
+          p_site_address?: string
+          p_squares?: number
+        }
+        Returns: undefined
+      }
+      update_estimate_line_item: {
+        Args: {
+          p_description?: string
+          p_line_item_id: string
+          p_quantity?: number
+          p_sort_order?: number
+          p_unit_price?: number
+        }
         Returns: undefined
       }
     }
