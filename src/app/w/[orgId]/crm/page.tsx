@@ -4,6 +4,7 @@ import { parseCrmStages } from "@/lib/crm/stages";
 import { DealCard } from "@/components/crm/DealCard";
 import { DealPanel } from "@/components/crm/DealPanel";
 import { AddDealForm } from "@/components/crm/AddDealForm";
+import { MobilePipelineBoard } from "@/components/crm/MobilePipelineBoard";
 import type { Database } from "@/lib/supabase/database.types";
 
 // More specific than the [moduleKey] placeholder route one level up — Next
@@ -64,6 +65,32 @@ export default async function CrmPage({
       unrecognized.push(deal);
     }
   }
+
+  // Mobile pipeline view (hi-fi §7): one pseudo-stage tacked onto the same
+  // byStage map so "Unrecognized stage" gets the identical swipeable-pill
+  // treatment on mobile that it already gets as a column on desktop,
+  // rather than silently dropping those deals from the mobile view.
+  const mobileStages =
+    unrecognized.length > 0
+      ? [
+          ...stages,
+          {
+            key: "__unrecognized__",
+            label: "Unrecognized",
+            cancel_pending_follow_ups: false,
+            outcome: null,
+            next_action: null,
+          },
+        ]
+      : stages;
+  const mobileDealsByStage =
+    unrecognized.length > 0
+      ? new Map(byStage).set("__unrecognized__", unrecognized)
+      : byStage;
+  const mobileStagesWithCounts = mobileStages.map((stage) => ({
+    ...stage,
+    count: (mobileDealsByStage.get(stage.key) ?? []).length,
+  }));
 
   let selectedDeal: Deal | null = null;
   let notes: DealNote[] = [];
@@ -133,7 +160,13 @@ export default async function CrmPage({
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-text">Pipeline</h1>
-          <p className="text-sm text-muted">{ctx.active.org_name}</p>
+          {/* Wireframe §7's mobile subtitle is "{n} open deals", not the
+              org name (redundant there — you're already inside that
+              workspace). Desktop keeps the org name unchanged. */}
+          <p className="text-sm text-muted">
+            <span className="sm:hidden">{dealList.length} open deals</span>
+            <span className="hidden sm:inline">{ctx.active.org_name}</span>
+          </p>
         </div>
         <Link
           href={isAdding ? boardHref : `${boardHref}?new=1`}
@@ -164,7 +197,21 @@ export default async function CrmPage({
             </p>
           )}
 
-          <div className="flex flex-1 gap-4 overflow-hidden">
+          {/* Mobile (hi-fi §7): swipeable stage pills + one column of
+              full-width cards — a different interaction, not a CSS reflow
+              of the desktop board, so it's a separate component rendered
+              from the same server-fetched data rather than a responsive
+              variant of the kanban markup below. */}
+          <div className="flex flex-1 overflow-hidden sm:hidden">
+            <MobilePipelineBoard
+              stages={mobileStagesWithCounts}
+              dealsByStage={mobileDealsByStage}
+              boardHref={boardHref}
+              selectedDeal={selectedDeal}
+            />
+          </div>
+
+          <div className="hidden flex-1 gap-4 overflow-hidden sm:flex">
             {/* min-w-0 is load-bearing: a flex child defaults to
                 min-width:auto, which refuses to shrink below its content's
                 intrinsic width — with 8 columns that pushed the panel
@@ -224,22 +271,27 @@ export default async function CrmPage({
                 </div>
               )}
             </div>
-
-            {selectedDeal && (
-              <DealPanel
-                orgId={params.orgId}
-                deal={selectedDeal}
-                stages={stages}
-                notes={notes}
-                activity={activity}
-                nextFollowUp={nextFollowUp}
-                closeHref={boardHref}
-                errorMessage={searchParams.error}
-                estimates={estimates}
-                canCreateEstimate={canCreateEstimate}
-              />
-            )}
           </div>
+
+          {/* Sibling of both board variants, not nested in the desktop-only
+              div above — it needs to render on mobile too (as a full-screen
+              takeover; see DealPanel's own sm: overrides) as well as
+              desktop (the existing side panel), regardless of which board
+              is currently showing. */}
+          {selectedDeal && (
+            <DealPanel
+              orgId={params.orgId}
+              deal={selectedDeal}
+              stages={stages}
+              notes={notes}
+              activity={activity}
+              nextFollowUp={nextFollowUp}
+              closeHref={boardHref}
+              errorMessage={searchParams.error}
+              estimates={estimates}
+              canCreateEstimate={canCreateEstimate}
+            />
+          )}
         </>
       )}
     </div>

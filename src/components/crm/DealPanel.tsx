@@ -56,7 +56,11 @@ export function DealPanel({
     stages.find((s) => s.key === deal.stage)?.next_action ?? null;
 
   return (
-    <aside className="flex w-80 shrink-0 flex-col gap-4 overflow-y-auto rounded-lg border border-border bg-surface p-4">
+    // Wireframe §7: "tap a deal for the detail view" — a distinct screen on
+    // mobile, not a docked side panel squeezed next to a now-single-column
+    // board. fixed inset-0 makes it a full-screen takeover there; the sm:
+    // overrides restore the original in-flow side panel unchanged.
+    <aside className="fixed inset-0 z-40 flex flex-col gap-4 overflow-y-auto bg-surface p-4 sm:static sm:z-auto sm:w-80 sm:shrink-0 sm:rounded-lg sm:border sm:border-border">
       <div className="flex items-start justify-between gap-2">
         <div>
           <h2 className="text-base font-semibold text-text">
@@ -69,7 +73,7 @@ export function DealPanel({
         <Link
           href={closeHref}
           aria-label="Close"
-          className="text-sm text-muted hover:text-text"
+          className="-mr-2 -mt-2 flex h-11 w-11 shrink-0 items-center justify-center text-lg text-muted hover:text-text sm:m-0 sm:h-auto sm:w-auto sm:text-sm"
         >
           ✕
         </Link>
