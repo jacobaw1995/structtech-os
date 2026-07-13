@@ -34,6 +34,9 @@ yarn-error.log*
 # claude code local settings (personal, not team-shared)
 .claude/settings.local.json
 
+# claude code worktrees — local scratch checkouts, never committed
+.claude/worktrees/
+
 # database backups — schema + data dumps, never committed
 /backups/
 

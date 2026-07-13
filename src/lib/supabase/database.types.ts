@@ -120,6 +120,73 @@ export type Database = {
           },
         ]
       }
+      check_ins: {
+        Row: {
+          blockers: string | null
+          check_in_date: string
+          created_at: string
+          crew_name: string
+          hours: number
+          id: string
+          materials_used: string | null
+          org_id: string
+          photos: string[]
+          schedule_block_id: string | null
+          updated_at: string
+          work_order_id: string
+        }
+        Insert: {
+          blockers?: string | null
+          check_in_date?: string
+          created_at?: string
+          crew_name: string
+          hours?: number
+          id?: string
+          materials_used?: string | null
+          org_id: string
+          photos?: string[]
+          schedule_block_id?: string | null
+          updated_at?: string
+          work_order_id: string
+        }
+        Update: {
+          blockers?: string | null
+          check_in_date?: string
+          created_at?: string
+          crew_name?: string
+          hours?: number
+          id?: string
+          materials_used?: string | null
+          org_id?: string
+          photos?: string[]
+          schedule_block_id?: string | null
+          updated_at?: string
+          work_order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "check_ins_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "check_ins_schedule_block_id_fkey"
+            columns: ["schedule_block_id"]
+            isOneToOne: false
+            referencedRelation: "schedule_blocks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "check_ins_work_order_id_fkey"
+            columns: ["work_order_id"]
+            isOneToOne: false
+            referencedRelation: "work_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_roadmaps: {
         Row: {
           client_name: string
@@ -278,6 +345,7 @@ export type Database = {
       }
       deals: {
         Row: {
+          archived_at: string | null
           closed_at: string | null
           company: string | null
           contact_name: string
@@ -298,6 +366,7 @@ export type Database = {
           value: number | null
         }
         Insert: {
+          archived_at?: string | null
           closed_at?: string | null
           company?: string | null
           contact_name: string
@@ -318,6 +387,7 @@ export type Database = {
           value?: number | null
         }
         Update: {
+          archived_at?: string | null
           closed_at?: string | null
           company?: string | null
           contact_name?: string
@@ -1036,6 +1106,57 @@ export type Database = {
           },
         ]
       }
+      material_items: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          org_id: string
+          quantity: number
+          ready_by: string | null
+          sort_order: number
+          updated_at: string
+          work_order_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          org_id: string
+          quantity?: number
+          ready_by?: string | null
+          sort_order?: number
+          updated_at?: string
+          work_order_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          org_id?: string
+          quantity?: number
+          ready_by?: string | null
+          sort_order?: number
+          updated_at?: string
+          work_order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "material_items_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "material_items_work_order_id_fkey"
+            columns: ["work_order_id"]
+            isOneToOne: false
+            referencedRelation: "work_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       org_invites: {
         Row: {
           accepted_at: string | null
@@ -1256,6 +1377,51 @@ export type Database = {
         }
         Relationships: []
       }
+      production_packets: {
+        Row: {
+          callouts: Json
+          created_at: string
+          id: string
+          notes: string | null
+          org_id: string
+          updated_at: string
+          work_order_id: string
+        }
+        Insert: {
+          callouts?: Json
+          created_at?: string
+          id?: string
+          notes?: string | null
+          org_id: string
+          updated_at?: string
+          work_order_id: string
+        }
+        Update: {
+          callouts?: Json
+          created_at?: string
+          id?: string
+          notes?: string | null
+          org_id?: string
+          updated_at?: string
+          work_order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "production_packets_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "production_packets_work_order_id_fkey"
+            columns: ["work_order_id"]
+            isOneToOne: true
+            referencedRelation: "work_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -1396,6 +1562,60 @@ export type Database = {
           website?: string | null
         }
         Relationships: []
+      }
+      schedule_blocks: {
+        Row: {
+          blocked: boolean
+          blocked_reason: string | null
+          created_at: string
+          crew_name: string
+          end_date: string
+          id: string
+          org_id: string
+          start_date: string
+          updated_at: string
+          work_order_id: string
+        }
+        Insert: {
+          blocked?: boolean
+          blocked_reason?: string | null
+          created_at?: string
+          crew_name: string
+          end_date: string
+          id?: string
+          org_id: string
+          start_date: string
+          updated_at?: string
+          work_order_id: string
+        }
+        Update: {
+          blocked?: boolean
+          blocked_reason?: string | null
+          created_at?: string
+          crew_name?: string
+          end_date?: string
+          id?: string
+          org_id?: string
+          start_date?: string
+          updated_at?: string
+          work_order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schedule_blocks_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "schedule_blocks_work_order_id_fkey"
+            columns: ["work_order_id"]
+            isOneToOne: false
+            referencedRelation: "work_orders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       signatures: {
         Row: {
@@ -1646,6 +1866,54 @@ export type Database = {
           },
         ]
       }
+      work_orders: {
+        Row: {
+          created_at: string
+          estimate_id: string
+          id: string
+          org_id: string
+          sign_off_at: string | null
+          sign_off_notes: string | null
+          updated_at: string
+          voided_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          estimate_id: string
+          id?: string
+          org_id: string
+          sign_off_at?: string | null
+          sign_off_notes?: string | null
+          updated_at?: string
+          voided_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          estimate_id?: string
+          id?: string
+          org_id?: string
+          sign_off_at?: string | null
+          sign_off_notes?: string | null
+          updated_at?: string
+          voided_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_orders_estimate_id_fkey"
+            columns: ["estimate_id"]
+            isOneToOne: true
+            referencedRelation: "estimates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_orders_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -1663,6 +1931,10 @@ export type Database = {
         Args: { p_full_name?: string; p_token: string }
         Returns: undefined
       }
+      add_check_in_photo: {
+        Args: { p_check_in_id: string; p_photo_data_url: string }
+        Returns: undefined
+      }
       add_deal_note: {
         Args: { p_content: string; p_deal_id: string }
         Returns: string
@@ -1678,6 +1950,16 @@ export type Database = {
         }
         Returns: string
       }
+      add_material_item: {
+        Args: {
+          p_name: string
+          p_quantity?: number
+          p_ready_by?: string
+          p_sort_order?: number
+          p_work_order_id: string
+        }
+        Returns: string
+      }
       add_org_member: {
         Args: {
           p_full_name?: string
@@ -1687,9 +1969,39 @@ export type Database = {
         }
         Returns: undefined
       }
+      add_production_packet_callout: {
+        Args: {
+          p_detail?: string
+          p_label: string
+          p_production_packet_id: string
+        }
+        Returns: string
+      }
+      add_schedule_block: {
+        Args: {
+          p_crew_name: string
+          p_end_date: string
+          p_start_date: string
+          p_work_order_id: string
+        }
+        Returns: string
+      }
+      archive_deal: { Args: { p_deal_id: string }; Returns: undefined }
       build_roadmap_levels: {
         Args: { p_answers: Json; p_crew: number }
         Returns: Json
+      }
+      create_check_in: {
+        Args: {
+          p_blockers?: string
+          p_check_in_date?: string
+          p_crew_name: string
+          p_hours?: number
+          p_materials_used?: string
+          p_schedule_block_id?: string
+          p_work_order_id: string
+        }
+        Returns: string
       }
       create_deal: {
         Args: {
@@ -1717,6 +2029,10 @@ export type Database = {
         Args: { p_name: string; p_tenant_type: string; p_trade?: string }
         Returns: string
       }
+      create_work_order_from_estimate: {
+        Args: { p_estimate_id: string }
+        Returns: string
+      }
       crm_follow_up_cadence_days: {
         Args: { p_org_id: string }
         Returns: number[]
@@ -1726,13 +2042,59 @@ export type Database = {
         Args: { p_org_id: string; p_stage_key: string }
         Returns: Json
       }
+      delete_check_in: { Args: { p_check_in_id: string }; Returns: undefined }
+      delete_estimate: { Args: { p_estimate_id: string }; Returns: undefined }
       delete_estimate_line_item: {
         Args: { p_line_item_id: string }
         Returns: undefined
       }
+      delete_material_item: {
+        Args: { p_material_item_id: string }
+        Returns: undefined
+      }
+      delete_production_packet: {
+        Args: { p_production_packet_id: string }
+        Returns: undefined
+      }
+      delete_production_packet_callout: {
+        Args: { p_callout_id: string; p_production_packet_id: string }
+        Returns: undefined
+      }
+      delete_schedule_block: {
+        Args: { p_schedule_block_id: string }
+        Returns: undefined
+      }
+      delete_work_order: {
+        Args: { p_work_order_id: string }
+        Returns: undefined
+      }
+      fetch_check_in: {
+        Args: { p_check_in_id: string }
+        Returns: {
+          blockers: string | null
+          check_in_date: string
+          created_at: string
+          crew_name: string
+          hours: number
+          id: string
+          materials_used: string | null
+          org_id: string
+          photos: string[]
+          schedule_block_id: string | null
+          updated_at: string
+          work_order_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "check_ins"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       fetch_deal: {
         Args: { p_deal_id: string }
         Returns: {
+          archived_at: string | null
           closed_at: string | null
           company: string | null
           contact_name: string
@@ -1814,8 +2176,49 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      fetch_production_packet: {
+        Args: { p_production_packet_id: string }
+        Returns: {
+          callouts: Json
+          created_at: string
+          id: string
+          notes: string | null
+          org_id: string
+          updated_at: string
+          work_order_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "production_packets"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      fetch_work_order: {
+        Args: { p_work_order_id: string }
+        Returns: {
+          created_at: string
+          estimate_id: string
+          id: string
+          org_id: string
+          sign_off_at: string | null
+          sign_off_notes: string | null
+          updated_at: string
+          voided_at: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "work_orders"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       generate_roadmap_for_lead: {
         Args: { p_lead_id: string }
+        Returns: string
+      }
+      get_or_create_production_packet: {
+        Args: { p_work_order_id: string }
         Returns: string
       }
       is_pipeline_manager: { Args: never; Returns: boolean }
@@ -1829,6 +2232,19 @@ export type Database = {
       my_org_ids: { Args: never; Returns: string[] }
       my_win_rate: { Args: never; Returns: number }
       present_estimate: { Args: { p_estimate_id: string }; Returns: undefined }
+      record_work_order_sign_off: {
+        Args: { p_notes?: string; p_work_order_id: string }
+        Returns: undefined
+      }
+      remove_check_in_photo: {
+        Args: { p_check_in_id: string; p_photo_data_url: string }
+        Returns: undefined
+      }
+      restore_deal: { Args: { p_deal_id: string }; Returns: undefined }
+      restore_work_order: {
+        Args: { p_work_order_id: string }
+        Returns: undefined
+      }
       roadmap_playbook: { Args: { q: string }; Returns: Json }
       set_tenant_module: {
         Args: {
@@ -1848,8 +2264,42 @@ export type Database = {
         }
         Returns: string
       }
+      update_check_in: {
+        Args: {
+          p_blockers?: string
+          p_check_in_date?: string
+          p_check_in_id: string
+          p_crew_name?: string
+          p_hours?: number
+          p_materials_used?: string
+        }
+        Returns: undefined
+      }
+      update_deal_details: {
+        Args: {
+          p_company?: string
+          p_contact_name?: string
+          p_crew_size?: number
+          p_deal_id: string
+          p_email?: string
+          p_phone?: string
+          p_trade?: string
+          p_value?: number
+        }
+        Returns: undefined
+      }
       update_deal_stage: {
         Args: { p_deal_id: string; p_new_stage: string }
+        Returns: undefined
+      }
+      update_estimate_contact: {
+        Args: {
+          p_company?: string
+          p_contact_name?: string
+          p_email?: string
+          p_estimate_id: string
+          p_phone?: string
+        }
         Returns: undefined
       }
       update_estimate_details: {
@@ -1871,6 +2321,40 @@ export type Database = {
         }
         Returns: undefined
       }
+      update_material_item: {
+        Args: {
+          p_material_item_id: string
+          p_name?: string
+          p_quantity?: number
+          p_ready_by?: string
+          p_sort_order?: number
+        }
+        Returns: undefined
+      }
+      update_production_packet_callout: {
+        Args: {
+          p_callout_id: string
+          p_detail?: string
+          p_label?: string
+          p_production_packet_id: string
+        }
+        Returns: undefined
+      }
+      update_production_packet_notes: {
+        Args: { p_notes: string; p_production_packet_id: string }
+        Returns: undefined
+      }
+      update_schedule_block: {
+        Args: {
+          p_crew_name?: string
+          p_end_date?: string
+          p_schedule_block_id: string
+          p_start_date?: string
+        }
+        Returns: undefined
+      }
+      void_estimate: { Args: { p_estimate_id: string }; Returns: undefined }
+      void_work_order: { Args: { p_work_order_id: string }; Returns: undefined }
     }
     Enums: {
       lead_activity_action:

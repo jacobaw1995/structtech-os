@@ -25,6 +25,7 @@ Productized delivery that carries a client from **scan → sold → delivered �
 3. **No re-entry.** Each step is generated from the last — lead → estimate → signed → work order → materials/schedule → field → testimonial. The connective tissue is the product.
 4. **Field-first where it's a field tool.** Estimating and Field modules pass the "Roof Test": one-handed, gloves, bright sun, large touch targets (56dp), outdoor high-contrast mode.
 5. **StructTech operates on top of client tenants** (agency layer) — it is not a peer tenant sitting beside them.
+6. **User-managed data — full CRUD, always (non-negotiable).** Every entity a user creates is theirs to **edit, delete, archive, void, or reassign from the UI.** A management/operations platform never requires a developer, an admin, or raw SQL to correct human error or change course. "Create-and-advance only" is not acceptable — every module ships with the controls to *undo and fix* what it lets you *do*. (Prefer soft-delete/archive over hard-delete where history matters; guard by role.)
 
 ---
 

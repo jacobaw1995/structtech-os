@@ -21,6 +21,11 @@ function optionalString(formData: FormData, key: string): string | undefined {
   return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
+function optionalNumber(formData: FormData, key: string): number | undefined {
+  const raw = optionalString(formData, key);
+  return raw === undefined ? undefined : Number(raw);
+}
+
 export async function createDeal(formData: FormData) {
   const orgId = requireString(formData, "orgId");
 
@@ -89,6 +94,81 @@ export async function addDealNote(formData: FormData) {
     p_deal_id: dealId,
     p_content: content,
   });
+
+  if (error) {
+    redirect(
+      `/w/${orgId}/crm?deal=${dealId}&error=${encodeURIComponent(error.message)}`
+    );
+  }
+
+  redirect(`/w/${orgId}/crm?deal=${dealId}`);
+}
+
+export async function updateDealDetails(formData: FormData) {
+  const orgId = requireString(formData, "orgId");
+  const dealId = requireString(formData, "dealId");
+
+  const supabase = createClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) redirect("/login");
+
+  const { error } = await supabase.rpc("update_deal_details", {
+    p_deal_id: dealId,
+    p_contact_name: optionalString(formData, "contact_name"),
+    p_company: optionalString(formData, "company"),
+    p_email: optionalString(formData, "email"),
+    p_phone: optionalString(formData, "phone"),
+    p_value: optionalNumber(formData, "value"),
+    p_trade: optionalString(formData, "trade"),
+    p_crew_size: optionalNumber(formData, "crew_size"),
+  });
+
+  if (error) {
+    redirect(
+      `/w/${orgId}/crm?deal=${dealId}&error=${encodeURIComponent(error.message)}`
+    );
+  }
+
+  redirect(`/w/${orgId}/crm?deal=${dealId}`);
+}
+
+export async function archiveDeal(formData: FormData) {
+  const orgId = requireString(formData, "orgId");
+  const dealId = requireString(formData, "dealId");
+
+  const supabase = createClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) redirect("/login");
+
+  const { error } = await supabase.rpc("archive_deal", { p_deal_id: dealId });
+
+  if (error) {
+    redirect(
+      `/w/${orgId}/crm?deal=${dealId}&error=${encodeURIComponent(error.message)}`
+    );
+  }
+
+  // Archived deals drop off the board query — closing the panel (rather
+  // than redirecting back to ?deal=dealId) avoids landing on a deal the
+  // very next render will no longer show in the column it came from.
+  redirect(`/w/${orgId}/crm`);
+}
+
+export async function restoreDeal(formData: FormData) {
+  const orgId = requireString(formData, "orgId");
+  const dealId = requireString(formData, "dealId");
+
+  const supabase = createClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) redirect("/login");
+
+  const { error } = await supabase.rpc("restore_deal", { p_deal_id: dealId });
 
   if (error) {
     redirect(

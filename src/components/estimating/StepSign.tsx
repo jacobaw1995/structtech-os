@@ -2,6 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { signEstimate } from "@/lib/estimating/actions";
+import { createWorkOrderFromEstimate } from "@/lib/coordination/actions";
 import { formatMoney } from "@/lib/crm/stages";
 import { SignaturePad, type SignaturePadHandle } from "@/components/estimating/SignaturePad";
 import type { Database } from "@/lib/supabase/database.types";
@@ -34,6 +35,15 @@ export function StepSign({
   const total = estimate.presented_total ?? estimate.subtotal;
   const alreadySigned = estimate.status === "signed";
   const pdfHref = `/w/${orgId}/estimating/${estimate.id}/pdf`;
+
+  function handleCreateWorkOrder() {
+    const formData = new FormData();
+    formData.set("orgId", orgId);
+    formData.set("estimateId", estimate.id);
+    startTransition(() => {
+      createWorkOrderFromEstimate(formData);
+    });
+  }
 
   function handleSign() {
     if (!signerName.trim()) {
@@ -87,6 +97,14 @@ export function StepSign({
         >
           Download PDF
         </a>
+        <button
+          type="button"
+          disabled={isPending}
+          onClick={handleCreateWorkOrder}
+          className="flex min-h-14 items-center justify-center rounded-lg border-2 border-accent-strong text-base font-medium text-accent-strong disabled:opacity-60 group-data-[outdoor=true]/flow:border-white group-data-[outdoor=true]/flow:text-white"
+        >
+          {isPending ? "Creating…" : "Create work order →"}
+        </button>
       </div>
     );
   }

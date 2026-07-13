@@ -31,6 +31,62 @@ move it into the active CLAUDE.md phase; when done, delete it here.
   `follow_ups`. Schema + UI exist; actual sending does not (always scoped as "later").
 - **Responsive mobile web shell** — `WorkspaceShell` is desktop-only; needs drawer nav
   + mobile top bar. (In progress as of 7/13.)
+- **Coordination schedule-block edit polish** — editing start/end date as two separate
+  field-blur submits can transiently violate the `end_date >= start_date` check and
+  surface a raw Postgres error in the UI banner. Rare, non-corrupting (final edit saves
+  fine). Fix = friendlier error text, or a single two-field "save" instead of per-field
+  auto-submit.
+
+---
+
+## Deferred from Week 3 — field module (small, tracked)
+
+- **Annotated trim-map / boot-vent placement layer** — wireframe 3a's production
+  packet shows a trim map with pinned photo markers. Needs R2 photos + pin
+  coordinates over an image; not modeled this phase. Custom detail callouts (text
+  list) shipped instead.
+- **check_ins.photos as base64, not R2** — reuses the `signatures.signature_data`
+  precedent (functional, no fake upload UI) until R2 file storage (above) lands.
+  Fine for a handful of phone photos per check-in; would need R2 before real volume.
+- **No crew/user identity mapping** — `check_ins.crew_name` / `schedule_blocks.crew_name`
+  are free text; a crew member self-identifies at submission time. A real crew entity
+  (member roster, per-user assignment) is future scope.
+
+---
+
+## Management controls retrofit (SCOPE §2.6 — full user CRUD, before Isaac goes live)
+
+Earlier modules were built create-and-advance and lack user-facing edit/delete/archive
+on some entities, so cleaning up human error currently needs a developer + SQL. Backfill
+so the *user* manages their own data. High priority — needed before Isaac operates real jobs.
+
+- **Deals** — user delete/archive + edit deal details (today: create + stage + notes only).
+- **Estimates** — user void/delete + edit (the `void` status exists but has no UI path).
+- **Work orders** — user delete/void a work order (materials + schedule already have delete;
+  the work order itself does not).
+- **Standing rule going forward:** every new entity ships with edit + delete/archive from
+  the start (now a Definition-of-Done item + SCOPE §2.6). Field module included.
+
+---
+
+## CRM depth — real customer management, not just a pipeline view (raised 7/13)
+
+Week 2 shipped a thin **sales-pipeline view**; it is NOT yet a CRM. Full requirements +
+grounding in Isaac's current tool: **`docs/reference/CRM_DEPTH_REQUIREMENTS.md`** (adopt the
+BMR spec's *features & logic*, NOT its UI/UX/workflow). Headline gaps:
+
+- **Contact/prospect data** (foundational): name/cell/email on the lead form, homeowner-vs-
+  company type, **project address + billing address** (project address feeds the estimate).
+- **Ownership + attribution:** rep assignment (claim/assign/reassign/batch), and *who* made
+  each note/edit — not just when.
+- **Scheduling:** appointments / site surveys / visits per lead (type, time, duration, status).
+- **Views + quick actions:** table + calendar views; call/text/email inside a lead.
+- **Roles:** salesman / manager tiers (edit-by-ownership).
+
+Sequencing note: the **contact/address/type data + richer lead form is near-term** (a real
+lead needs it, and it fixes the estimate re-entry gap); the deeper CRM (assignment,
+scheduling, calendar/table, quick actions) is a dedicated **CRM-depth phase** (quick actions
+depend on the Twilio/Gmail integrations, SCOPE §13).
 
 ---
 

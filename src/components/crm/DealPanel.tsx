@@ -1,6 +1,11 @@
 import Link from "next/link";
 import { StageSelect } from "@/components/crm/StageSelect";
-import { addDealNote } from "@/lib/crm/actions";
+import {
+  addDealNote,
+  updateDealDetails,
+  archiveDeal,
+  restoreDeal,
+} from "@/lib/crm/actions";
 import { createEstimateFromDeal } from "@/lib/estimating/actions";
 import { estimateStatusLabel, estimateStatusClasses } from "@/lib/estimating/status";
 import { formatMoney, formatDate, daysBetween, type CrmStage } from "@/lib/crm/stages";
@@ -22,6 +27,12 @@ function activityLabel(entry: DealActivity): string {
       return `Note added`;
     case "followup_scheduled":
       return `Follow-up scheduled (${entry.to_value ?? "—"})`;
+    case "details_updated":
+      return `Details updated`;
+    case "archived":
+      return `Archived`;
+    case "restored":
+      return `Restored`;
     case "engagement_materialize_failed":
       return `Engagement creation failed`;
     default:
@@ -85,42 +96,156 @@ export function DealPanel({
         </p>
       )}
 
-      <div className="flex flex-col gap-2 text-sm">
-        <div className="flex items-center justify-between">
-          <span className="text-muted">Stage</span>
-          <StageSelect
-            orgId={orgId}
-            dealId={deal.id}
-            currentStage={deal.stage}
-            stages={stages}
-          />
+      {deal.archived_at ? (
+        <div className="flex items-center justify-between rounded-md bg-warn-soft px-3 py-2 text-xs text-text">
+          <span>Archived {formatDate(deal.archived_at)}</span>
+          <form action={restoreDeal}>
+            <input type="hidden" name="orgId" value={orgId} />
+            <input type="hidden" name="dealId" value={deal.id} />
+            <button
+              type="submit"
+              className="rounded-md border border-accent-strong px-2 py-1 font-medium text-accent-strong"
+            >
+              Restore
+            </button>
+          </form>
         </div>
-        <div className="flex items-center justify-between">
-          <span className="text-muted">Value</span>
-          <span className="font-mono text-text">{formatMoney(deal.value)}</span>
-        </div>
-        {nextActionText && (
+      ) : (
+        <div className="flex flex-col gap-2 text-sm">
           <div className="flex items-center justify-between">
-            <span className="text-muted">Next action</span>
-            <span className="w-fit rounded-full bg-accent-soft px-2 py-0.5 text-xs text-accent-strong">
-              {nextActionText}
+            <span className="text-muted">Stage</span>
+            <StageSelect
+              orgId={orgId}
+              dealId={deal.id}
+              currentStage={deal.stage}
+              stages={stages}
+            />
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-muted">Value</span>
+            <span className="font-mono text-text">{formatMoney(deal.value)}</span>
+          </div>
+          {nextActionText && (
+            <div className="flex items-center justify-between">
+              <span className="text-muted">Next action</span>
+              <span className="w-fit rounded-full bg-accent-soft px-2 py-0.5 text-xs text-accent-strong">
+                {nextActionText}
+              </span>
+            </div>
+          )}
+          <div className="flex items-center justify-between">
+            <span className="text-muted">Auto follow-up</span>
+            <span className="text-text">
+              {nextFollowUp
+                ? `${formatDate(nextFollowUp.send_at)} (day ${daysBetween(
+                    deal.created_at,
+                    nextFollowUp.send_at
+                  )})`
+                : "none pending"}
             </span>
           </div>
-        )}
-        <div className="flex items-center justify-between">
-          <span className="text-muted">Auto follow-up</span>
-          <span className="text-text">
-            {nextFollowUp
-              ? `${formatDate(nextFollowUp.send_at)} (day ${daysBetween(
-                  deal.created_at,
-                  nextFollowUp.send_at
-                )})`
-              : "none pending"}
-          </span>
         </div>
-      </div>
+      )}
 
-      {canCreateEstimate && (
+      <details className="rounded-md border border-border text-sm">
+        <summary className="cursor-pointer select-none px-3 py-2 font-medium text-text">
+          Edit details
+        </summary>
+        <form
+          action={updateDealDetails}
+          className="flex flex-col gap-2 border-t border-border p-3"
+        >
+          <input type="hidden" name="orgId" value={orgId} />
+          <input type="hidden" name="dealId" value={deal.id} />
+          <label className="flex flex-col gap-1 text-xs">
+            <span className="text-muted">Contact name</span>
+            <input
+              name="contact_name"
+              defaultValue={deal.contact_name}
+              className="rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-text outline-none focus:border-accent"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-xs">
+            <span className="text-muted">Company</span>
+            <input
+              name="company"
+              defaultValue={deal.company ?? ""}
+              className="rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-text outline-none focus:border-accent"
+            />
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="flex flex-col gap-1 text-xs">
+              <span className="text-muted">Email</span>
+              <input
+                name="email"
+                defaultValue={deal.email ?? ""}
+                className="rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-text outline-none focus:border-accent"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-xs">
+              <span className="text-muted">Phone</span>
+              <input
+                name="phone"
+                defaultValue={deal.phone ?? ""}
+                className="rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-text outline-none focus:border-accent"
+              />
+            </label>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <label className="col-span-1 flex flex-col gap-1 text-xs">
+              <span className="text-muted">Value</span>
+              <input
+                name="value"
+                type="number"
+                step="any"
+                defaultValue={deal.value ?? ""}
+                className="rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-text outline-none focus:border-accent"
+              />
+            </label>
+            <label className="col-span-1 flex flex-col gap-1 text-xs">
+              <span className="text-muted">Trade</span>
+              <input
+                name="trade"
+                defaultValue={deal.trade ?? ""}
+                className="rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-text outline-none focus:border-accent"
+              />
+            </label>
+            <label className="col-span-1 flex flex-col gap-1 text-xs">
+              <span className="text-muted">Crew size</span>
+              <input
+                name="crew_size"
+                type="number"
+                step="1"
+                defaultValue={deal.crew_size ?? ""}
+                className="rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-text outline-none focus:border-accent"
+              />
+            </label>
+          </div>
+          <button
+            type="submit"
+            className="mt-1 self-end rounded-md bg-accent-strong px-3 py-1.5 text-xs font-medium text-white"
+          >
+            Save details
+          </button>
+        </form>
+        {!deal.archived_at && (
+          <form
+            action={archiveDeal}
+            className="border-t border-border p-3"
+          >
+            <input type="hidden" name="orgId" value={orgId} />
+            <input type="hidden" name="dealId" value={deal.id} />
+            <button
+              type="submit"
+              className="w-full rounded-md border border-warn px-3 py-1.5 text-xs font-medium text-warn"
+            >
+              Archive deal
+            </button>
+          </form>
+        )}
+      </details>
+
+      {canCreateEstimate && !deal.archived_at && (
         <div className="flex flex-col gap-2">
           <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">
             Estimates

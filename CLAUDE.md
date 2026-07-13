@@ -134,23 +134,22 @@ Do **not** build these now, but do **not** make choices that block them (full de
 
 ---
 
-## CURRENT PHASE — Week 2: Pipeline + Live Estimating (revenue layer)
+## CURRENT PHASE — Week 3: BMR operational system (DEADLINE-DRIVEN)
 
-**Week 1 (Foundation) is COMPLETE** — Supabase Auth, org/tenant model (`organizations` + `org_members` + `tenant_modules`), `my_org_ids()` + `is_platform_admin()`, the entitlement/role-driven shell + tenant switcher, and the seed: StructTech (`internal`, 4 modules: crm/scan/roadmap/delivery) + BMR (`contractor`, 5: crm/estimating/coordination/field/delivery-read-only). All live on the `structtech` project.
+**Weeks 1 & 2 COMPLETE and live** — foundation/auth/multi-tenancy/shell (W1); pipeline for both tenants + BMR live estimating lead→estimate→sign→PDF (W2).
 
-**Goal:** the shared CRM/pipeline (both tenants) + BMR's live on-site estimating (lead → estimate → sign).
+**Why this phase exists / the bar:** BMR (the one signed client, Isaac) must have a **functional system he can actually run real roofing jobs in by end of week**, or the client is at risk. Goal is *usable*, not polished. Cut scope toward "Isaac can operate his post-sale job flow," defer everything else to `docs/BACKLOG.md`.
 
-**Prerequisite — do first:** apply the deferred `org_id` backfill migration (`supabase/migrations/20260711120100_backfill_org_id_crm.sql`) so `deals`/`deal_notes`/`deal_activity`/`follow_ups`/`audit_leads` become org-scoped. Back up first, ask before applying (same as Week 1). It's additive.
+**Priority order (build in this order; ship what's functional):**
+1. **Coordination (`contractor`/BMR)** — the post-sale workflow Isaac needs the day a job signs: signed estimate → **work order** → **material list** → **schedule** (crew + dates). This is #1 because it's the immediate operational gap after Week 2's sign step. Wireframes 1d/2d. Homeowner sign-off gate and material-ready-by-gates-scheduling are nice-to-have — include if cheap, defer if they cost the deadline.
+2. **Field (`contractor`/BMR, mobile)** — crew execution: **Today** job list → **daily check-in** (photos, hours, materials, blockers) → **visual production packet** (job details, photos, callouts). Field-first: outdoor high-contrast, ≥56dp, single thumb column. Wireframe 3a. The full annotated trim-map layer is deferrable; a functional packet (work-order detail + photos + text callouts) is the MVP.
+3. **Delivery / portal — DEFER (slip candidate).** This is StructTech-facing engagement tracking, NOT part of BMR running roofing jobs. Do NOT build it this phase unless 1 and 2 are done with time to spare. Moves to BACKLOG otherwise.
 
-Deliverables:
-1. **Pipeline (`crm`) — serves both tenants.** Per-tenant **stage config** (StructTech's `new_scan…closed_won` vs BMR's `New Lead…Won`) — config-driven, **not** a hardcoded enum. Reuse the existing `deals`/`deal_notes`/`deal_activity`/`follow_ups` tables; org-scope via RLS (`org_id in (select my_org_ids())`). Kanban board + deal detail panel (value, stage, append-only notes + activity, next-action chip, scheduled day-2/day-5 follow-up). Wireframes 1b/2b. Inserts/single-fetches via security-definer RPCs.
-2. **Live estimating (`contractor` / BMR only).** New tables: `estimates`, `estimate_line_items`, `signatures`. Flow: preliminary estimate **generated from the lead** (no re-entry) → on-roof validate & adjust → line-item present → sign (mobile; reuse pdf-lib + sign-token patterns). Field-first: outdoor high-contrast, ≥56dp. Wireframes 1c/2c.
-   - **`estimate_line_items` carries a nullable `product_id`** (SCOPE §12B) — catalogs/shop plug in later; lines are not free-text only.
-   - Snapshot the presented total on the estimate (price-lock habit, SCOPE §12C).
+**Data model (extend, org-scoped, RLS via `my_org_ids()`, RPCs per patterns):** coordination — `work_orders`, `material_items`, `schedule_blocks`; field — `check_ins`, `production_packets`. New tables (no legacy data) → org_id NOT NULL, clean `my_org_ids()` RLS, no `is_staff()` layering.
 
-**Done =** in BMR, a lead moves across the pipeline → an estimate is generated from it → validated → presented with line items → signed on a phone. StructTech's own pipeline works with its own stages on the same board component.
+**Done (deadline definition) =** in BMR: a signed estimate becomes a work order → materials + a schedule; the crew opens a Today list, submits a daily check-in, and views a production packet for a job. All on live data, usable on a phone.
 
-Do **not** build coordination, field, `proposals`, or the shop this phase. `proposals` (StructTech's quote + Present Mode) is queued next, separate from contractor estimating.
+**Pace note:** aggressive deadline — keep tight review on migrations/RLS (the risky part), move faster on UI. Defer polish and delivery/portal before cutting into coordination or field. Consult `docs/BACKLOG.md` for what's already deferred.
 
 ---
 
@@ -160,3 +159,4 @@ Do **not** build coordination, field, `proposals`, or the shop this phase. `prop
 - RLS verified: a user in org A cannot read org B's rows (write an explicit check).
 - Matches the locked hi-fi visually.
 - Behavior confirmed with the user before anything ambiguous ships.
+- **Full user CRUD (SCOPE §2.6):** every entity the phase creates can be **edited and deleted/archived/voided by the user in the UI** — not just created and advanced. If the user could make it, the user can fix or remove it, without a developer or SQL. No create-only happy paths.

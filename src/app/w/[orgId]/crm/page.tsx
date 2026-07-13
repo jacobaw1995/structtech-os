@@ -48,6 +48,7 @@ export default async function CrmPage({
       .from("deals")
       .select("*")
       .eq("org_id", params.orgId)
+      .is("archived_at", null)
       .order("created_at", { ascending: true }),
   ]);
 

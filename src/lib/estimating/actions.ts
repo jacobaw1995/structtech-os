@@ -214,3 +214,74 @@ export async function signEstimate(formData: FormData) {
   revalidateEstimate(orgId, estimateId);
   redirect(estimateHref(orgId, estimateId, 4));
 }
+
+export async function updateEstimateContact(formData: FormData) {
+  const orgId = requireString(formData, "orgId");
+  const estimateId = requireString(formData, "estimateId");
+
+  const supabase = createClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) redirect("/login");
+
+  const { error } = await supabase.rpc("update_estimate_contact", {
+    p_estimate_id: estimateId,
+    p_contact_name: optionalString(formData, "contact_name"),
+    p_company: optionalString(formData, "company"),
+    p_phone: optionalString(formData, "phone"),
+    p_email: optionalString(formData, "email"),
+  });
+
+  if (error) {
+    redirect(estimateHref(orgId, estimateId, 1, error.message));
+  }
+
+  revalidateEstimate(orgId, estimateId);
+  redirect(estimateHref(orgId, estimateId, 1));
+}
+
+export async function voidEstimate(formData: FormData) {
+  const orgId = requireString(formData, "orgId");
+  const estimateId = requireString(formData, "estimateId");
+
+  const supabase = createClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) redirect("/login");
+
+  const { error } = await supabase.rpc("void_estimate", {
+    p_estimate_id: estimateId,
+  });
+
+  if (error) {
+    redirect(estimateHref(orgId, estimateId, 1, error.message));
+  }
+
+  revalidateEstimate(orgId, estimateId);
+  redirect(estimateHref(orgId, estimateId, 1));
+}
+
+export async function deleteEstimate(formData: FormData) {
+  const orgId = requireString(formData, "orgId");
+  const estimateId = requireString(formData, "estimateId");
+
+  const supabase = createClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) redirect("/login");
+
+  const { error } = await supabase.rpc("delete_estimate", {
+    p_estimate_id: estimateId,
+  });
+
+  if (error) {
+    redirect(estimateHref(orgId, estimateId, 1, error.message));
+  }
+
+  // Unlike the other estimate actions, the row is gone — nothing left at
+  // estimateHref to revalidate into. Back to the list.
+  redirect(`/w/${orgId}/estimating`);
+}
