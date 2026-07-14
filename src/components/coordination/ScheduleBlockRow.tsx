@@ -31,12 +31,18 @@ export function ScheduleBlockRow({
   }
 
   return (
+    // Same mobile stacking as MaterialItemRow: crew name gets its own
+    // full-width row, start/end dates share a second row, delete on its
+    // own row — three roughly-equal-width fields plus delete were
+    // overflowing a phone-width line. sm:contents collapses the date
+    // wrapper back into the form's direct flex children at desktop size,
+    // reproducing the original single-line layout exactly.
     <div className="flex flex-col gap-1 border-b border-border py-2 last:border-b-0">
-      <div className="flex items-center gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <form
           ref={formRef}
           action={updateScheduleBlock}
-          className="flex flex-1 flex-wrap items-center gap-2"
+          className="flex flex-1 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center"
         >
           <input type="hidden" name="orgId" value={orgId} />
           <input type="hidden" name="workOrderId" value={workOrderId} />
@@ -46,34 +52,36 @@ export function ScheduleBlockRow({
             defaultValue={block.crew_name}
             disabled={isPending}
             onBlur={submit}
-            className="w-28 rounded-md border border-border bg-bg px-2 py-2 text-sm text-text outline-none focus:border-accent disabled:opacity-60"
+            className="min-h-14 w-full rounded-md border border-border bg-bg px-2 text-base text-text outline-none focus:border-accent disabled:opacity-60 sm:min-h-0 sm:w-28 sm:py-2 sm:text-sm"
           />
-          <input
-            name="start_date"
-            type="date"
-            defaultValue={block.start_date}
-            disabled={isPending}
-            onBlur={submit}
-            className="rounded-md border border-border bg-bg px-1 py-2 text-sm text-text outline-none focus:border-accent disabled:opacity-60"
-          />
-          <span className="text-muted">–</span>
-          <input
-            name="end_date"
-            type="date"
-            defaultValue={block.end_date}
-            disabled={isPending}
-            onBlur={submit}
-            className="rounded-md border border-border bg-bg px-1 py-2 text-sm text-text outline-none focus:border-accent disabled:opacity-60"
-          />
+          <div className="flex items-center gap-2 sm:contents">
+            <input
+              name="start_date"
+              type="date"
+              defaultValue={block.start_date}
+              disabled={isPending}
+              onBlur={submit}
+              className="min-h-14 flex-1 rounded-md border border-border bg-bg px-1 text-base text-text outline-none focus:border-accent disabled:opacity-60 sm:min-h-0 sm:w-auto sm:flex-none sm:py-2 sm:text-sm"
+            />
+            <span className="text-muted">–</span>
+            <input
+              name="end_date"
+              type="date"
+              defaultValue={block.end_date}
+              disabled={isPending}
+              onBlur={submit}
+              className="min-h-14 flex-1 rounded-md border border-border bg-bg px-1 text-base text-text outline-none focus:border-accent disabled:opacity-60 sm:min-h-0 sm:w-auto sm:flex-none sm:py-2 sm:text-sm"
+            />
+          </div>
         </form>
-        <form action={deleteScheduleBlock}>
+        <form action={deleteScheduleBlock} className="self-end sm:self-auto">
           <input type="hidden" name="orgId" value={orgId} />
           <input type="hidden" name="workOrderId" value={workOrderId} />
           <input type="hidden" name="scheduleBlockId" value={block.id} />
           <button
             type="submit"
             aria-label="Remove schedule block"
-            className="h-9 w-9 shrink-0 text-muted hover:text-warn"
+            className="flex h-14 w-14 shrink-0 items-center justify-center text-muted hover:text-warn sm:h-9 sm:w-9"
           >
             ✕
           </button>

@@ -134,14 +134,22 @@ export function StepValidate({
         </div>
       </div>
 
-      {canContinue && (
+      <div className="flex gap-2">
         <Link
-          href={`/w/${orgId}/estimating/${estimate.id}?step=3`}
-          className="flex min-h-14 items-center justify-center rounded-lg bg-accent-strong text-base font-medium text-white"
+          href={`/w/${orgId}/estimating/${estimate.id}?step=1`}
+          className="flex min-h-14 items-center justify-center rounded-lg border border-border px-5 text-base font-medium text-text group-data-[outdoor=true]/flow:border-white/40 group-data-[outdoor=true]/flow:text-white"
         >
-          Continue to present
+          ← Back
         </Link>
-      )}
+        {canContinue && (
+          <Link
+            href={`/w/${orgId}/estimating/${estimate.id}?step=3`}
+            className="flex min-h-14 flex-1 items-center justify-center rounded-lg bg-accent-strong text-base font-medium text-white"
+          >
+            Continue to present
+          </Link>
+        )}
+      </div>
     </div>
   );
 }

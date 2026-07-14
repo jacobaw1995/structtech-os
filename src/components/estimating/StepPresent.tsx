@@ -64,25 +64,33 @@ export function StepPresent({
         </div>
       </div>
 
-      {isPresented ? (
+      <div className="flex gap-2">
         <Link
-          href={`/w/${orgId}/estimating/${estimate.id}?step=4`}
-          className="flex min-h-14 items-center justify-center rounded-lg bg-accent-strong text-base font-medium text-white"
+          href={`/w/${orgId}/estimating/${estimate.id}?step=2`}
+          className="flex min-h-14 items-center justify-center rounded-lg border border-border px-5 text-base font-medium text-text group-data-[outdoor=true]/flow:border-white/40 group-data-[outdoor=true]/flow:text-white"
         >
-          Continue to sign
+          ← Back
         </Link>
-      ) : (
-        <form action={presentEstimate}>
-          <input type="hidden" name="orgId" value={orgId} />
-          <input type="hidden" name="estimateId" value={estimate.id} />
-          <button
-            type="submit"
-            className="flex min-h-14 w-full items-center justify-center rounded-lg bg-accent-strong text-base font-medium text-white"
+        {isPresented ? (
+          <Link
+            href={`/w/${orgId}/estimating/${estimate.id}?step=4`}
+            className="flex min-h-14 flex-1 items-center justify-center rounded-lg bg-accent-strong text-base font-medium text-white"
           >
-            Present to client
-          </button>
-        </form>
-      )}
+            Continue to sign
+          </Link>
+        ) : (
+          <form action={presentEstimate} className="flex-1">
+            <input type="hidden" name="orgId" value={orgId} />
+            <input type="hidden" name="estimateId" value={estimate.id} />
+            <button
+              type="submit"
+              className="flex min-h-14 w-full items-center justify-center rounded-lg bg-accent-strong text-base font-medium text-white"
+            >
+              Present to client
+            </button>
+          </form>
+        )}
+      </div>
     </div>
   );
 }

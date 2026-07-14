@@ -6,10 +6,11 @@ import Link from "next/link";
 // Generalized version of EstimateFlowShell's pattern (single thumb column,
 // capped phone width, group-data-[outdoor=true]/field:* CSS variant driven
 // by a data-outdoor attribute) — reused by both the Today page (no tabs)
-// and the job-detail page (Check-in/Packet tabs). The one real difference
-// from estimating: outdoor defaults ON here (SCOPE.md "outdoor is the
-// field-role default"), not off — a crew member's very first screen should
-// already be in high-contrast mode, not require an extra tap.
+// and the job-detail page (Check-in/Packet tabs). Outdoor defaults OFF
+// (CLAUDE.md, updated 7/13 per Jacob) — normal light theme on load, crew
+// toggles it on if they need the high-contrast view. Same default as
+// EstimateFlowShell now, just kept as its own component since Field still
+// needs the Today-page (no-tabs) variant estimating doesn't have.
 export function FieldShell({
   backHref,
   backLabel,
@@ -21,7 +22,7 @@ export function FieldShell({
   tabs?: { label: string; href: string; active: boolean }[];
   children: React.ReactNode;
 }) {
-  const [outdoor, setOutdoor] = useState(true);
+  const [outdoor, setOutdoor] = useState(false);
 
   return (
     <div

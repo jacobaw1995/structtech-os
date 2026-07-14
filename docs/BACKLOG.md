@@ -104,6 +104,27 @@ depend on the Twilio/Gmail integrations, SCOPE §13).
 
 ---
 
+## From phone testing (7/13) — UX, scheduling, docs
+
+- **Estimate wizard: back navigation** *(fixing near-term — real bug)* — the
+  preliminary→validate→present→sign flow has no way back; missing a field before advancing
+  forces starting a whole new estimate. Add back/step navigation (steps stay editable until
+  `present_estimate` locks them).
+- **Coordination detail: mobile layout** *(fixing near-term)* — material rows (name/qty/date/×)
+  and schedule crew+date fields are cramped/jammed on a phone. Stack/wrap for narrow viewports.
+- **Cross-job crew schedule / Gantt (VITAL — operational, not visual polish)** — a master,
+  company-wide timeline across ALL jobs and crews: see when a job ends so the right crew is
+  ready for the next, spot gaps/overlaps, and see at a glance which crew is on which job now
+  and where they'll be later. The current **per-work-order** crew+dates list does NOT give
+  this cross-job resource view — this is a distinct master-schedule view/dashboard.
+  Deferrable short-term (small crew) but a real need, priority for the scheduling-depth pass.
+  (Stack: DHTMLX Gantt PRO decided for enterprise; portal has a deferred lightweight SVG Gantt.)
+- **Docs section** — one place to view / download / send work orders + estimates (signed or
+  not), later invoices + packets. Ties to the tenant-customizable document-template system
+  (SCOPE §12E). Jacob: "add to later build if needed."
+
+---
+
 ## Larger future capabilities (already recorded — SCOPE §12 North Star / §13)
 
 - Editable document-template system + **invoices** + **work orders** (SCOPE §12E).

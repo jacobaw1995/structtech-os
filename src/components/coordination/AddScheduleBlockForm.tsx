@@ -8,9 +8,12 @@ export function AddScheduleBlockForm({
   workOrderId: string;
 }) {
   return (
+    // Same mobile stacking as ScheduleBlockRow: crew name on its own row,
+    // dates share a second row, the add button on its own row (three
+    // fields plus button don't fit a phone-width line together).
     <form
       action={addScheduleBlock}
-      className="flex flex-wrap items-center gap-2 border-t border-border pt-2"
+      className="flex flex-col gap-2 border-t border-border pt-2 sm:flex-row sm:flex-wrap sm:items-center"
     >
       <input type="hidden" name="orgId" value={orgId} />
       <input type="hidden" name="workOrderId" value={workOrderId} />
@@ -18,25 +21,27 @@ export function AddScheduleBlockForm({
         name="crew_name"
         required
         placeholder="Crew…"
-        className="w-28 rounded-md border border-border bg-bg px-2 py-2 text-sm text-text outline-none focus:border-accent"
+        className="min-h-14 w-full rounded-md border border-border bg-bg px-2 text-base text-text outline-none focus:border-accent sm:min-h-0 sm:w-28 sm:py-2 sm:text-sm"
       />
-      <input
-        name="start_date"
-        type="date"
-        required
-        className="rounded-md border border-border bg-bg px-1 py-2 text-sm text-text outline-none focus:border-accent"
-      />
-      <span className="text-muted">–</span>
-      <input
-        name="end_date"
-        type="date"
-        required
-        className="rounded-md border border-border bg-bg px-1 py-2 text-sm text-text outline-none focus:border-accent"
-      />
+      <div className="flex items-center gap-2 sm:contents">
+        <input
+          name="start_date"
+          type="date"
+          required
+          className="min-h-14 flex-1 rounded-md border border-border bg-bg px-1 text-base text-text outline-none focus:border-accent sm:min-h-0 sm:w-auto sm:flex-none sm:py-2 sm:text-sm"
+        />
+        <span className="text-muted">–</span>
+        <input
+          name="end_date"
+          type="date"
+          required
+          className="min-h-14 flex-1 rounded-md border border-border bg-bg px-1 text-base text-text outline-none focus:border-accent sm:min-h-0 sm:w-auto sm:flex-none sm:py-2 sm:text-sm"
+        />
+      </div>
       <button
         type="submit"
         aria-label="Add schedule block"
-        className="h-9 w-9 shrink-0 rounded-md bg-accent-strong text-sm font-medium text-white"
+        className="flex h-14 w-14 shrink-0 items-center justify-center self-end rounded-md bg-accent-strong text-base font-medium text-white sm:h-9 sm:w-9 sm:self-auto sm:text-sm"
       >
         +
       </button>

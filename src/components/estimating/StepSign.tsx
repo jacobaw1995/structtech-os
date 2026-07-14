@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRef, useState, useTransition } from "react";
 import { signEstimate } from "@/lib/estimating/actions";
 import { createWorkOrderFromEstimate } from "@/lib/coordination/actions";
@@ -161,6 +162,13 @@ export function StepSign({
           </select>
         </label>
       </div>
+
+      <Link
+        href={`/w/${orgId}/estimating/${estimate.id}?step=3`}
+        className="flex min-h-14 items-center justify-center rounded-lg border border-border text-base font-medium text-text group-data-[outdoor=true]/flow:border-white/40 group-data-[outdoor=true]/flow:text-white"
+      >
+        ← Back
+      </Link>
 
       <button
         type="button"

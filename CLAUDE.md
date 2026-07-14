@@ -106,7 +106,7 @@ Map these into the Tailwind theme / CSS variables. Pull exact spacing/radius fro
 
 - **Fonts:** IBM Plex Sans (UI) · IBM Plex Mono (money, measurements, IDs) · IBM Plex Serif (client-portal headings only).
 - **Accessibility:** small white-text buttons/chips use **`--accent-strong`**, not `--accent` (AA contrast). `--accent` is fine for large text and fills.
-- **Field & estimating (mobile):** outdoor high-contrast mode (black bg) is the **default** for the crew role; **≥56dp touch targets**; single thumb column; never show pipeline or dollar figures in the `field` role.
+- **Field & estimating (mobile):** outdoor high-contrast mode (black bg) is **available via a toggle, NOT default-on** (updated 7/13 per Jacob — crews switch it on if they need it; default to the normal light theme); **≥56dp touch targets**; single thumb column; never show pipeline or dollar figures in the `field` role.
 - **Sync status** is a first-class UI element on all field screens (offline / syncing / synced) — offline-first is a core principle.
 
 ---

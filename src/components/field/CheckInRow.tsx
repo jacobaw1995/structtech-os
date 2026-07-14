@@ -31,7 +31,8 @@ export function CheckInRow({
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border-2 border-border bg-surface p-4 group-data-[outdoor=true]/field:border-white/30 group-data-[outdoor=true]/field:bg-black">
+    // Same tightened rhythm as AddCheckInForm — see that file's comment.
+    <div className="flex flex-col gap-2.5 rounded-xl border border-border bg-surface p-3 group-data-[outdoor=true]/field:border-white/30 group-data-[outdoor=true]/field:bg-black">
       <div className="flex items-center justify-between">
         <span className="text-xs uppercase tracking-wide text-muted group-data-[outdoor=true]/field:text-white/60">
           {formatDateOnly(checkIn.check_in_date)}
@@ -50,13 +51,13 @@ export function CheckInRow({
         </form>
       </div>
 
-      <form ref={formRef} action={updateCheckIn} className="flex flex-col gap-3">
+      <form ref={formRef} action={updateCheckIn} className="flex flex-col gap-2.5">
         <input type="hidden" name="orgId" value={orgId} />
         <input type="hidden" name="workOrderId" value={workOrderId} />
         <input type="hidden" name="checkInId" value={checkIn.id} />
 
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-muted group-data-[outdoor=true]/field:text-white/70">Crew</span>
+        <label className="flex flex-col gap-1">
+          <span className="text-xs font-medium text-muted group-data-[outdoor=true]/field:text-white/70">Crew</span>
           <input
             name="crew_name"
             defaultValue={checkIn.crew_name}
@@ -66,11 +67,12 @@ export function CheckInRow({
           />
         </label>
 
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-muted group-data-[outdoor=true]/field:text-white/70">Hours</span>
+        <label className="flex flex-col gap-1">
+          <span className="text-xs font-medium text-muted group-data-[outdoor=true]/field:text-white/70">Hours</span>
           <input
             name="hours"
             type="number"
+            inputMode="decimal"
             step="any"
             defaultValue={checkIn.hours}
             disabled={isPending}
@@ -79,8 +81,8 @@ export function CheckInRow({
           />
         </label>
 
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-muted group-data-[outdoor=true]/field:text-white/70">Materials used</span>
+        <label className="flex flex-col gap-1">
+          <span className="text-xs font-medium text-muted group-data-[outdoor=true]/field:text-white/70">Materials used</span>
           <input
             name="materials_used"
             defaultValue={checkIn.materials_used ?? ""}
@@ -91,8 +93,8 @@ export function CheckInRow({
           />
         </label>
 
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-muted group-data-[outdoor=true]/field:text-white/70">Blockers</span>
+        <label className="flex flex-col gap-1">
+          <span className="text-xs font-medium text-muted group-data-[outdoor=true]/field:text-white/70">Blockers</span>
           <input
             name="blockers"
             defaultValue={checkIn.blockers ?? ""}
