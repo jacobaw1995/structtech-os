@@ -134,22 +134,26 @@ Do **not** build these now, but do **not** make choices that block them (full de
 
 ---
 
-## CURRENT PHASE — Week 3: BMR operational system (DEADLINE-DRIVEN)
+## CURRENT PHASE — CRM Depth (turn the pipeline into a real CRM)
 
-**Weeks 1 & 2 COMPLETE and live** — foundation/auth/multi-tenancy/shell (W1); pipeline for both tenants + BMR live estimating lead→estimate→sign→PDF (W2).
+**Weeks 1–3 COMPLETE and live at os.structek.com** — foundation/auth/multi-tenancy/shell (W1); pipeline both tenants + BMR live estimating (W2); BMR coordination + field + management-controls retrofit (W3). All the create/edit/delete controls exist per §2.6.
 
-**Why this phase exists / the bar:** BMR (the one signed client, Isaac) must have a **functional system he can actually run real roofing jobs in by end of week**, or the client is at risk. Goal is *usable*, not polished. Cut scope toward "Isaac can operate his post-sale job flow," defer everything else to `docs/BACKLOG.md`.
+**Why this phase exists:** what shipped for `crm` is a thin **sales-pipeline view**, not a CRM. Isaac is currently on the BMR app (which he's outgrowing) and StructTech OS's CRM must not be a downgrade. **Full requirements + grounding: `docs/reference/CRM_DEPTH_REQUIREMENTS.md`** — adopt the BMR spec's *features & logic*, NOT its UI/UX/workflow (design fresh from the hi-fi). Every entity gets full CRUD (§2.6).
 
-**Priority order (build in this order; ship what's functional):**
-1. **Coordination (`contractor`/BMR)** — the post-sale workflow Isaac needs the day a job signs: signed estimate → **work order** → **material list** → **schedule** (crew + dates). This is #1 because it's the immediate operational gap after Week 2's sign step. Wireframes 1d/2d. Homeowner sign-off gate and material-ready-by-gates-scheduling are nice-to-have — include if cheap, defer if they cost the deadline.
-2. **Field (`contractor`/BMR, mobile)** — crew execution: **Today** job list → **daily check-in** (photos, hours, materials, blockers) → **visual production packet** (job details, photos, callouts). Field-first: outdoor high-contrast, ≥56dp, single thumb column. Wireframe 3a. The full annotated trim-map layer is deferrable; a functional packet (work-order detail + photos + text callouts) is the MVP.
-3. **Delivery / portal — DEFER (slip candidate).** This is StructTech-facing engagement tracking, NOT part of BMR running roofing jobs. Do NOT build it this phase unless 1 and 2 are done with time to spare. Moves to BACKLOG otherwise.
+**Build in this staged order (each its own reviewable stage; migrations reviewed tight, UI faster):**
 
-**Data model (extend, org-scoped, RLS via `my_org_ids()`, RPCs per patterns):** coordination — `work_orders`, `material_items`, `schedule_blocks`; field — `check_ins`, `production_packets`. New tables (no legacy data) → org_id NOT NULL, clean `my_org_ids()` RLS, no `is_staff()` layering.
+1. **Contact & address data — FOUNDATIONAL, do first.** A lead with no contact info or job address isn't a CRM (and blocks a real estimate). Additive migration extending `deals`: `lead_type` (homeowner/company), `project_address`, `billing_address` (confirm cell/email already present). Wire `create_estimate_from_deal` to carry `project_address` → **fixes the estimate's on-roof address re-entry gap.** Build a real new-lead form (name, cell, email, company-if-applicable, project + billing address, lead type, source) and surface + make all of it editable in the deal panel.
+2. **Ownership & attribution.** Assign a lead to a user (owner): claim / assign / reassign. **Actor identity on every note + activity row** (`created_by`) — "X changed stage," not just when. Edit-by-ownership: owner or a manager/admin role can change stage/value/profile. (Uses real user accounts — see crew/office accounts in BACKLOG.)
+3. **Scheduling (appointments / site visits).** New `appointments` (deal-linked): type (`site_survey`/`inspection`), `scheduled_at`, duration, status (scheduled/completed/cancelled/no_show). CRUD + a schedule-a-visit UI on the lead. (Google Calendar *sync* is a later integration, SCOPE §13 — build the data + UI now.)
+4. **Views & quick actions.** A **table view** and a **calendar view** for the CRM (alongside kanban). Quick actions inside a lead: **tap-to-call (`tel:`), text (`sms:`), email (`mailto:`)** — native links work now; integrated logging/automation (Twilio/Gmail) is later per §13.
 
-**Done (deadline definition) =** in BMR: a signed estimate becomes a work order → materials + a schedule; the crew opens a Today list, submits a daily check-in, and views a production packet for a job. All on live data, usable on a phone.
+**Roles:** salesman / manager tiers thread through Stage 2 — map onto the existing role model (SCOPE §5: manager ≈ office/admin/owner; add a dedicated sales role if needed).
 
-**Pace note:** aggressive deadline — keep tight review on migrations/RLS (the risky part), move faster on UI. Defer polish and delivery/portal before cutting into coordination or field. Consult `docs/BACKLOG.md` for what's already deferred.
+**Deferred to later (integration-dependent, already in BACKLOG/§13):** automated SMS (Twilio), email-sequence sending (Gmail/Make), two-way calendar sync (Google Calendar).
+
+**Done =** a BMR lead holds full customer data (contact, type, project + billing address), the estimate no longer re-asks for the address, leads can be owned/assigned with attributed history, a site visit can be scheduled, and the CRM is viewable as kanban / table / calendar with call/text/email at hand — all editable/deletable per §2.6, fresh UI, not the BMR app's UX.
+
+**Start next session with Stage 1.** Pace: same as Week 3 — tight review on migrations/RLS, faster on UI.
 
 ---
 
