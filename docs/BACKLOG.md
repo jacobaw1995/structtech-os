@@ -90,6 +90,20 @@ depend on the Twilio/Gmail integrations, SCOPE §13).
 
 ---
 
+## Deferred from CRM Depth Stage 1 (contact & address data, 7/14)
+
+- **Structured/geocoded project address** — `deals.project_address` ships Stage 1 as plain
+  free text (matches the existing `estimates.site_address` precedent). It will want to become
+  structured (street/city/state/zip) and geocoded later: EagleView aerial measurement
+  (BUILD_PLAN/SCOPE §13 runner-up) needs a real address to query, and crew routing wants
+  coordinates, not a string. Not blocking Stage 1 — noted so the free-text choice doesn't
+  quietly calcify.
+- **Conditional "Company" field by lead type** — the new-lead form always shows Company
+  (labeled "if applicable") regardless of homeowner/company selection, rather than
+  show/hiding it via client JS keyed off `lead_type`. Cheap polish for later, not Stage 1.
+
+---
+
 ## Security workstream (REQUIRED before any client user gets a login — SCOPE §11)
 
 - Tighten `audit_leads` "authenticated read = true" policy — currently any logged-in
@@ -119,6 +133,11 @@ depend on the Twilio/Gmail integrations, SCOPE §13).
   this cross-job resource view — this is a distinct master-schedule view/dashboard.
   Deferrable short-term (small crew) but a real need, priority for the scheduling-depth pass.
   (Stack: DHTMLX Gantt PRO decided for enterprise; portal has a deferred lightweight SVG Gantt.)
+- **Intermittent session bounce to `/select-workspace` (INVESTIGATE — real-user risk)** —
+  recurs across sessions: a mid-interaction request occasionally redirects to the workspace
+  picker (looks like a transient session/auth-refresh miss in middleware or `getSession`).
+  Harmless in testing (re-navigate), but a user bounced mid-form loses their input. Not a
+  one-off — worth a real root-cause pass (middleware refresh timing / cookie race).
 - **Docs section** — one place to view / download / send work orders + estimates (signed or
   not), later invoices + packets. Ties to the tenant-customizable document-template system
   (SCOPE §12E). Jacob: "add to later build if needed."

@@ -346,6 +346,7 @@ export type Database = {
       deals: {
         Row: {
           archived_at: string | null
+          billing_address: string | null
           closed_at: string | null
           company: string | null
           contact_name: string
@@ -354,9 +355,11 @@ export type Database = {
           email: string | null
           id: string
           lead_id: string | null
+          lead_type: string | null
           lost_reason: string | null
           org_id: string | null
           phone: string | null
+          project_address: string | null
           proposal_notes: string | null
           proposal_tier: string | null
           source: string | null
@@ -367,6 +370,7 @@ export type Database = {
         }
         Insert: {
           archived_at?: string | null
+          billing_address?: string | null
           closed_at?: string | null
           company?: string | null
           contact_name: string
@@ -375,9 +379,11 @@ export type Database = {
           email?: string | null
           id?: string
           lead_id?: string | null
+          lead_type?: string | null
           lost_reason?: string | null
           org_id?: string | null
           phone?: string | null
+          project_address?: string | null
           proposal_notes?: string | null
           proposal_tier?: string | null
           source?: string | null
@@ -388,6 +394,7 @@ export type Database = {
         }
         Update: {
           archived_at?: string | null
+          billing_address?: string | null
           closed_at?: string | null
           company?: string | null
           contact_name?: string
@@ -396,9 +403,11 @@ export type Database = {
           email?: string | null
           id?: string
           lead_id?: string | null
+          lead_type?: string | null
           lost_reason?: string | null
           org_id?: string | null
           phone?: string | null
+          project_address?: string | null
           proposal_notes?: string | null
           proposal_tier?: string | null
           source?: string | null
@@ -2005,12 +2014,15 @@ export type Database = {
       }
       create_deal: {
         Args: {
+          p_billing_address?: string
           p_company?: string
           p_contact_name: string
           p_crew_size?: number
           p_email?: string
+          p_lead_type?: string
           p_org_id: string
           p_phone?: string
+          p_project_address?: string
           p_source?: string
           p_trade?: string
           p_value?: number
@@ -2095,6 +2107,7 @@ export type Database = {
         Args: { p_deal_id: string }
         Returns: {
           archived_at: string | null
+          billing_address: string | null
           closed_at: string | null
           company: string | null
           contact_name: string
@@ -2103,9 +2116,11 @@ export type Database = {
           email: string | null
           id: string
           lead_id: string | null
+          lead_type: string | null
           lost_reason: string | null
           org_id: string | null
           phone: string | null
+          project_address: string | null
           proposal_notes: string | null
           proposal_tier: string | null
           source: string | null
@@ -2277,12 +2292,15 @@ export type Database = {
       }
       update_deal_details: {
         Args: {
+          p_billing_address?: string
           p_company?: string
           p_contact_name?: string
           p_crew_size?: number
           p_deal_id: string
           p_email?: string
+          p_lead_type?: string
           p_phone?: string
+          p_project_address?: string
           p_trade?: string
           p_value?: number
         }

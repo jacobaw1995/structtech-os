@@ -45,6 +45,10 @@ export async function createDeal(formData: FormData) {
     p_phone: optionalString(formData, "phone"),
     p_value: rawValue ? Number(rawValue) : undefined,
     p_trade: optionalString(formData, "trade"),
+    p_source: optionalString(formData, "source"),
+    p_lead_type: optionalString(formData, "lead_type"),
+    p_project_address: requireString(formData, "project_address"),
+    p_billing_address: optionalString(formData, "billing_address"),
   });
 
   if (error) {
@@ -123,6 +127,9 @@ export async function updateDealDetails(formData: FormData) {
     p_value: optionalNumber(formData, "value"),
     p_trade: optionalString(formData, "trade"),
     p_crew_size: optionalNumber(formData, "crew_size"),
+    p_lead_type: optionalString(formData, "lead_type"),
+    p_project_address: optionalString(formData, "project_address"),
+    p_billing_address: optionalString(formData, "billing_address"),
   });
 
   if (error) {

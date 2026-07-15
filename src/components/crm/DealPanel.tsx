@@ -90,6 +90,21 @@ export function DealPanel({
         </Link>
       </div>
 
+      {/* Surfaced, not buried in the edit form — CRM Depth Stage 1 asks for
+          lead type + project address to be visible at a glance. */}
+      {(deal.lead_type || deal.project_address) && (
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          {deal.lead_type && (
+            <span className="w-fit rounded-full bg-accent-soft px-2 py-0.5 font-medium text-accent-strong">
+              {deal.lead_type === "homeowner" ? "Homeowner" : "Company"}
+            </span>
+          )}
+          {deal.project_address && (
+            <span className="text-muted">{deal.project_address}</span>
+          )}
+        </div>
+      )}
+
       {errorMessage && (
         <p className="rounded-md bg-warn-soft px-3 py-2 text-xs text-text">
           {errorMessage}
@@ -183,7 +198,7 @@ export function DealPanel({
               />
             </label>
             <label className="flex flex-col gap-1 text-xs">
-              <span className="text-muted">Phone</span>
+              <span className="text-muted">Cell phone</span>
               <input
                 name="phone"
                 defaultValue={deal.phone ?? ""}
@@ -191,6 +206,35 @@ export function DealPanel({
               />
             </label>
           </div>
+          <label className="flex flex-col gap-1 text-xs">
+            <span className="text-muted">Lead type</span>
+            <select
+              name="lead_type"
+              defaultValue={deal.lead_type ?? ""}
+              className="rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-text outline-none focus:border-accent"
+            >
+              <option value="">—</option>
+              <option value="homeowner">Homeowner</option>
+              <option value="company">Company</option>
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 text-xs">
+            <span className="text-muted">Project address</span>
+            <input
+              name="project_address"
+              defaultValue={deal.project_address ?? ""}
+              className="rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-text outline-none focus:border-accent"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-xs">
+            <span className="text-muted">Billing address</span>
+            <input
+              name="billing_address"
+              defaultValue={deal.billing_address ?? ""}
+              placeholder="Same as project address if blank"
+              className="rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-text outline-none focus:border-accent"
+            />
+          </label>
           <div className="grid grid-cols-3 gap-2">
             <label className="col-span-1 flex flex-col gap-1 text-xs">
               <span className="text-muted">Value</span>
