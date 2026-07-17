@@ -106,17 +106,29 @@ This is the definition-of-done for Track A.
 
 ## Track B — Accounts (after A is advisor-clean)
 
-**B1. Guarantee a profile per auth user (the flagged prerequisite).** Trigger on
-`auth.users` insert → insert a `profiles` row (NULL-safe, idempotent). **Backfill** the one
-orphan (`jacobaw1995@gmail.com`) so `auth.users` and `profiles` reconcile. Without this,
-ownership/attribution silently drops unprofiled users.
+Confirmed schema (7/17): `profiles` = `id`, **`full_name` NOT NULL, `email` NOT NULL**, `role`
+`pipeline_user_role` (enum: `salesman`/`manager`, default `salesman`). `org_members.role` CHECK =
+`owner`/`admin`/`office`/`field`/`client_portal_viewer`/`agency_admin`/`member`. **No trigger exists
+on `auth.users` today** (why `jacobaw1995` has no profile). Post-Track-A, nothing references
+`is_pipeline_user()`/`is_pipeline_manager()` — a profile alone grants nothing.
 
-**B2. Seed Isaac — as a member, never as staff.** Create Isaac's auth user via **Supabase Auth
-invite** (not a raw `auth.users` insert), which fires the B1 trigger to make his profile, then add
-one `org_members` row: Isaac → BMR org (`9d32b5a9…`), role **`owner`**. Do NOT add him to
-`staff_users` (that's the StructTech platform-admin table and would grant cross-tenant access).
-His BMR-only scope then flows automatically from `my_org_ids()`. Crew logins deferred until they
-actually need one (crew is still free-text `crew_name` per the field module — fine for now).
+**B1. Guarantee a profile per auth user (the flagged prerequisite).** `handle_new_user()`
+SECURITY DEFINER, `SET search_path=public`, `AFTER INSERT ON auth.users FOR EACH ROW` → insert
+`profiles(id, full_name, email)` with `full_name = coalesce(nullif(raw_user_meta_data->>'full_name',''),
+nullif(raw_user_meta_data->>'name',''), email)` (never NULL), `email = new.email`, role default;
+`ON CONFLICT (id) DO NOTHING`. **Backfill generically** (not hardcoded): insert profiles for every
+`auth.users` with no matching row (covers the one orphan). Reconciles auth.users↔profiles. `jacobaw1995`
+has no org membership, so a profile is harmless — but flag to Jacob: keep or delete that stray login.
+
+**B2. Seed Isaac — as a member, never as staff.** Order: (1) apply B1. (2) **Jacob invites Isaac from
+the Supabase Auth dashboard** (Authentication → Users → Invite) — creates the auth user + fires B1 →
+profile auto-created; not a raw `auth.users` insert. (3) SQL inserts one `org_members` row: Isaac →
+BMR org (`9d32b5a9-e11e-401b-8fa7-969065b004ce`), role **`owner`** (look up his id by email). (4) Set
+his `profiles.role = 'manager'` (BMR owner needs manager-level pipeline access for Track C). **Never
+add him to `staff_users`** — that's StructTech platform-admin and grants cross-tenant access. BMR-only
+scope then flows from `my_org_ids()`. (5) Verify: `my_org_ids()` for Isaac = [BMR only]; probe that he
+reads BMR deals but 0 StructTech rows. Needs from Jacob: **Isaac's email + full name.** Crew logins
+deferred (crew stays free-text `crew_name` for now).
 
 ---
 

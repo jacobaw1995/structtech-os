@@ -137,6 +137,26 @@ depend on the Twilio/Gmail integrations, SCOPE §13).
 
 **`client_roadmaps` token-portal leak — its own migration, coordinated with the portal (deferred from Stage 5 Track A, 7/17).** RLS is on but `read roadmap by token` (SELECT) doesn't check the token and `update roadmap milestones` (UPDATE) is `true`/`true` — so anon can read/write **every** roadmap. Deferred from Track A NOT because it's minor (it's a real read/write-all leak on client data) but because **this repo's app never touches `client_roadmaps`** — the external client portal does, and we can't test that codebase here. The correct fix (a security-definer RPC that takes the token + returns/updates only the matching row, or a header/GUC token predicate in the policy) requires a coordinated change to the portal. Not part of the go-live gate: it's pre-existing and Isaac's login doesn't worsen it. **Do soon, with its own reviewed migration + portal coordination + an actual token-flow test.**
 
+**Funnel writes `audit_leads` with `org_id = NULL` (found 7/17 during the Stage 5 smoke-test).**
+New StructTech funnel inserts land tenant-less (6 of 7 existing rows have an org only because an
+earlier migration backfilled them; a fresh test lead came in null). Not a gate breach — null-org
+rows are invisible to org-scoped members (Isaac can't see them) and only surface via the
+`is_staff()` catch-all, which is why they appear across *Jacob's* dual-membership/staff view. Fix:
+the funnel should stamp `org_id = StructTech internal org` on insert; since that's the external
+funnel codebase, stopgap = a `before insert` trigger / default on `audit_leads` setting the
+StructTech org when null (revisit if/when a second tenant gets its own capture funnel — then it must
+route by funnel, not a hardcoded default). Data-routing fix, separate from the Track A security gate. **Root cause confirmed 7/17:** the writer
+is Jacob's *previous standalone StructTech OS app*, still pointed at the same prod DB — it predates
+the org model, so its inserts don't set org_id.
+
+**Old standalone StructTech OS app = a second, ungoverned door into the prod database (strategic,
+pre-scaled-go-live).** The prior StructTech app shares the production Supabase project and reads/writes
+the same tables (audit_leads, audits, prospects, proposals, …) outside the new multi-tenant access
+model. Benign today (only Jacob uses it; he's staff/platform-admin so Track A didn't break his views),
+but it's the unfinished half of the "standalone → one platform" merge. Decide its fate before scaled
+client go-live: decommission (platform absorbs the funnel intake), or migrate its capture path to write
+through the platform (stamping org_id). Until then, the null-org stopgap trigger above covers the data.
+
 Still open, lower priority (post-go-live):
 - Add `NOT NULL` to `deals.org_id` and the CRM/estimating `org_id` columns once RPCs
   are the only insert path.
