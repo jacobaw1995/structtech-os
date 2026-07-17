@@ -123,11 +123,21 @@ depend on the Twilio/Gmail integrations, SCOPE §13).
 
 ## Security workstream (REQUIRED before any client user gets a login — SCOPE §11)
 
-- Tighten `audit_leads` "authenticated read = true" policy — currently any logged-in
-  user can read every lead across all tenants.
-- Migrate legacy tables (`org_systems`, `tickets`, `engagements`, …) off `is_staff()`
-  to the `my_org_ids()` membership model.
-- Enable RLS on `structtech_state`.
+**Now the core of CRM-Depth Stage 5 — full plan + live audit in
+`docs/reference/STAGE5_GOLIVE_GATE.md` (audited 7/17).** Corrections from that audit:
+- RLS is already enabled on ALL public tables incl. `structtech_state` — that item is **done**.
+- The `is_staff()` migration is **mostly unnecessary**: is_staff-only tables are StructTech-internal
+  and correctly staff-gated; core member tables already have `my_org_ids()` policies. Don't blanket-rip.
+- **The real leaks (RLS on, but policy = `true`):** `audit_leads` (SELECT true), `audits`,
+  `proposals`, `prospects` (ALL true), `client_roadmaps` (UPDATE true). PLUS `profiles` +
+  `lead_appointments` gated on `is_pipeline_user()` = "any profiled user" (not org-scoped) — both
+  leak cross-tenant the moment Isaac gets a profile. All re-scoped in Stage 5 Track A.
+- Harden `my_org_ids()` — it's the one helper missing `SET search_path=public`.
+- Advisor re-run is the Track-A definition-of-done.
+
+**`client_roadmaps` token-portal leak — its own migration, coordinated with the portal (deferred from Stage 5 Track A, 7/17).** RLS is on but `read roadmap by token` (SELECT) doesn't check the token and `update roadmap milestones` (UPDATE) is `true`/`true` — so anon can read/write **every** roadmap. Deferred from Track A NOT because it's minor (it's a real read/write-all leak on client data) but because **this repo's app never touches `client_roadmaps`** — the external client portal does, and we can't test that codebase here. The correct fix (a security-definer RPC that takes the token + returns/updates only the matching row, or a header/GUC token predicate in the policy) requires a coordinated change to the portal. Not part of the go-live gate: it's pre-existing and Isaac's login doesn't worsen it. **Do soon, with its own reviewed migration + portal coordination + an actual token-flow test.**
+
+Still open, lower priority (post-go-live):
 - Add `NOT NULL` to `deals.org_id` and the CRM/estimating `org_id` columns once RPCs
   are the only insert path.
 - Replace `tenant_type`-based targeting with `org_id` in seeds/updates once a 2nd
