@@ -150,6 +150,7 @@ export function ChecklistFieldRow({
   const inputWidget = (
     <FieldInput
       field={field}
+      value={value}
       defaultValue={displayValue}
       disabled={isPending}
       onBlur={submit}
@@ -183,6 +184,7 @@ export function ChecklistFieldRow({
 
 function FieldInput({
   field,
+  value,
   defaultValue,
   disabled,
   onBlur,
@@ -191,6 +193,7 @@ function FieldInput({
   remodelOptions,
 }: {
   field: FieldConfig;
+  value: unknown;
   defaultValue: string;
   disabled: boolean;
   onBlur: () => void;
@@ -225,6 +228,31 @@ function FieldInput({
       </select>
     );
   }
+  // Multi-value dropdown for a "roof_types" field once a tenant has seeded
+  // an option list (config.fields[key].options) — falls back to the plain
+  // comma-separated text input below when no options are configured, so
+  // an un-seeded tenant's roof-type fields still work.
+  if (field.type === "roof_types" && field.options && field.options.length > 0) {
+    const selected = Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [];
+    return (
+      <select
+        name="value"
+        multiple
+        autoFocus
+        disabled={disabled}
+        defaultValue={selected}
+        onChange={onBlur}
+        size={Math.min(field.options.length, 6)}
+        className={baseClass}
+      >
+        {field.options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    );
+  }
   if (field.type === "textarea") {
     return (
       <textarea
@@ -241,7 +269,17 @@ function FieldInput({
   }
 
   const inputType =
-    field.type === "number" ? "number" : field.type === "date" ? "date" : field.type === "email" ? "email" : field.type === "phone" ? "tel" : "text";
+    field.type === "number"
+      ? "number"
+      : field.type === "date"
+        ? "date"
+        : field.type === "datetime"
+          ? "datetime-local"
+          : field.type === "email"
+            ? "email"
+            : field.type === "phone"
+              ? "tel"
+              : "text";
 
   return (
     <input

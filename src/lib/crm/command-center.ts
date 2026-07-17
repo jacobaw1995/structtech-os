@@ -60,9 +60,10 @@ export type FieldSourceConfig =
   | { kind: "external" };
 
 // "roof_types"/"address" match the spec's field-type vocabulary exactly;
-// "number"/"date" are additions this module needs for the site-visit
-// scope checklist's measurement fields (sq ft, linear feet, scheduled-at)
-// that the original vital-field type list didn't anticipate.
+// "number"/"date"/"datetime" are additions this module needs for the
+// site-visit scope checklist's measurement fields (sq ft, linear feet)
+// and the site-visit-scheduled field (date+time, not just a date) that
+// the original vital-field type list didn't anticipate.
 export type FieldType =
   | "text"
   | "phone"
@@ -73,7 +74,8 @@ export type FieldType =
   | "address"
   | "readonly"
   | "number"
-  | "date";
+  | "date"
+  | "datetime";
 
 export type FieldConfig = {
   key: string;
@@ -85,6 +87,11 @@ export type FieldConfig = {
   // stage, visit/scope status, last note, outcome) and for general_notes/
   // scope_notes style free text explicitly excluded from completion math.
   countsTowardCompletion: boolean;
+  // Present for "select"/"roof_types" fields a tenant has seeded a fixed
+  // option list for (e.g. BMR's roof-type vocabulary). Absent means the
+  // field falls back to free text — never crash on an unconfigured select.
+  // Same {value,label} shape as LeadTypeOption (declared below).
+  options?: LeadTypeOption[];
 };
 
 export type CommandStageDef = {
@@ -140,11 +147,16 @@ function asBoolean(v: unknown, fallback: boolean): boolean {
 }
 
 const FIELD_TYPES: ReadonlySet<string> = new Set([
-  "text", "phone", "email", "textarea", "select", "roof_types", "address", "readonly", "number", "date",
+  "text", "phone", "email", "textarea", "select", "roof_types", "address", "readonly", "number", "date", "datetime",
 ]);
 
 function asFieldType(v: unknown): FieldType {
   return typeof v === "string" && FIELD_TYPES.has(v) ? (v as FieldType) : "text";
+}
+
+function asOptions(v: unknown): LeadTypeOption[] | undefined {
+  const options = parseLeadTypeOptions(v);
+  return options.length > 0 ? options : undefined;
 }
 
 function parseFieldSource(raw: unknown): FieldSourceConfig {
@@ -165,6 +177,7 @@ function parseFieldSource(raw: unknown): FieldSourceConfig {
 
 function parseField(key: string, raw: unknown): FieldConfig | null {
   if (!isRecord(raw)) return null;
+  const options = asOptions(raw.options);
   return {
     key,
     label: asString(raw.label, key),
@@ -172,6 +185,7 @@ function parseField(key: string, raw: unknown): FieldConfig | null {
     type: asFieldType(raw.type),
     countsTowardCompletion: asBoolean(raw.counts_toward_completion, true),
     source: parseFieldSource(raw.source),
+    ...(options ? { options } : {}),
   };
 }
 

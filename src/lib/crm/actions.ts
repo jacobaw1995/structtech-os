@@ -31,8 +31,16 @@ function optionalNumber(formData: FormData, key: string): number | undefined {
 // subject to update_deal_details' coalesce-keeps-old-value convention the
 // way scalar text params are, so "cleared the box" reads as "clear the
 // tags," matching what a user typing into an empty-looking field expects.
+// A multi-select (roof-type dropdowns with seeded options) submits several
+// form entries under the same name; a free-text fallback (no options
+// configured for that field) submits one comma-separated string. Handle
+// both: >1 entry means real selections, don't comma-split them.
 function tagList(formData: FormData, key: string): string[] {
-  const raw = formData.get(key);
+  const all = formData.getAll(key).filter((v): v is string => typeof v === "string");
+  if (all.length > 1) {
+    return all.map((s) => s.trim()).filter((s) => s.length > 0);
+  }
+  const raw = all[0];
   if (typeof raw !== "string") return [];
   return raw
     .split(",")
@@ -63,7 +71,8 @@ export async function createDeal(formData: FormData) {
 
   const { data: dealId, error } = await supabase.rpc("create_deal", {
     p_org_id: orgId,
-    p_contact_name: requireString(formData, "contact_name"),
+    p_first_name: requireString(formData, "first_name"),
+    p_last_name: optionalString(formData, "last_name"),
     p_company: optionalString(formData, "company"),
     p_email: optionalString(formData, "email"),
     p_phone: optionalString(formData, "phone"),
@@ -71,7 +80,10 @@ export async function createDeal(formData: FormData) {
     p_trade: optionalString(formData, "trade"),
     p_source: optionalString(formData, "source"),
     p_lead_type: optionalString(formData, "lead_type"),
-    p_project_address: requireString(formData, "project_address"),
+    p_service_address_street: requireString(formData, "service_address_street"),
+    p_service_address_city: optionalString(formData, "service_address_city"),
+    p_service_address_state: optionalString(formData, "service_address_state"),
+    p_service_address_zip: optionalString(formData, "service_address_zip"),
     p_billing_address: optionalString(formData, "billing_address"),
   });
 

@@ -61,9 +61,18 @@ export function EditLeadDetailsForm({ orgId, deal }: { orgId: string; deal: Deal
         <Field label="Existing roof type(s)" name="existing_roof_type" defaultValue={(deal.existing_roof_type ?? []).join(", ")} placeholder="Comma-separated" />
         <Field label="Requested roof type(s)" name="roof_type_requested" defaultValue={(deal.roof_type_requested ?? []).join(", ")} placeholder="Comma-separated" />
 
-        <Field label="Project address" name="project_address" defaultValue={deal.project_address ?? ""} />
-        <Field label="Billing address" name="billing_address" defaultValue={deal.billing_address ?? ""} placeholder="Same as project address if blank" />
+        <Field label="Billing address" name="billing_address" defaultValue={deal.billing_address ?? ""} placeholder="Same as service address if blank" />
 
+        {/* project_address is retired as an editable field (SCOPE §2.6: never
+            silently drop user-entered data) — the structured service address
+            below is canonical now. A pre-existing value still surfaces
+            read-only so Isaac can see and copy it into the fields below
+            himself; new/edited deals never write to this column again. */}
+        {deal.project_address && (
+          <p className="rounded-md bg-surface2 px-2 py-1.5 text-xs text-muted">
+            (legacy) {deal.project_address}
+          </p>
+        )}
         <div className="grid grid-cols-4 gap-2">
           <Field label="Service street" name="service_address_street" defaultValue={deal.service_address_street ?? ""} />
           <Field label="City" name="service_address_city" defaultValue={deal.service_address_city ?? ""} />

@@ -161,6 +161,18 @@ depend on the Twilio/Gmail integrations, SCOPE §13).
 
 ---
 
+## From phone testing (7/16) — Lead Control Center fix-pass caveats
+
+- **Roof-type multi-select needs a touch-friendly picker** — the seeded `existing_roof_type` /
+  `roof_type_requested` dropdowns render as a native `<select multiple>`, which requires
+  ctrl/cmd-click on desktop (fine-ish on mobile, which shows a tappable list). Acceptable v1
+  per "editable later via the editor," but a proper chip/checkbox picker is the real fix.
+- **Two legacy BMR deals hold `project_address` only** (no structured address). The read-only
+  "(legacy)" hint in EditLeadDetailsForm surfaces the value so Isaac can re-enter it structured;
+  once he does, the free-text value is unused. Not a migration — just cleanup Isaac can do himself.
+
+---
+
 ## Larger future capabilities (already recorded — SCOPE §12 North Star / §13)
 
 - Editable document-template system + **invoices** + **work orders** (SCOPE §12E).

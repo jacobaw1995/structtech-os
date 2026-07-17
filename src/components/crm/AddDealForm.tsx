@@ -1,12 +1,20 @@
 import { createDeal } from "@/lib/crm/actions";
 import { LEAD_TYPE_OPTIONS } from "@/lib/crm/command-center";
 
-// The real new-lead form (CRM Depth Stage 1) — replaces the old 4-field
-// version that had no contact info at all. Company stays always-visible
-// ("if applicable") rather than conditionally shown/hidden by lead type —
-// that's later polish (BACKLOG.md), not worth a client component here.
-// billing_address has no "same as project" checkbox/JS — left blank, it
-// falls back to project_address wherever it's displayed later.
+// The real new-lead form (CRM Depth Stage 1, reworked in the fix pass
+// below). Company stays always-visible ("if applicable") rather than
+// conditionally shown/hidden by lead type — that's later polish
+// (BACKLOG.md), not worth a client component here. billing_address has
+// no "same as project" checkbox/JS — left blank, it falls back to the
+// structured service address wherever it's displayed later.
+//
+// Fix pass (7/16): first/last name split (matches the intake checklist's
+// first_name/last_name columns — contact_name is now derived server-side
+// by create_deal) and a structured service address (street/city/state/
+// zip, matching service_address_* — the checklist's canonical address)
+// replace the old single "Contact name" + free-text "Project address"
+// fields, which never flowed into the checklist or the estimate's
+// structured address at all. project_address is retired from this form.
 export function AddDealForm({
   orgId,
   errorMessage,
@@ -29,10 +37,17 @@ export function AddDealForm({
 
       <div className="grid grid-cols-2 gap-3">
         <label className="flex flex-col gap-1 text-sm">
-          <span className="text-muted">Contact name</span>
+          <span className="text-muted">First name</span>
           <input
-            name="contact_name"
+            name="first_name"
             required
+            className="rounded-md border border-border bg-bg px-2 py-1.5 text-text outline-none focus:border-accent"
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="text-muted">Last name</span>
+          <input
+            name="last_name"
             className="rounded-md border border-border bg-bg px-2 py-1.5 text-text outline-none focus:border-accent"
           />
         </label>
@@ -88,23 +103,6 @@ export function AddDealForm({
             <option value="manual">Other</option>
           </select>
         </label>
-        <label className="col-span-2 flex flex-col gap-1 text-sm">
-          <span className="text-muted">Project address</span>
-          <input
-            name="project_address"
-            required
-            placeholder="Job site / service address"
-            className="rounded-md border border-border bg-bg px-2 py-1.5 text-text outline-none focus:border-accent"
-          />
-        </label>
-        <label className="col-span-2 flex flex-col gap-1 text-sm">
-          <span className="text-muted">Billing address</span>
-          <input
-            name="billing_address"
-            placeholder="Leave blank if same as project address"
-            className="rounded-md border border-border bg-bg px-2 py-1.5 text-text outline-none focus:border-accent"
-          />
-        </label>
         <label className="flex flex-col gap-1 text-sm">
           <span className="text-muted">Value</span>
           <input
@@ -113,6 +111,41 @@ export function AddDealForm({
             min="0"
             step="1"
             className="rounded-md border border-border bg-bg px-2 py-1.5 font-mono text-text outline-none focus:border-accent"
+          />
+        </label>
+
+        <div className="col-span-2 flex flex-col gap-1 text-sm">
+          <span className="text-muted">Service address</span>
+          <input
+            name="service_address_street"
+            required
+            placeholder="Street"
+            className="rounded-md border border-border bg-bg px-2 py-1.5 text-text outline-none focus:border-accent"
+          />
+          <div className="grid grid-cols-3 gap-2">
+            <input
+              name="service_address_city"
+              placeholder="City"
+              className="rounded-md border border-border bg-bg px-2 py-1.5 text-text outline-none focus:border-accent"
+            />
+            <input
+              name="service_address_state"
+              placeholder="State"
+              className="rounded-md border border-border bg-bg px-2 py-1.5 text-text outline-none focus:border-accent"
+            />
+            <input
+              name="service_address_zip"
+              placeholder="ZIP"
+              className="rounded-md border border-border bg-bg px-2 py-1.5 text-text outline-none focus:border-accent"
+            />
+          </div>
+        </div>
+        <label className="col-span-2 flex flex-col gap-1 text-sm">
+          <span className="text-muted">Billing address</span>
+          <input
+            name="billing_address"
+            placeholder="Leave blank if same as service address"
+            className="rounded-md border border-border bg-bg px-2 py-1.5 text-text outline-none focus:border-accent"
           />
         </label>
       </div>
