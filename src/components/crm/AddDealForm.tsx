@@ -1,4 +1,5 @@
 import { createDeal } from "@/lib/crm/actions";
+import { LEAD_TYPE_OPTIONS } from "@/lib/crm/command-center";
 
 // The real new-lead form (CRM Depth Stage 1) — replaces the old 4-field
 // version that had no contact info at all. Company stays always-visible
@@ -59,8 +60,11 @@ export function AddDealForm({
             className="rounded-md border border-border bg-bg px-2 py-1.5 text-text outline-none focus:border-accent"
           >
             <option value="">— Select —</option>
-            <option value="homeowner">Homeowner</option>
-            <option value="company">Company</option>
+            {LEAD_TYPE_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
           </select>
         </label>
         <label className="flex flex-col gap-1 text-sm">

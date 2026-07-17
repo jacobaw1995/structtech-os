@@ -27,8 +27,11 @@ move it into the active CLAUDE.md phase; when done, delete it here.
   to `deals`, an editable field, and the card/panel chip (wireframe 1b/2b element).
 - **R2 file storage** — persist estimate PDFs and populate `signatures.pdf_url`;
   today PDFs generate on-demand and `pdf_url` stays null.
-- **Follow-up *sending*** — the Make.com scheduled scenario that emails scheduled
-  `follow_ups`. Schema + UI exist; actual sending does not (always scoped as "later").
+- **Follow-ups have no home right now (dormant feature)** — auto day-2/day-5 `follow_ups` are
+  still *scheduled* in the DB, but (a) sending was never built (the Make.com scenario is "later"),
+  and (b) the Stage-4 Lead Control Center dropped the follow-up *display* the old DealPanel had.
+  So they're created, invisible, and inert. Needs a home — a tasks/today view (see BMR's "Coach's
+  Calls") and/or re-surfacing on the lead — plus the Make sender.
 - **Responsive mobile web shell** — `WorkspaceShell` is desktop-only; needs drawer nav
   + mobile top bar. (In progress as of 7/13.)
 - **Coordination schedule-block edit polish** — editing start/end date as two separate
@@ -36,6 +39,20 @@ move it into the active CLAUDE.md phase; when done, delete it here.
   surface a raw Postgres error in the UI banner. Rare, non-corrupting (final edit saves
   fine). Fix = friendlier error text, or a single two-field "save" instead of per-field
   auto-submit.
+
+---
+
+## Checklists — qualification + site-survey (both in BMR's current app)
+
+Two distinct checklists at two moments (raised 7/14). Features & logic from the BMR app, fresh UI.
+
+- **Qualification / intake checklist** — a structured, completion-tracked checklist gathered on
+  **first contact** to qualify a lead (beyond CRM Stage 1's basic fields; BMR stores it as
+  `leads.intake_checklist` JSON). **Belongs in CRM Depth** (lead intake) — slot as a CRM stage.
+- **Site-survey / scope checklist** — the checklist filled **on the on-site visit**, capturing
+  roof scope (trims, boots, vents, penetrations, layers, measurements). **Belongs to ESTIMATING**,
+  not CRM: it enhances the on-roof "validate" step and FEEDS both the estimate and the production
+  packet; triggered by the CRM-Stage-3 site-visit appointment. BMR spec §5.5.
 
 ---
 
@@ -147,6 +164,25 @@ depend on the Twilio/Gmail integrations, SCOPE §13).
 ## Larger future capabilities (already recorded — SCOPE §12 North Star / §13)
 
 - Editable document-template system + **invoices** + **work orders** (SCOPE §12E).
+- **Configurable-platform / self-serve customization epic (SCOPE §2.7 + §12F — the core value prop).**
+  Tenants self-onboard and shape the platform to their operation, via authoring UIs (backlog) over
+  config the engine already reads:
+  - **Editable pipeline stages** — add / edit / delete / reorder stages like any real CRM (config is
+    already per-tenant in `tenant_modules.config.stages`; needs the CRUD authoring UI + full CRUD support).
+  - **Multiple pipelines, of different TYPES** — not just one sales pipeline: campaign pipelines,
+    marketing/automation pipelines, custom. Each tenant has N pipelines, each typed, each with its own
+    stages (and eventually its own record type). *Data-model guardrail (do now): don't hard-wire
+    "one pipeline per tenant" — records must be able to carry a `pipeline_id` additively later, and the
+    sales pipeline is "the default pipeline," not the only one.*
+  - **Tenant-authored checklists / stages / fields / data points** (§12F). *(Definitions are config
+    today; the deeper step — stage completion/derivation/gating **conditions** expressed as config too
+    (a small rules layer) — lands when tenants need fully custom stages beyond the fixed milestone-column
+    model. Today those bindings stay in the engine code, on purpose.)*
+  - **Pricing-matrix / estimate-logic tool** — map checklist data points → pricing rules → estimate line
+    items (BMR's `scope-fields.ts` `intake_scope_key` → product is the reference). Hooks laid now: stable
+    scope keys + `product_id` on line items.
+  - **Self-serve tenant onboarding** at scale (hundreds of tenants) — activation = config, not engineering.
+  The UIs are incremental/backlog; the **data model must never hard-wire a single tenant's shape.**
 - AI assistant + semantic search (§12A) · client product catalogs + inventory (§12B) ·
   StructTech shop / distribution integration (§12C) · native mobile app (§12D).
 - Integrations: Google Workspace, Twilio, Stripe (§13); QuickBooks + aerial roof

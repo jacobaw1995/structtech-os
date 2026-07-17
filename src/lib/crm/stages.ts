@@ -69,3 +69,28 @@ export function daysBetween(fromIso: string, toIso: string): number {
   const to = new Date(toIso).getTime();
   return Math.round((to - from) / 86_400_000);
 }
+
+// Shared between the left panel's Revision History and the mobile merged
+// Log Activity feed (relocated from the old DealPanel.tsx).
+export function activityLabel(entry: { action: string; from_value: string | null; to_value: string | null }): string {
+  switch (entry.action) {
+    case "stage_changed":
+      return `Stage: ${entry.from_value ?? "—"} → ${entry.to_value ?? "—"}`;
+    case "created":
+      return `Created (${entry.to_value ?? "—"})`;
+    case "note_added":
+      return `Note added`;
+    case "followup_scheduled":
+      return `Follow-up scheduled (${entry.to_value ?? "—"})`;
+    case "details_updated":
+      return `Details updated`;
+    case "archived":
+      return `Archived`;
+    case "restored":
+      return `Restored`;
+    case "engagement_materialize_failed":
+      return `Engagement creation failed`;
+    default:
+      return entry.action;
+  }
+}

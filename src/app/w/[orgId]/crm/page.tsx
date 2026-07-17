@@ -2,9 +2,10 @@ import Link from "next/link";
 import { requireModuleAccess } from "@/lib/workspace/context";
 import { parseCrmStages } from "@/lib/crm/stages";
 import { DealCard } from "@/components/crm/DealCard";
-import { DealPanel } from "@/components/crm/DealPanel";
+import { LeadControlCenter } from "@/components/crm/lead-control-center/LeadControlCenter";
 import { AddDealForm } from "@/components/crm/AddDealForm";
 import { MobilePipelineBoard } from "@/components/crm/MobilePipelineBoard";
+import { parseLeadControlCenterConfig, commandCenterState } from "@/lib/crm/command-center";
 import type { Database } from "@/lib/supabase/database.types";
 
 // More specific than the [moduleKey] placeholder route one level up — Next
@@ -13,7 +14,6 @@ import type { Database } from "@/lib/supabase/database.types";
 type Deal = Database["public"]["Tables"]["deals"]["Row"];
 type DealNote = Database["public"]["Tables"]["deal_notes"]["Row"];
 type DealActivity = Database["public"]["Tables"]["deal_activity"]["Row"];
-type FollowUp = Database["public"]["Tables"]["follow_ups"]["Row"];
 type Estimate = Database["public"]["Tables"]["estimates"]["Row"];
 
 export default async function CrmPage({
@@ -21,7 +21,7 @@ export default async function CrmPage({
   searchParams,
 }: {
   params: { orgId: string };
-  searchParams: { deal?: string; new?: string; error?: string };
+  searchParams: { deal?: string; new?: string; error?: string; stage?: string };
 }) {
   const ctx = await requireModuleAccess(params.orgId, "crm");
   // Reuse the client requireModuleAccess already authenticated (its
@@ -38,7 +38,7 @@ export default async function CrmPage({
   // org, the explicit .eq(org_id) additionally pins this to the ACTIVE org
   // (a caller can belong to more than one org; RLS alone would return every
   // org's rows they're a member of, not just this workspace's).
-  const [{ data: moduleRow }, { data: deals }] = await Promise.all([
+  const [{ data: moduleRow }, { data: deals }, { data: memberRows }] = await Promise.all([
     supabase
       .from("tenant_modules")
       .select("config")
@@ -50,9 +50,16 @@ export default async function CrmPage({
       .eq("org_id", params.orgId)
       .is("archived_at", null)
       .order("created_at", { ascending: true }),
+    supabase
+      .from("org_members")
+      .select("user_id, full_name")
+      .eq("org_id", params.orgId),
   ]);
 
-  const stages = parseCrmStages(moduleRow?.[0]?.config ?? null);
+  const rawConfig = moduleRow?.[0]?.config ?? null;
+  const stages = parseCrmStages(rawConfig);
+  const lccConfig = parseLeadControlCenterConfig(rawConfig);
+  const members = memberRows ?? [];
   const dealList = (deals ?? []) as Deal[];
 
   const byStage = new Map<string, Deal[]>();
@@ -96,7 +103,6 @@ export default async function CrmPage({
   let selectedDeal: Deal | null = null;
   let notes: DealNote[] = [];
   let activity: DealActivity[] = [];
-  let nextFollowUp: FollowUp | null = null;
   let estimates: Estimate[] = [];
 
   // estimating is contractor-only (CLAUDE.md module registry) — only fetch
@@ -118,37 +124,28 @@ export default async function CrmPage({
     if (candidate && candidate.org_id === params.orgId) {
       selectedDeal = candidate;
 
-      const [{ data: notesData }, { data: activityData }, { data: followUpData }, { data: estimatesData }] =
-        await Promise.all([
-          supabase
-            .from("deal_notes")
-            .select("*")
-            .eq("deal_id", candidate.id)
-            .order("created_at", { ascending: false }),
-          supabase
-            .from("deal_activity")
-            .select("*")
-            .eq("deal_id", candidate.id)
-            .order("created_at", { ascending: false }),
-          supabase
-            .from("follow_ups")
-            .select("*")
-            .eq("deal_id", candidate.id)
-            .eq("status", "pending")
-            .order("send_at", { ascending: true })
-            .limit(1),
-          canCreateEstimate
-            ? supabase
-                .from("estimates")
-                .select("*")
-                .eq("deal_id", candidate.id)
-                .order("created_at", { ascending: false })
-            : Promise.resolve({ data: [] as Estimate[] }),
-        ]);
+      const [{ data: notesData }, { data: activityData }, { data: estimatesData }] = await Promise.all([
+        supabase
+          .from("deal_notes")
+          .select("*")
+          .eq("deal_id", candidate.id)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("deal_activity")
+          .select("*")
+          .eq("deal_id", candidate.id)
+          .order("created_at", { ascending: false }),
+        canCreateEstimate
+          ? supabase
+              .from("estimates")
+              .select("*")
+              .eq("deal_id", candidate.id)
+              .order("created_at", { ascending: false })
+          : Promise.resolve({ data: [] as Estimate[] }),
+      ]);
 
       notes = (notesData ?? []) as DealNote[];
       activity = (activityData ?? []) as DealActivity[];
-      nextFollowUp = (followUpData?.[0] ?? null) as FollowUp | null;
       estimates = (estimatesData ?? []) as Estimate[];
     }
   }
@@ -276,23 +273,53 @@ export default async function CrmPage({
 
           {/* Sibling of both board variants, not nested in the desktop-only
               div above — it needs to render on mobile too (as a full-screen
-              takeover; see DealPanel's own sm: overrides) as well as
-              desktop (the existing side panel), regardless of which board
-              is currently showing. */}
-          {selectedDeal && (
-            <DealPanel
-              orgId={params.orgId}
-              deal={selectedDeal}
-              stages={stages}
-              notes={notes}
-              activity={activity}
-              nextFollowUp={nextFollowUp}
-              closeHref={boardHref}
-              errorMessage={searchParams.error}
-              estimates={estimates}
-              canCreateEstimate={canCreateEstimate}
-            />
-          )}
+              takeover; see LeadControlCenter's own sm: overrides) as well
+              as desktop (the existing side panel), regardless of which
+              board is currently showing. */}
+          {selectedDeal &&
+            (() => {
+              const isClosed = stages.find((s) => s.key === selectedDeal!.stage)?.outcome != null;
+              const state = commandCenterState(selectedDeal!, lccConfig, { isClosed });
+              const viewedStage =
+                searchParams.stage && state.stages.some((s) => s.key === searchParams.stage && s.reached)
+                  ? searchParams.stage
+                  : state.activeStage;
+
+              if (!viewedStage) {
+                return (
+                  <aside className="fixed inset-0 z-40 flex flex-col gap-4 overflow-y-auto bg-surface p-4 sm:static sm:z-auto sm:w-80 sm:shrink-0 sm:rounded-lg sm:border sm:border-border">
+                    <div className="flex items-start justify-between gap-2">
+                      <h2 className="text-base font-semibold text-text">{selectedDeal!.contact_name}</h2>
+                      <Link href={boardHref} aria-label="Close" className="text-lg text-muted hover:text-text">
+                        ✕
+                      </Link>
+                    </div>
+                    <p className="text-sm text-muted">
+                      {ctx.active.org_name} has no Lead Control Center configuration yet — nothing to show for
+                      this lead.
+                    </p>
+                  </aside>
+                );
+              }
+
+              return (
+                <LeadControlCenter
+                  orgId={params.orgId}
+                  deal={selectedDeal!}
+                  kanbanStages={stages}
+                  lccConfig={lccConfig}
+                  state={state}
+                  viewedStage={viewedStage}
+                  notes={notes}
+                  activity={activity}
+                  members={members}
+                  closeHref={boardHref}
+                  errorMessage={searchParams.error}
+                  estimates={estimates}
+                  canCreateEstimate={canCreateEstimate}
+                />
+              );
+            })()}
         </>
       )}
     </div>

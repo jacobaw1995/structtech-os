@@ -308,6 +308,7 @@ export type Database = {
         Row: {
           content: string
           created_at: string
+          created_by: string | null
           deal_id: string
           id: string
           org_id: string | null
@@ -315,6 +316,7 @@ export type Database = {
         Insert: {
           content: string
           created_at?: string
+          created_by?: string | null
           deal_id: string
           id?: string
           org_id?: string | null
@@ -322,11 +324,19 @@ export type Database = {
         Update: {
           content?: string
           created_at?: string
+          created_by?: string | null
           deal_id?: string
           id?: string
           org_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "deal_notes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "deal_notes_deal_id_fkey"
             columns: ["deal_id"]
@@ -353,17 +363,34 @@ export type Database = {
           created_at: string
           crew_size: number | null
           email: string | null
+          existing_roof_type: string[] | null
+          first_name: string | null
           id: string
+          intake_checklist: Json
+          last_name: string | null
           lead_id: string | null
           lead_type: string | null
           lost_reason: string | null
           org_id: string | null
+          owner_id: string | null
           phone: string | null
           project_address: string | null
           proposal_notes: string | null
           proposal_tier: string | null
+          quote_presented_at: string | null
+          referral_name: string | null
+          remodel_or_new_construction: string | null
+          roof_scope_ordered_at: string | null
+          roof_type_requested: string[] | null
+          secondary_phone: string | null
+          service_address_city: string | null
+          service_address_state: string | null
+          service_address_street: string | null
+          service_address_zip: string | null
+          site_survey_complete_at: string | null
           source: string | null
           stage: string
+          tags: string[] | null
           trade: string | null
           updated_at: string
           value: number | null
@@ -377,17 +404,34 @@ export type Database = {
           created_at?: string
           crew_size?: number | null
           email?: string | null
+          existing_roof_type?: string[] | null
+          first_name?: string | null
           id?: string
+          intake_checklist?: Json
+          last_name?: string | null
           lead_id?: string | null
           lead_type?: string | null
           lost_reason?: string | null
           org_id?: string | null
+          owner_id?: string | null
           phone?: string | null
           project_address?: string | null
           proposal_notes?: string | null
           proposal_tier?: string | null
+          quote_presented_at?: string | null
+          referral_name?: string | null
+          remodel_or_new_construction?: string | null
+          roof_scope_ordered_at?: string | null
+          roof_type_requested?: string[] | null
+          secondary_phone?: string | null
+          service_address_city?: string | null
+          service_address_state?: string | null
+          service_address_street?: string | null
+          service_address_zip?: string | null
+          site_survey_complete_at?: string | null
           source?: string | null
           stage?: string
+          tags?: string[] | null
           trade?: string | null
           updated_at?: string
           value?: number | null
@@ -401,17 +445,34 @@ export type Database = {
           created_at?: string
           crew_size?: number | null
           email?: string | null
+          existing_roof_type?: string[] | null
+          first_name?: string | null
           id?: string
+          intake_checklist?: Json
+          last_name?: string | null
           lead_id?: string | null
           lead_type?: string | null
           lost_reason?: string | null
           org_id?: string | null
+          owner_id?: string | null
           phone?: string | null
           project_address?: string | null
           proposal_notes?: string | null
           proposal_tier?: string | null
+          quote_presented_at?: string | null
+          referral_name?: string | null
+          remodel_or_new_construction?: string | null
+          roof_scope_ordered_at?: string | null
+          roof_type_requested?: string[] | null
+          secondary_phone?: string | null
+          service_address_city?: string | null
+          service_address_state?: string | null
+          service_address_street?: string | null
+          service_address_zip?: string | null
+          site_survey_complete_at?: string | null
           source?: string | null
           stage?: string
+          tags?: string[] | null
           trade?: string | null
           updated_at?: string
           value?: number | null
@@ -429,6 +490,13 @@ export type Database = {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deals_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -2000,6 +2068,10 @@ export type Database = {
         Args: { p_answers: Json; p_crew: number }
         Returns: Json
       }
+      complete_site_survey: {
+        Args: { p_completed_at?: string; p_deal_id: string }
+        Returns: undefined
+      }
       create_check_in: {
         Args: {
           p_blockers?: string
@@ -2016,14 +2088,27 @@ export type Database = {
         Args: {
           p_billing_address?: string
           p_company?: string
-          p_contact_name: string
+          p_contact_name?: string
           p_crew_size?: number
           p_email?: string
+          p_existing_roof_type?: string[]
+          p_first_name?: string
+          p_last_name?: string
           p_lead_type?: string
           p_org_id: string
+          p_owner_id?: string
           p_phone?: string
           p_project_address?: string
+          p_referral_name?: string
+          p_remodel_or_new_construction?: string
+          p_roof_type_requested?: string[]
+          p_secondary_phone?: string
+          p_service_address_city?: string
+          p_service_address_state?: string
+          p_service_address_street?: string
+          p_service_address_zip?: string
           p_source?: string
+          p_tags?: string[]
           p_trade?: string
           p_value?: number
         }
@@ -2114,17 +2199,34 @@ export type Database = {
           created_at: string
           crew_size: number | null
           email: string | null
+          existing_roof_type: string[] | null
+          first_name: string | null
           id: string
+          intake_checklist: Json
+          last_name: string | null
           lead_id: string | null
           lead_type: string | null
           lost_reason: string | null
           org_id: string | null
+          owner_id: string | null
           phone: string | null
           project_address: string | null
           proposal_notes: string | null
           proposal_tier: string | null
+          quote_presented_at: string | null
+          referral_name: string | null
+          remodel_or_new_construction: string | null
+          roof_scope_ordered_at: string | null
+          roof_type_requested: string[] | null
+          secondary_phone: string | null
+          service_address_city: string | null
+          service_address_state: string | null
+          service_address_street: string | null
+          service_address_zip: string | null
+          site_survey_complete_at: string | null
           source: string | null
           stage: string
+          tags: string[] | null
           trade: string | null
           updated_at: string
           value: number | null
@@ -2246,7 +2348,15 @@ export type Database = {
       my_open_pipeline_value: { Args: never; Returns: number }
       my_org_ids: { Args: never; Returns: string[] }
       my_win_rate: { Args: never; Returns: number }
+      order_scope: {
+        Args: { p_deal_id: string; p_ordered_at?: string }
+        Returns: undefined
+      }
       present_estimate: { Args: { p_estimate_id: string }; Returns: undefined }
+      present_quote: {
+        Args: { p_deal_id: string; p_presented_at?: string }
+        Returns: undefined
+      }
       record_work_order_sign_off: {
         Args: { p_notes?: string; p_work_order_id: string }
         Returns: undefined
@@ -2298,9 +2408,22 @@ export type Database = {
           p_crew_size?: number
           p_deal_id: string
           p_email?: string
+          p_existing_roof_type?: string[]
+          p_first_name?: string
+          p_last_name?: string
           p_lead_type?: string
+          p_owner_id?: string
           p_phone?: string
           p_project_address?: string
+          p_referral_name?: string
+          p_remodel_or_new_construction?: string
+          p_roof_type_requested?: string[]
+          p_secondary_phone?: string
+          p_service_address_city?: string
+          p_service_address_state?: string
+          p_service_address_street?: string
+          p_service_address_zip?: string
+          p_tags?: string[]
           p_trade?: string
           p_value?: number
         }
@@ -2337,6 +2460,10 @@ export type Database = {
           p_sort_order?: number
           p_unit_price?: number
         }
+        Returns: undefined
+      }
+      update_intake_checklist_field: {
+        Args: { p_deal_id: string; p_field_path: string[]; p_value: Json }
         Returns: undefined
       }
       update_material_item: {
