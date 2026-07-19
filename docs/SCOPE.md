@@ -54,6 +54,7 @@ Productized delivery that carries a client from **scan → sold → delivered �
 | `field` | contractor | Crew mobile: Today home, daily check-in, visual production packet (role = crew) | 2f (+ pending frame) |
 | `delivery` | internal (operator) + surfaced read-only in client tenant | Engagement execution: levels/milestones/check-ins that drive the client portal | 2i (admin) / 2e (client) |
 | `scan` + `roadmap` | internal only | Public Revenue-Leak scan → auto-generated roadmap (already live) | — |
+| `tracker` | internal only | Internal **multi-project work tracker**: tasks, bugs (client-reported or self-caught), feature requests/ideas across projects (StructTech OS, Windy Hill shop, per-client). Fluid project creation; config-driven statuses/types. Spec: `docs/reference/TRACKER_MODULE_SPEC.md` | — |
 
 ---
 

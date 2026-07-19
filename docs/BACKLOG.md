@@ -213,6 +213,17 @@ Still open, lower priority (post-go-live):
 
 ---
 
+## First-timer onboarding tour (raised 7/19 — hold until after Isaac's Mon walkthrough)
+
+A first-login product tour (coach-marks/tooltips highlighting each area + how it relates to others),
+built with a React tour lib (Driver.js / React Joyride), anchored to elements, with a per-user
+"completed" flag on `profiles` so it fires once. **Must respect module entitlements** (only tour areas
+the tenant has). Plus a **Settings → Tutorial tab** to replay the walkthrough at any time.
+Start with the LIGHTWEIGHT version (one first-login tour of the main areas, ~6–10 steps), not
+per-area contextual tips (much more surface to maintain). Down the road the tour content can be
+tenant-configurable (§12F). Scope it AFTER watching Isaac use the system live Mon — target real
+friction, not guessed friction. Self-contained; no data-model/security touch.
+
 ## Larger future capabilities (already recorded — SCOPE §12 North Star / §13)
 
 - Editable document-template system + **invoices** + **work orders** (SCOPE §12E).

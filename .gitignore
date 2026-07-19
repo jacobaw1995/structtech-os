@@ -43,6 +43,9 @@ yarn-error.log*
 # supabase CLI local cache
 /supabase/.temp/
 
+# BMR migration export — raw PII dump from the old app, never committed
+/docs/migration/bmr-export/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
