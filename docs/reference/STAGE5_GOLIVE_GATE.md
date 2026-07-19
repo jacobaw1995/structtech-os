@@ -134,16 +134,36 @@ deferred (crew stays free-text `crew_name` for now).
 
 ## Track C — Ownership & attribution (after B; the CRM-depth substance)
 
-**C1. Owner assignment.** Confirm/add `owner_id` on `deals`; wire the existing `OwnerSelect`
-component to real org members (now that profiles are guaranteed). Claim / assign / reassign.
+Confirmed schema (7/17): `deals.owner_id` FK → `profiles(id)` exists (3/8 BMR deals owned);
+`create_deal`/`update_deal_details` already accept `p_owner_id`. `deal_notes.created_by` done (Stage 4).
+**`deal_activity` has NO actor column** — records action/from_value/to_value/created_at but not who.
+All writes go through SECURITY DEFINER RPCs: `update_deal_stage`, `update_deal_details`,
+`archive_deal`/`restore_deal`, `update_intake_checklist_field`, `add_deal_note`.
 
-**C2. Actor identity on every mutation.** `add_deal_note` already stamps `created_by` from
-`profiles` (Stage 4). Extend the same auth.uid()→profile stamping to deal edits, stage changes,
-and the activity log — "*who* changed it," not just when.
+**C1 — Owner assignment (mostly wired; finish it).** owner_id + RPC params exist. Populate the
+`OwnerSelect` picker from the deal's org members (a `list_org_members(org_id)` helper returning
+profiles of `org_members` in that org). Add a lightweight claim/reassign path (either via
+`update_deal_details` or a dedicated `assign_deal_owner(deal_id, owner_id)` that also logs activity).
+Optional: a bulk "claim to me" for the 5 unowned BMR deals — Isaac's call, not required.
 
-**C3. Edit-by-ownership.** Enforce in the mutating RPCs: a salesman edits leads they own;
-manager/owner edits any lead in their org. Map to SCOPE §5 roles (owner / manager·office /
-salesman). Role check lives in the security-definer RPCs, not just the UI.
+**C2 — Actor identity on every mutation (the real gap).** Migration: add `actor_id uuid references
+profiles(id)` (nullable) to `deal_activity`. Then stamp `actor_id = auth.uid()→profile` (NULL-safe,
+mirroring `add_deal_note`) in every RPC that writes `deal_activity` — stage change, detail edit,
+owner reassign, archive/restore, and the intake milestones. The Lead Control Center RevisionHistory
+then reads "Isaac changed stage New Lead → Site Visit," not just a timestamp.
+
+**C3 — Edit-by-ownership (forward-looking; not a Monday blocker — Isaac is solo owner).** Enforce in
+the definer RPCs: **manager tier** (`org_members.role in ('owner','admin','agency_admin')`) edits/
+reassigns any lead in the org; **rep tier** (`member`) edits only leads they own (`owner_id =
+auth.uid()`) and can't reassign away. Add an `is_org_manager(p_org_id)` helper; check at the top of
+the mutating RPCs (RLS stays org-level; the row-owner gate lives in the RPC since all writes are
+definer). Decision: `org_members.role` is the authority (per-org, RLS-aligned); `profiles.role`
+(salesman/manager) stays the sales designation. Verify with a synthetic rep member before Isaac
+onboards his own.
+
+**Sequencing for the Mon go-live:** C1 + C2 are the must-haves (they touch Isaac's solo use + make
+the activity log real); C3 lands last and is verified with a synthetic rep. Each is its own
+reviewable commit; migrations (deal_activity.actor_id) tight, RPC/UI faster.
 
 ---
 
