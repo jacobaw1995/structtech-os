@@ -157,6 +157,16 @@ but it's the unfinished half of the "standalone → one platform" merge. Decide 
 client go-live: decommission (platform absorbs the funnel intake), or migrate its capture path to write
 through the platform (stamping org_id). Until then, the null-org stopgap trigger above covers the data.
 
+**Edit-by-ownership is RPC-level only — tighten RLS before onboarding non-manager reps (from C3, 7/19).**
+Track C3 gates the mutating RPCs (`is_org_manager(org) OR owner_id=auth.uid()`), but the `deals` (and
+child `deal_notes`/`deal_activity`/`estimates`/etc.) UPDATE RLS policies are still org-level
+(`org_id IN my_org_ids()`), so a rep could bypass the gates entirely via a direct PostgREST table write.
+Doesn't matter for Isaac (manager-tier, solo). Before any non-manager rep gets a login, make the
+`deals` UPDATE policy owner-aware (`... AND (is_org_manager(org_id) OR owner_id = auth.uid())`) — after
+confirming the app writes deals ONLY through the definer RPCs (grep), since definer RPCs bypass RLS and
+won't be affected. Also: `update_deal_details.p_owner_id` is now vestigial (ownership goes through
+`assign_deal_owner` only) — drop the param in a future signature-change cleanup (DROP-first + types regen).
+
 Still open, lower priority (post-go-live):
 - Add `NOT NULL` to `deals.org_id` and the CRM/estimating `org_id` columns once RPCs
   are the only insert path.

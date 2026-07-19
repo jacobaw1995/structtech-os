@@ -2352,6 +2352,7 @@ export type Database = {
         Args: { p_work_order_id: string }
         Returns: string
       }
+      is_org_manager: { Args: { p_org_id: string }; Returns: boolean }
       is_pipeline_manager: { Args: never; Returns: boolean }
       is_pipeline_user: { Args: never; Returns: boolean }
       is_platform_admin: { Args: never; Returns: boolean }

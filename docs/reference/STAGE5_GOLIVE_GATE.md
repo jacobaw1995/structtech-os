@@ -152,14 +152,28 @@ mirroring `add_deal_note`) in every RPC that writes `deal_activity` — stage ch
 owner reassign, archive/restore, and the intake milestones. The Lead Control Center RevisionHistory
 then reads "Isaac changed stage New Lead → Site Visit," not just a timestamp.
 
-**C3 — Edit-by-ownership (forward-looking; not a Monday blocker — Isaac is solo owner).** Enforce in
-the definer RPCs: **manager tier** (`org_members.role in ('owner','admin','agency_admin')`) edits/
-reassigns any lead in the org; **rep tier** (`member`) edits only leads they own (`owner_id =
-auth.uid()`) and can't reassign away. Add an `is_org_manager(p_org_id)` helper; check at the top of
-the mutating RPCs (RLS stays org-level; the row-owner gate lives in the RPC since all writes are
-definer). Decision: `org_members.role` is the authority (per-org, RLS-aligned); `profiles.role`
-(salesman/manager) stays the sales designation. Verify with a synthetic rep member before Isaac
-onboards his own.
+**C3 — Edit-by-ownership (forward-looking; not a Monday blocker — Isaac is solo owner).** Authority =
+`org_members.role` (per-org, RLS-aligned); `profiles.role` (salesman/manager) stays the sales
+designation. Helper `is_org_manager(p_org_id)` = `exists(org_members where user_id=auth.uid() and
+org_id=p_org_id and role in ('owner','admin','agency_admin'))`, SECURITY DEFINER, search_path=public.
+
+Gate = **`is_org_manager(v_org_id) OR v_owner_id = auth.uid()`**, checked at the top of each
+state-changing RPC (add the `owner_id` fetch where the RPC doesn't already have it): `update_deal_details`,
+`update_deal_stage`, `archive_deal`, `restore_deal`, `update_intake_checklist_field`,
+`complete_site_survey`, `order_scope`, `present_quote`. Raise a clear exception on failure. RLS stays
+org-level (reps still *see* all org leads); the row-owner gate lives in the RPC since all writes are
+definer.
+
+Two decisions (7/19):
+- **`assign_deal_owner` is special:** managers reassign freely; a rep may only **claim an unowned lead
+  to themselves** (`v_old_owner_id IS NULL AND p_owner_id = auth.uid()`) — reps can't reassign or give
+  away an owned lead.
+- **`add_deal_note` stays open to any org member** (collaboration/visibility — a manager or teammate
+  commenting on a lead is legitimate; notes don't change lead state). Only state-changing mutations are
+  gated.
+
+Verify with a synthetic rep member (rolled-back txn): rep edits/advances/archives own lead ✓, is denied
+on another's ✓, can claim an unowned lead but not steal an owned one ✓; Isaac (owner) does everything ✓.
 
 **Sequencing for the Mon go-live:** C1 + C2 are the must-haves (they touch Isaac's solo use + make
 the activity log real); C3 lands last and is verified with a synthetic rep. Each is its own
