@@ -71,26 +71,52 @@ export function daysBetween(fromIso: string, toIso: string): number {
 }
 
 // Shared between the left panel's Revision History and the mobile merged
-// Log Activity feed (relocated from the old DealPanel.tsx).
+// Log Activity feed (relocated from the old DealPanel.tsx). Lowercase verb
+// phrases — composed with an actor name ("Isaac changed stage...") by
+// formatActivityLine below, or capitalized standalone when there's no actor
+// (legacy pre-Stage-5-Track-C2 rows, or a system-triggered write).
 export function activityLabel(entry: { action: string; from_value: string | null; to_value: string | null }): string {
   switch (entry.action) {
     case "stage_changed":
-      return `Stage: ${entry.from_value ?? "—"} → ${entry.to_value ?? "—"}`;
+      return `changed stage: ${entry.from_value ?? "—"} → ${entry.to_value ?? "—"}`;
     case "created":
-      return `Created (${entry.to_value ?? "—"})`;
+      return `created this deal (${entry.to_value ?? "—"})`;
     case "note_added":
-      return `Note added`;
+      return `added a note`;
     case "followup_scheduled":
-      return `Follow-up scheduled (${entry.to_value ?? "—"})`;
+      return `scheduled follow-ups (${entry.to_value ?? "—"})`;
     case "details_updated":
-      return `Details updated`;
+      return `updated the details`;
     case "archived":
-      return `Archived`;
+      return `archived this deal`;
     case "restored":
-      return `Restored`;
+      return `restored this deal`;
     case "engagement_materialize_failed":
-      return `Engagement creation failed`;
+      return `hit an error creating the engagement`;
+    case "site_survey_completed":
+      return `completed the site visit`;
+    case "scope_ordered":
+      return `ordered the roof scope`;
+    case "quote_presented":
+      return `presented the quote`;
     default:
       return entry.action;
   }
+}
+
+function capitalize(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+// Composes activityLabel with a resolved actor name: "Isaac changed stage:
+// New Lead → Site Visit" when the actor is known, or just the capitalized
+// event ("Changed stage: ...") when actor_id is null/unresolved — legacy
+// rows written before actor_id existed, or a name that isn't in the
+// caller's member list, fall back gracefully instead of showing "Unknown".
+export function formatActivityLine(
+  entry: { action: string; from_value: string | null; to_value: string | null },
+  actorName: string | null
+): string {
+  const label = activityLabel(entry);
+  return actorName ? `${actorName} ${label}` : capitalize(label);
 }

@@ -1,4 +1,4 @@
-import { activityLabel, formatDate } from "@/lib/crm/stages";
+import { formatActivityLine, formatDate } from "@/lib/crm/stages";
 import { AddNoteForm } from "./AddNoteForm";
 import type { Database } from "@/lib/supabase/database.types";
 
@@ -27,7 +27,12 @@ export function MobileLogActivity({
 }) {
   const feed: FeedEntry[] = [
     ...notes.map((n): FeedEntry => ({ kind: "note", id: n.id, created_at: n.created_at, content: n.content, authorName: authorName(n.created_by) })),
-    ...activity.map((a): FeedEntry => ({ kind: "activity", id: a.id, created_at: a.created_at, label: activityLabel(a) })),
+    ...activity.map((a): FeedEntry => ({
+      kind: "activity",
+      id: a.id,
+      created_at: a.created_at,
+      label: formatActivityLine(a, a.actor_id ? authorName(a.actor_id) : null),
+    })),
   ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
   return (

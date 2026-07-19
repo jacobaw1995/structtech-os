@@ -169,7 +169,7 @@ export function LeadControlCenter({
           <QuickActionsRow orgId={orgId} dealId={deal.id} phone={deal.phone} />
           {prospectData}
           {estimatesBlock}
-          <RevisionHistory activity={activity} />
+          <RevisionHistory activity={activity} authorName={authorName} />
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col gap-3">

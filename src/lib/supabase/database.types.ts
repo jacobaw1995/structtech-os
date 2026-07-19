@@ -262,6 +262,7 @@ export type Database = {
       deal_activity: {
         Row: {
           action: string
+          actor_id: string | null
           created_at: string
           deal_id: string
           from_value: string | null
@@ -271,6 +272,7 @@ export type Database = {
         }
         Insert: {
           action: string
+          actor_id?: string | null
           created_at?: string
           deal_id: string
           from_value?: string | null
@@ -280,6 +282,7 @@ export type Database = {
         }
         Update: {
           action?: string
+          actor_id?: string | null
           created_at?: string
           deal_id?: string
           from_value?: string | null
@@ -288,6 +291,13 @@ export type Database = {
           to_value?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "deal_activity_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "deal_activity_deal_id_fkey"
             columns: ["deal_id"]
