@@ -205,9 +205,21 @@ export async function updateDealOwner(formData: FormData) {
   } = await supabase.auth.getSession();
   if (!session) redirect("/login");
 
-  const { error } = await supabase.rpc("update_deal_details", {
+  // Not optionalString() here on purpose: choosing "Unassigned" submits ''
+  // and needs to reach the RPC as a real NULL to actually clear owner_id.
+  // optionalString() coercing '' to undefined was the bug — undefined would
+  // silently leave owner_id unchanged (assign_deal_owner assigns p_owner_id
+  // directly, no coalesce, so NULL here genuinely unassigns).
+  const rawOwnerId = formData.get("owner_id");
+  const ownerId = typeof rawOwnerId === "string" && rawOwnerId.length > 0 ? rawOwnerId : null;
+
+  // The generated RPC type has p_owner_id as optional-string (no null in its
+  // union) since Postgres can't express "nullable" separately from "has a
+  // default" — but the SQL default IS null, so omitting the key entirely
+  // reaches the same NULL the RPC needs to actually clear owner_id.
+  const { error } = await supabase.rpc("assign_deal_owner", {
     p_deal_id: dealId,
-    p_owner_id: optionalString(formData, "owner_id"),
+    ...(ownerId !== null ? { p_owner_id: ownerId } : {}),
   });
 
   redirect(dealRedirectPath(orgId, dealId, stage, error?.message));

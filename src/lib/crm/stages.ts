@@ -99,6 +99,8 @@ export function activityLabel(entry: { action: string; from_value: string | null
       return `ordered the roof scope`;
     case "quote_presented":
       return `presented the quote`;
+    case "owner_assigned":
+      return `reassigned owner: ${entry.from_value ?? "Unassigned"} → ${entry.to_value ?? "Unassigned"}`;
     default:
       return entry.action;
   }

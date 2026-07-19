@@ -2074,6 +2074,10 @@ export type Database = {
         Returns: string
       }
       archive_deal: { Args: { p_deal_id: string }; Returns: undefined }
+      assign_deal_owner: {
+        Args: { p_deal_id: string; p_owner_id?: string }
+        Returns: undefined
+      }
       build_roadmap_levels: {
         Args: { p_answers: Json; p_crew: number }
         Returns: Json
@@ -2352,6 +2356,13 @@ export type Database = {
       is_pipeline_user: { Args: never; Returns: boolean }
       is_platform_admin: { Args: never; Returns: boolean }
       is_staff: { Args: never; Returns: boolean }
+      list_org_members: {
+        Args: { p_org_id: string }
+        Returns: {
+          full_name: string
+          user_id: string
+        }[]
+      }
       my_active_lead_count: { Args: never; Returns: number }
       my_avg_cycle_days: { Args: never; Returns: number }
       my_closes_this_month: { Args: never; Returns: number }

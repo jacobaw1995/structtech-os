@@ -50,10 +50,11 @@ export default async function CrmPage({
       .eq("org_id", params.orgId)
       .is("archived_at", null)
       .order("created_at", { ascending: true }),
-    supabase
-      .from("org_members")
-      .select("user_id, full_name")
-      .eq("org_id", params.orgId),
+    // Dedicated RPC (Stage 5 Track C1) rather than a direct table query —
+    // list_org_members is the single source OwnerSelect and authorName()
+    // both resolve against, org_members-backed for consistency with actor
+    // name resolution elsewhere in the Lead Control Center.
+    supabase.rpc("list_org_members", { p_org_id: params.orgId }),
   ]);
 
   const rawConfig = moduleRow?.[0]?.config ?? null;
