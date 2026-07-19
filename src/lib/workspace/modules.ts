@@ -12,6 +12,7 @@ export const MODULE_ORDER = [
   "delivery",
   "scan",
   "roadmap",
+  "tracker",
 ] as const;
 
 export type ModuleKey = (typeof MODULE_ORDER)[number];
@@ -28,6 +29,7 @@ const MODULE_LABELS: Record<ModuleKey, string> = {
   delivery: "Delivery",
   scan: "Scan",
   roadmap: "Roadmap",
+  tracker: "Tracker",
 };
 
 /**

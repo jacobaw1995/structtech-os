@@ -1953,6 +1953,173 @@ export type Database = {
           },
         ]
       }
+      tracker_items: {
+        Row: {
+          archived_at: string | null
+          assignee_id: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          org_id: string
+          position: number
+          priority: string
+          project_id: string
+          reported_by_org_id: string | null
+          reported_by_profile_id: string | null
+          resolved_at: string | null
+          source: string
+          status: string
+          title: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          archived_at?: string | null
+          assignee_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          org_id: string
+          position?: number
+          priority?: string
+          project_id: string
+          reported_by_org_id?: string | null
+          reported_by_profile_id?: string | null
+          resolved_at?: string | null
+          source?: string
+          status?: string
+          title: string
+          type?: string
+          updated_at?: string
+        }
+        Update: {
+          archived_at?: string | null
+          assignee_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          org_id?: string
+          position?: number
+          priority?: string
+          project_id?: string
+          reported_by_org_id?: string | null
+          reported_by_profile_id?: string | null
+          resolved_at?: string | null
+          source?: string
+          status?: string
+          title?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tracker_items_assignee_id_fkey"
+            columns: ["assignee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tracker_items_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tracker_items_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tracker_items_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "tracker_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tracker_items_reported_by_org_id_fkey"
+            columns: ["reported_by_org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tracker_items_reported_by_profile_id_fkey"
+            columns: ["reported_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tracker_projects: {
+        Row: {
+          archived_at: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          linked_org_id: string | null
+          name: string
+          org_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          archived_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          linked_org_id?: string | null
+          name: string
+          org_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          archived_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          linked_org_id?: string | null
+          name?: string
+          org_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tracker_projects_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tracker_projects_linked_org_id_fkey"
+            columns: ["linked_org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tracker_projects_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       work_orders: {
         Row: {
           created_at: string
@@ -2074,6 +2241,11 @@ export type Database = {
         Returns: string
       }
       archive_deal: { Args: { p_deal_id: string }; Returns: undefined }
+      archive_tracker_item: { Args: { p_item_id: string }; Returns: undefined }
+      archive_tracker_project: {
+        Args: { p_project_id: string }
+        Returns: undefined
+      }
       assign_deal_owner: {
         Args: { p_deal_id: string; p_owner_id?: string }
         Returns: undefined
@@ -2140,6 +2312,28 @@ export type Database = {
         Args: { p_name: string; p_tenant_type: string; p_trade?: string }
         Returns: string
       }
+      create_tracker_item: {
+        Args: {
+          p_assignee_id?: string
+          p_description?: string
+          p_org_id: string
+          p_priority?: string
+          p_project_id: string
+          p_status?: string
+          p_title: string
+          p_type?: string
+        }
+        Returns: string
+      }
+      create_tracker_project: {
+        Args: {
+          p_description?: string
+          p_linked_org_id?: string
+          p_name: string
+          p_org_id: string
+        }
+        Returns: string
+      }
       create_work_order_from_estimate: {
         Args: { p_estimate_id: string }
         Returns: string
@@ -2173,6 +2367,11 @@ export type Database = {
       }
       delete_schedule_block: {
         Args: { p_schedule_block_id: string }
+        Returns: undefined
+      }
+      delete_tracker_item: { Args: { p_item_id: string }; Returns: undefined }
+      delete_tracker_project: {
+        Args: { p_project_id: string }
         Returns: undefined
       }
       delete_work_order: {
@@ -2325,6 +2524,56 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      fetch_tracker_item: {
+        Args: { p_item_id: string }
+        Returns: {
+          archived_at: string | null
+          assignee_id: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          org_id: string
+          position: number
+          priority: string
+          project_id: string
+          reported_by_org_id: string | null
+          reported_by_profile_id: string | null
+          resolved_at: string | null
+          source: string
+          status: string
+          title: string
+          type: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "tracker_items"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      fetch_tracker_project: {
+        Args: { p_project_id: string }
+        Returns: {
+          archived_at: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          linked_org_id: string | null
+          name: string
+          org_id: string
+          status: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "tracker_projects"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       fetch_work_order: {
         Args: { p_work_order_id: string }
         Returns: {
@@ -2388,6 +2637,11 @@ export type Database = {
         Returns: undefined
       }
       restore_deal: { Args: { p_deal_id: string }; Returns: undefined }
+      restore_tracker_item: { Args: { p_item_id: string }; Returns: undefined }
+      restore_tracker_project: {
+        Args: { p_project_id: string }
+        Returns: undefined
+      }
       restore_work_order: {
         Args: { p_work_order_id: string }
         Returns: undefined
@@ -2411,6 +2665,8 @@ export type Database = {
         }
         Returns: string
       }
+      tracker_status_config: { Args: { p_org_id: string }; Returns: Json }
+      tracker_type_config: { Args: { p_org_id: string }; Returns: Json }
       update_check_in: {
         Args: {
           p_blockers?: string
@@ -2517,6 +2773,30 @@ export type Database = {
           p_end_date?: string
           p_schedule_block_id: string
           p_start_date?: string
+        }
+        Returns: undefined
+      }
+      update_tracker_item: {
+        Args: {
+          p_assignee_id?: string
+          p_clear_assignee?: boolean
+          p_description?: string
+          p_item_id: string
+          p_position?: number
+          p_priority?: string
+          p_status?: string
+          p_title?: string
+          p_type?: string
+        }
+        Returns: undefined
+      }
+      update_tracker_project: {
+        Args: {
+          p_description?: string
+          p_linked_org_id?: string
+          p_name?: string
+          p_project_id: string
+          p_status?: string
         }
         Returns: undefined
       }
