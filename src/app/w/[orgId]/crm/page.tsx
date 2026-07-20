@@ -291,7 +291,7 @@ export default async function CrmPage({
               const isClosed = stages.find((s) => s.key === selectedDeal!.stage)?.outcome != null;
               const state = commandCenterState(selectedDeal!, lccConfig, { isClosed });
               const viewedStage =
-                searchParams.stage && state.stages.some((s) => s.key === searchParams.stage && s.reached)
+                searchParams.stage && state.stages.some((s) => s.key === searchParams.stage && s.navigable)
                   ? searchParams.stage
                   : state.activeStage;
 

@@ -113,6 +113,13 @@ export type LeadControlCenterConfig = {
   commandStages: CommandStageDef[];
   checklists: Record<string, ChecklistDef>;
   fields: Record<string, FieldConfig>;
+  // Defaults FALSE when absent — every tenant (including BMR, which has no
+  // migration adding this key) gets permissive navigation with zero config
+  // changes required. Isaac (7/20): "I want to be able to navigate freely
+  // and add information as I have it" — stage completion stays visible as
+  // a hint everywhere, it just never blocks a click or disables a button
+  // unless a tenant deliberately opts into enforcement.
+  enforceStageGating: boolean;
 };
 
 const EMPTY_CONFIG: LeadControlCenterConfig = {
@@ -120,6 +127,7 @@ const EMPTY_CONFIG: LeadControlCenterConfig = {
   commandStages: [],
   checklists: {},
   fields: {},
+  enforceStageGating: false,
 };
 
 // ============================================================================
@@ -251,6 +259,7 @@ export function parseLeadControlCenterConfig(config: Json | null | undefined): L
     commandStages: parseCommandStages(lcc.command_stages),
     checklists: parseChecklists(lcc.checklists),
     fields: parseFields(lcc.fields),
+    enforceStageGating: asBoolean(lcc.enforce_stage_gating, false),
   };
 }
 
@@ -433,7 +442,13 @@ export function deriveCommandStage(
 // only; nothing here calls an RPC or enforces anything server-side.
 // ============================================================================
 
-export type AdvanceGate = { allowed: boolean; reason: string | null };
+// `allowed` is what actually gates the milestone button (disabled or not).
+// `reason` is always populated when the underlying checklist is incomplete,
+// regardless of enforcement, so the UI can show it as a hint even when
+// `allowed` is true. `enforced` reports whether this tenant has gating on
+// at all — callers don't need it directly (allowed already reflects it)
+// but it's exposed for clarity/future UI (e.g. an admin-facing indicator).
+export type AdvanceGate = { allowed: boolean; reason: string | null; enforced: boolean };
 
 /** Which configured checklist (if any) a command stage primarily displays/gates on — the UI uses this to decide whether a stage's card renders a named checklist or a plain vital-fields list. Same fixed table as gating (see file header). */
 export function primaryChecklistKeyForStage(stageKey: string): string | null {
@@ -445,13 +460,17 @@ export function canAdvanceStage(
   config: LeadControlCenterConfig,
   checklistCompletions: Record<string, ChecklistCompletion>
 ): AdvanceGate {
-  if (activeStage == null) return { allowed: false, reason: "Lead Control Center is not configured for this workspace." };
+  const enforced = config.enforceStageGating;
+  if (activeStage == null) {
+    return { allowed: false, reason: "Lead Control Center is not configured for this workspace.", enforced };
+  }
   const gatingChecklistKey = STAGE_GATING_CHECKLIST_KEY[activeStage];
-  if (!gatingChecklistKey) return { allowed: true, reason: null };
+  if (!gatingChecklistKey) return { allowed: true, reason: null, enforced };
   const completion = checklistCompletions[gatingChecklistKey];
   const title = config.checklists[gatingChecklistKey]?.title ?? gatingChecklistKey;
-  if (!completion || completion.percent === 100) return { allowed: true, reason: null };
-  return { allowed: false, reason: `${title} incomplete (${completion.filled}/${completion.total})` };
+  if (!completion || completion.percent === 100) return { allowed: true, reason: null, enforced };
+  const reason = `${title} incomplete (${completion.filled}/${completion.total})`;
+  return { allowed: enforced ? false : true, reason, enforced };
 }
 
 function recommendedNextAction(
@@ -492,7 +511,17 @@ function recommendedNextAction(
 // Top-level orchestrator — the one function Stage 4 actually calls.
 // ============================================================================
 
-export type CommandCenterStage = CommandStageDef & { vitalFields: FieldConfig[]; reached: boolean; current: boolean };
+// `reached` keeps its original meaning — "has this milestone actually
+// happened" — and still drives progress %/derivation, unchanged. `navigable`
+// is the separate "can the user click this tab" question: true for every
+// stage when gating is off (Isaac's case), otherwise identical to `reached`
+// (a gated tenant's tabs behave exactly as before).
+export type CommandCenterStage = CommandStageDef & {
+  vitalFields: FieldConfig[];
+  reached: boolean;
+  current: boolean;
+  navigable: boolean;
+};
 
 export type CommandCenterState = {
   activeStage: string | null;
@@ -520,12 +549,16 @@ export function commandCenterState(
 
   return {
     activeStage,
-    stages: config.commandStages.map((stage, i) => ({
-      ...stage,
-      vitalFields: resolveStageVitalFields(config, stage),
-      reached: activeIndex >= 0 && i <= activeIndex,
-      current: stage.key === activeStage,
-    })),
+    stages: config.commandStages.map((stage, i) => {
+      const reached = activeIndex >= 0 && i <= activeIndex;
+      return {
+        ...stage,
+        vitalFields: resolveStageVitalFields(config, stage),
+        reached,
+        current: stage.key === activeStage,
+        navigable: config.enforceStageGating ? reached : true,
+      };
+    }),
     checklistCompletions,
     intakeCompletion: checklistCompletions["intake_call"] ?? emptyCompletion,
     scopeCompletion: checklistCompletions["site_visit_scope"] ?? emptyCompletion,

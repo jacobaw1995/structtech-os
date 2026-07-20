@@ -142,6 +142,11 @@ function MilestoneAction({
     );
   }
   if (viewedStage === "scope" && !deal.roof_scope_ordered_at) {
+    // disabled follows advanceGate.allowed directly — that's already true
+    // unless this tenant has enforce_stage_gating on (default off). The
+    // reason still renders as a hint whenever the checklist is incomplete,
+    // never gated behind `allowed` — Isaac's ask was "never block the
+    // click," not "hide the completion info."
     return (
       <MilestoneButton
         orgId={orgId}
@@ -149,18 +154,20 @@ function MilestoneAction({
         action={orderScope}
         label="Order Scope"
         disabled={!state.advanceGate.allowed}
-        reason={state.advanceGate.allowed ? undefined : state.advanceGate.reason ?? undefined}
+        reason={state.advanceGate.reason ?? undefined}
       />
     );
   }
   if (viewedStage === "quote" && !deal.quote_presented_at) {
+    // Never disabled (Isaac 7/20) — missing a quote amount is now just a
+    // hint under the button, not a block.
     return (
       <MilestoneButton
         orgId={orgId}
         dealId={dealId}
         action={presentQuote}
         label="Present Quote"
-        disabled={deal.value == null}
+        disabled={false}
         reason={deal.value == null ? "Set a quote amount first" : undefined}
       />
     );

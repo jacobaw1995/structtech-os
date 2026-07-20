@@ -2,8 +2,11 @@ import Link from "next/link";
 import type { CommandCenterState } from "@/lib/crm/command-center";
 
 // Command-stage tabs (the job path — distinct from the kanban stage
-// dropdown in the left panel). Reached stages navigate via ?stage=;
-// unreached stages render inert (spec: "tabs gate/enable by completion").
+// dropdown in the left panel). Gates on `navigable`, not `reached` —
+// navigable is true for every stage unless a tenant has deliberately
+// opted into enforce_stage_gating (default off; see command-center.ts).
+// Isaac (7/20): "I want to be able to navigate freely and add information
+// as I have it" — every tab is clickable by default.
 export function StageTabs({
   orgId,
   dealId,
@@ -19,7 +22,7 @@ export function StageTabs({
     <div className="flex gap-2 overflow-x-auto pb-1">
       {state.stages.map((stage) => {
         const isViewed = stage.key === viewedStage;
-        if (!stage.reached) {
+        if (!stage.navigable) {
           return (
             <span
               key={stage.key}
