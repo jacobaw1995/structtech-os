@@ -210,20 +210,29 @@ export default async function CrmPage({
             />
           </div>
 
-          <div className="hidden flex-1 gap-4 overflow-hidden sm:flex">
+          <div className="hidden min-h-0 flex-1 gap-4 overflow-hidden sm:flex">
             {/* min-w-0 is load-bearing: a flex child defaults to
                 min-width:auto, which refuses to shrink below its content's
                 intrinsic width — with 8 columns that pushed the panel
                 sibling off-screen instead of letting this div scroll
                 internally. This was the second bug: fetch_deal/org-guard
                 were fine, the panel just rendered clipped past the
-                viewport edge with no way to scroll to it. */}
-            <div className="flex flex-1 min-w-0 gap-4 overflow-x-auto pb-2">
+                viewport edge with no way to scroll to it.
+
+                min-h-0 here (and on every flex-col item down to each
+                column) is the same class of bug on the vertical axis: flex
+                items default to min-height:auto, refusing to shrink below
+                their CONTENT's height — a 157-card column ignored this
+                row's bounded height and grew to fit every card, which grew
+                this row, which grew the page. Each column's card list gets
+                its own flex-1 min-h-0 overflow-y-auto below so the column
+                header stays put and only the card list scrolls. */}
+            <div className="flex min-h-0 flex-1 min-w-0 gap-4 overflow-x-auto pb-2">
               {stages.map((stage) => {
                 const stageDeals = byStage.get(stage.key) ?? [];
                 return (
-                  <div key={stage.key} className="flex w-64 shrink-0 flex-col gap-2">
-                    <div className="flex items-center justify-between px-1">
+                  <div key={stage.key} className="flex min-h-0 w-64 shrink-0 flex-col gap-2">
+                    <div className="flex shrink-0 items-center justify-between px-1">
                       <h2 className="text-sm font-semibold text-text">
                         {stage.label}
                       </h2>
@@ -231,7 +240,7 @@ export default async function CrmPage({
                         {stageDeals.length}
                       </span>
                     </div>
-                    <div className="flex flex-col gap-2">
+                    <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
                       {stageDeals.map((deal) => (
                         <DealCard
                           key={deal.id}
@@ -252,11 +261,11 @@ export default async function CrmPage({
               })}
 
               {unrecognized.length > 0 && (
-                <div className="flex w-64 shrink-0 flex-col gap-2">
-                  <h2 className="text-sm font-semibold text-warn">
+                <div className="flex min-h-0 w-64 shrink-0 flex-col gap-2">
+                  <h2 className="shrink-0 text-sm font-semibold text-warn">
                     Unrecognized stage
                   </h2>
-                  <div className="flex flex-col gap-2">
+                  <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
                     {unrecognized.map((deal) => (
                       <DealCard
                         key={deal.id}
@@ -287,19 +296,27 @@ export default async function CrmPage({
                   : state.activeStage;
 
               if (!viewedStage) {
+                // Same takeover treatment as LeadControlCenter below — fixed
+                // at every breakpoint, not sm:static (that was the bug: a
+                // static sibling stacks below the kanban board instead of
+                // overlaying it). This path's content is a short message, so
+                // no internal-scroll machinery needed, just the scrim +
+                // centered card.
                 return (
-                  <aside className="fixed inset-0 z-40 flex flex-col gap-4 overflow-y-auto bg-surface p-4 sm:static sm:z-auto sm:w-80 sm:shrink-0 sm:rounded-lg sm:border sm:border-border">
-                    <div className="flex items-start justify-between gap-2">
-                      <h2 className="text-base font-semibold text-text">{selectedDeal!.contact_name}</h2>
-                      <Link href={boardHref} aria-label="Close" className="text-lg text-muted hover:text-text">
-                        ✕
-                      </Link>
-                    </div>
-                    <p className="text-sm text-muted">
-                      {ctx.active.org_name} has no Lead Control Center configuration yet — nothing to show for
-                      this lead.
-                    </p>
-                  </aside>
+                  <div className="fixed inset-0 z-40 overflow-y-auto bg-bg sm:flex sm:items-center sm:justify-center sm:overflow-y-auto sm:bg-text/40 sm:p-6">
+                    <aside className="flex min-h-full flex-col gap-4 bg-surface p-4 sm:min-h-0 sm:w-full sm:max-w-md sm:rounded-lg sm:border sm:border-border sm:shadow-xl">
+                      <div className="flex items-start justify-between gap-2">
+                        <h2 className="text-base font-semibold text-text">{selectedDeal!.contact_name}</h2>
+                        <Link href={boardHref} aria-label="Close" className="text-lg text-muted hover:text-text">
+                          ✕
+                        </Link>
+                      </div>
+                      <p className="text-sm text-muted">
+                        {ctx.active.org_name} has no Lead Control Center configuration yet — nothing to show for
+                        this lead.
+                      </p>
+                    </aside>
+                  </div>
                 );
               }
 

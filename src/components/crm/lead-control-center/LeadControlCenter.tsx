@@ -141,46 +141,68 @@ export function LeadControlCenter({
   );
 
   return (
-    <div className="fixed inset-0 z-40 flex flex-col overflow-y-auto bg-bg p-4 sm:static sm:z-auto sm:flex-1 sm:overflow-hidden sm:bg-transparent sm:p-0">
-      {errorMessage && <p className="mb-3 rounded-md bg-warn-soft px-3 py-2 text-xs text-text sm:hidden">{errorMessage}</p>}
+    // Fixed-inset takeover at EVERY breakpoint now — this used to drop to
+    // sm:static, which made the panel a normal sibling stacking below the
+    // kanban board in the page's flex-col flow (invisible below the fold
+    // until you scrolled past however many columns/cards were rendered;
+    // masked at low deal counts, glaring at 188 leads). The scrim + centered
+    // card below is desktop's version of mobile's existing full-bleed
+    // takeover, not a different mechanism.
+    <div className="fixed inset-0 z-40 overflow-y-auto bg-bg sm:flex sm:items-center sm:justify-center sm:overflow-y-auto sm:bg-text/40 sm:p-6">
+      {/* The card itself. min-h-full (not h-full) at mobile so content taller
+          than the viewport pushes the OUTER div's scrollbar, same as before;
+          at sm+ it's an explicit height (not max-height) so its children get
+          a real height to constrain against — that's what makes the 3-panel
+          row's overflow-y-auto regions below actually activate instead of
+          growing the card (and the page) to fit 157-card columns.
+          100dvh, not 100vh, matching the shell's h-dvh — 100vh includes the
+          area behind mobile Safari's browser chrome, which on iPad (a
+          desktop/tablet 3-panel target) would put the card's bottom edge
+          below the actually-visible viewport. */}
+      <div className="flex min-h-full flex-col p-4 sm:h-[calc(100dvh-3rem)] sm:min-h-0 sm:w-full sm:max-w-6xl sm:overflow-hidden sm:rounded-lg sm:border sm:border-border sm:bg-bg sm:p-4 sm:shadow-xl">
+        {errorMessage && <p className="mb-3 rounded-md bg-warn-soft px-3 py-2 text-xs text-text sm:hidden">{errorMessage}</p>}
 
-      {/* MOBILE — single column, own ordering per spec */}
-      <div className="flex flex-1 flex-col gap-4 sm:hidden">
-        {header}
-        <QuickActionsRow orgId={orgId} dealId={deal.id} phone={deal.phone} />
-        <MobileLogActivity orgId={orgId} dealId={deal.id} notes={notes} activity={activity} authorName={authorName} />
-        {progressBar}
-        <StageTabs orgId={orgId} dealId={deal.id} viewedStage={viewedStage} state={state} />
-        {checklistCard}
-        <details className="rounded-lg border border-border bg-surface p-4">
-          <summary className="cursor-pointer select-none text-xs font-semibold uppercase tracking-wide text-muted">
-            Prospect Data
-          </summary>
-          <div className="mt-3 flex flex-col gap-4">
-            {prospectData}
-            {estimatesBlock}
-          </div>
-        </details>
-      </div>
-
-      {/* DESKTOP/TABLET — true 3-panel */}
-      <div className="hidden flex-1 gap-4 overflow-hidden sm:flex">
-        <aside className="flex w-72 shrink-0 flex-col gap-4 overflow-y-auto rounded-lg border border-border bg-surface p-4">
-          <QuickActionsRow orgId={orgId} dealId={deal.id} phone={deal.phone} />
-          {prospectData}
-          {estimatesBlock}
-          <RevisionHistory activity={activity} authorName={authorName} />
-        </aside>
-
-        <div className="flex min-w-0 flex-1 flex-col gap-3">
-          {errorMessage && <p className="rounded-md bg-warn-soft px-3 py-2 text-xs text-text">{errorMessage}</p>}
+        {/* MOBILE — single column, own ordering per spec */}
+        <div className="flex flex-1 flex-col gap-4 sm:hidden">
           {header}
+          <QuickActionsRow orgId={orgId} dealId={deal.id} phone={deal.phone} />
+          <MobileLogActivity orgId={orgId} dealId={deal.id} notes={notes} activity={activity} authorName={authorName} />
           {progressBar}
           <StageTabs orgId={orgId} dealId={deal.id} viewedStage={viewedStage} state={state} />
           {checklistCard}
+          <details className="rounded-lg border border-border bg-surface p-4">
+            <summary className="cursor-pointer select-none text-xs font-semibold uppercase tracking-wide text-muted">
+              Prospect Data
+            </summary>
+            <div className="mt-3 flex flex-col gap-4">
+              {prospectData}
+              {estimatesBlock}
+            </div>
+          </details>
         </div>
 
-        <LeadNotesPanel orgId={orgId} dealId={deal.id} notes={notes} authorName={authorName} />
+        {/* DESKTOP/TABLET — true 3-panel. Now that the card above has a real
+            height, this row's overflow-hidden + each panel's own
+            overflow-y-auto resolve correctly: the 3 panels scroll
+            independently inside the card, the card itself never grows. */}
+        <div className="hidden flex-1 gap-4 overflow-hidden sm:flex">
+          <aside className="flex w-72 shrink-0 flex-col gap-4 overflow-y-auto rounded-lg border border-border bg-surface p-4">
+            <QuickActionsRow orgId={orgId} dealId={deal.id} phone={deal.phone} />
+            {prospectData}
+            {estimatesBlock}
+            <RevisionHistory activity={activity} authorName={authorName} />
+          </aside>
+
+          <div className="flex min-w-0 flex-1 flex-col gap-3 overflow-y-auto">
+            {errorMessage && <p className="rounded-md bg-warn-soft px-3 py-2 text-xs text-text">{errorMessage}</p>}
+            {header}
+            {progressBar}
+            <StageTabs orgId={orgId} dealId={deal.id} viewedStage={viewedStage} state={state} />
+            {checklistCard}
+          </div>
+
+          <LeadNotesPanel orgId={orgId} dealId={deal.id} notes={notes} authorName={authorName} />
+        </div>
       </div>
     </div>
   );

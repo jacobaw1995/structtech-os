@@ -55,7 +55,14 @@ export function WorkspaceShell({
   const homeOrg = orgs.find((o) => o.tenant_type === "internal");
 
   return (
-    <div className="flex min-h-screen flex-col bg-bg">
+    // h-dvh (dynamic viewport height), not h-screen — 100vh doesn't account
+    // for mobile browser chrome (iOS Safari's address bar most notably), so
+    // h-screen + overflow-hidden here would clip content behind it. dvh
+    // tracks the actual visible viewport. overflow-hidden turns this from
+    // the previous min-h-screen page-scroll design (every page's whole body
+    // grew and scrolled, header included) into a bounded app shell — <main>
+    // below is now the one scrollable region, header/sidebar stay in view.
+    <div className="flex h-dvh flex-col overflow-hidden bg-bg">
       <header
         className={`flex min-h-14 items-center gap-2 border-b border-border px-3 py-2 sm:min-h-0 sm:gap-3 sm:px-4 ${
           isAgencyOperating ? "bg-accent-soft" : "bg-surface"
@@ -201,7 +208,7 @@ export function WorkspaceShell({
         </div>
       </header>
 
-      <div className="flex flex-1">
+      <div className="flex flex-1 min-h-0">
         {/* Backdrop — mobile only, dismisses the drawer on tap. Doesn't
             exist in the tree at all when closed rather than being
             hidden-but-present, so it can't eat clicks on desktop. */}
@@ -264,7 +271,7 @@ export function WorkspaceShell({
             element past the viewport instead of respecting flex-1. On
             mobile the sidebar is `fixed` (out of flow), so this is already
             full-width there with no extra rule needed. */}
-        <main className="min-w-0 flex-1 p-4 sm:p-6">{children}</main>
+        <main className="min-w-0 flex-1 overflow-y-auto p-4 sm:p-6">{children}</main>
       </div>
     </div>
   );
