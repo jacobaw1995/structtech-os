@@ -2263,6 +2263,47 @@ export type Database = {
           },
         ]
       }
+      work_order_activity: {
+        Row: {
+          action: string
+          actor_id: string | null
+          created_at: string
+          from_value: string | null
+          id: string
+          org_id: string
+          to_value: string | null
+          work_order_id: string
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          created_at?: string
+          from_value?: string | null
+          id?: string
+          org_id: string
+          to_value?: string | null
+          work_order_id: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          created_at?: string
+          from_value?: string | null
+          id?: string
+          org_id?: string
+          to_value?: string | null
+          work_order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_order_activity_work_order_id_fkey"
+            columns: ["work_order_id"]
+            isOneToOne: false
+            referencedRelation: "work_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       work_orders: {
         Row: {
           created_at: string
