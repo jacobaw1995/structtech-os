@@ -21,11 +21,6 @@ function optionalString(formData: FormData, key: string): string | undefined {
   return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
-function optionalNumber(formData: FormData, key: string): number | undefined {
-  const raw = optionalString(formData, key);
-  return raw === undefined ? undefined : Number(raw);
-}
-
 // Comma-separated tag/roof-type inputs -> text[]. Empty input intentionally
 // resolves to [] (clears the array), not undefined — matches Jacob's
 // array-UI decision (always send a real array, never JSON null, since a
