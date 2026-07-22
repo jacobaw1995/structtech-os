@@ -36,6 +36,7 @@ export function defaultStep(status: string): number {
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- kept for call-site compatibility (EstimateFlowShell passes status)
 export function maxAllowedStep(_status: string): number {
   return STEP_COUNT;
 }
