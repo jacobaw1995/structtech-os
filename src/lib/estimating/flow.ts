@@ -1,7 +1,16 @@
-// Client-safe: no server-only imports. Step navigation is gated by the
-// estimate's persisted status, not just the URL — a caller can't type
-// ?step=4 into the address bar to skip presenting/signing, because
-// clampStep() pulls them back to the highest step that status allows.
+// Client-safe: no server-only imports.
+//
+// HOTFIX (pre-merge gap): estimates.status now persists the rebuilt
+// vocabulary (draft/presented/signed/void) since the Chunk 1 migration, but
+// this file's switches still only recognized the pre-rebuild vocabulary
+// (preliminary/validated/...). "draft" matched no case, so maxAllowedStep()
+// fell through to its default of 1 and clampStep() permanently pinned every
+// new estimate to Step 1 — the old wizard couldn't advance past Step 1 at
+// all. This file is deleted outright by the estimate-builder-rebuild branch
+// (the new document has no step gating); until that merges, the step gate
+// is neutered here rather than taught the new vocabulary, matching SCOPE
+// §2.8 ("never block the user") and keeping the diff on a file that's going
+// away anyway as small as possible.
 
 export type EstimateStatus =
   | "preliminary"
@@ -27,29 +36,13 @@ export function defaultStep(status: string): number {
   }
 }
 
-// The furthest step reachable given what's actually been persisted —
-// e.g. a 'preliminary' estimate has no line items validated yet, so step 3
-// (present) isn't reachable until update_estimate_details has run at least
-// once (status -> 'validated').
-export function maxAllowedStep(status: string): number {
-  switch (status as EstimateStatus) {
-    case "preliminary":
-      return 2;
-    case "validated":
-      return 3;
-    case "presented":
-      return 4;
-    case "signed":
-      return 4;
-    default:
-      return 1;
-  }
+export function maxAllowedStep(_status: string): number {
+  return STEP_COUNT;
 }
 
 export function clampStep(requested: number | undefined, status: string): number {
-  const max = maxAllowedStep(status);
-  if (!requested || Number.isNaN(requested)) return Math.min(defaultStep(status), max);
-  return Math.max(1, Math.min(requested, max, STEP_COUNT));
+  if (!requested || Number.isNaN(requested)) return defaultStep(status);
+  return Math.max(1, Math.min(requested, STEP_COUNT));
 }
 
 export const STEP_LABELS = [

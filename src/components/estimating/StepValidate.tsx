@@ -8,9 +8,13 @@ import type { Database } from "@/lib/supabase/database.types";
 type Estimate = Database["public"]["Tables"]["estimates"]["Row"];
 type LineItem = Database["public"]["Tables"]["estimate_line_items"]["Row"];
 
-// update_estimate_details() advances 'preliminary' -> 'validated' the first
-// time it runs (Stage 3 migration, section 5c) — providing on-roof numbers
-// IS the validation, so there's no separate "mark validated" action here.
+// HOTFIX (pre-merge gap): update_estimate_details() no longer transitions
+// status at all post-Chunk-1 (verified against the live RPC definition) —
+// a new estimate stays 'draft' straight through this step; there's no
+// 'validated' status to distinguish anymore. The old preliminary/validated
+// check below left `locked` permanently true for every new estimate,
+// hiding the line-item form entirely. This file is deleted outright by the
+// estimate-builder-rebuild branch; smallest fix here, not a full rewrite.
 const inputClasses =
   "rounded-md border border-border bg-bg px-2 py-2 text-sm text-text outline-none focus:border-accent group-data-[outdoor=true]/flow:border-white/40 group-data-[outdoor=true]/flow:bg-black group-data-[outdoor=true]/flow:text-white";
 
@@ -25,7 +29,7 @@ export function StepValidate({
   lineItems: LineItem[];
   errorMessage?: string;
 }) {
-  const locked = !["preliminary", "validated"].includes(estimate.status);
+  const locked = estimate.status !== "draft";
   const canContinue = estimate.status !== "preliminary";
 
   return (

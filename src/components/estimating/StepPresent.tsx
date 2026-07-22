@@ -10,6 +10,12 @@ type LineItem = Database["public"]["Tables"]["estimate_line_items"]["Row"];
 // (SCOPE.md §12C price-lock habit) and, via the status check every
 // line-item RPC does, locks further edits — this view goes read-only the
 // moment status flips to 'presented', no separate lock step needed here.
+//
+// HOTFIX (pre-merge gap): status no longer passes through 'validated'
+// post-Chunk-1 — a not-yet-presented estimate is just 'draft'. The old
+// check below treated every fresh 'draft' estimate as already presented,
+// hiding the "Present to client" button entirely. Smallest fix; this file
+// is deleted outright by the estimate-builder-rebuild branch.
 export function StepPresent({
   orgId,
   estimate,
@@ -21,7 +27,7 @@ export function StepPresent({
   lineItems: LineItem[];
   errorMessage?: string;
 }) {
-  const isPresented = estimate.status !== "validated";
+  const isPresented = estimate.status !== "draft";
   const total = estimate.presented_total ?? estimate.subtotal;
 
   return (
