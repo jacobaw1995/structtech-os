@@ -1,4 +1,5 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
+import { buildDocumentLayout, type DocumentLayout } from "@/lib/estimating/document-layout";
 import type { Database } from "@/lib/supabase/database.types";
 import type { EstimateBranding } from "@/lib/estimating/branding";
 
@@ -10,33 +11,25 @@ type Signature = Database["public"]["Tables"]["signatures"]["Row"];
 // runtime — the [estimateId]/pdf route this feeds must not opt into
 // `export const runtime = "edge"`).
 //
-// Deliberately the ONLY place estimate data becomes a PDF layout. Every
-// visual choice (branding, line items, terms) is a parameter, never a
-// BMR-specific hardcode — this is the first brick of the tenant-custom
-// document-template system (SCOPE.md "Tenant-customizable document
-// templates"): a future template editor replaces the layout below, not the
-// call sites that invoke it.
+// Chunk 5 PDF parity: this file no longer decides what a field says or
+// whether it shows — buildDocumentLayout() (document-layout.ts) does that
+// ONCE, and EstimateDocument.tsx (the on-screen editor) calls the exact
+// same function. Every draw call below reads a pre-formatted string off
+// `layout`; there is no separate money()/date() formatting here anymore,
+// and no separate "should the tax row show" logic — if a field is on
+// screen and not here (or vice versa), that's a bug in this file, not a
+// second copy of the rules that could silently diverge from the first.
+//
+// locked: true always — a PDF is an inherently static, final-looking
+// snapshot regardless of the underlying estimate.status (a draft's PDF
+// preview should still read like a finished document: the smart-merge
+// customer block, optional rows only where populated), matching what this
+// file already did before Chunk 5, now sourced from the shared builder
+// instead of ad hoc here.
 
 const PAGE_WIDTH = 612; // US Letter, points
 const PAGE_HEIGHT = 792;
 const MARGIN = 56;
-
-function money(value: number | null): string {
-  if (value == null) return "—";
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-  }).format(value);
-}
-
-function date(iso: string | null): string {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-}
 
 export async function renderEstimatePdf({
   estimate,
@@ -49,6 +42,8 @@ export async function renderEstimatePdf({
   signature: Signature | null;
   branding: EstimateBranding;
 }): Promise<Uint8Array> {
+  const layout = buildDocumentLayout({ estimate, lineItems, signature, branding, locked: true });
+
   const doc = await PDFDocument.create();
   const page = doc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
@@ -57,26 +52,28 @@ export async function renderEstimatePdf({
 
   let y = PAGE_HEIGHT - MARGIN;
 
-  y = drawHeader(page, { bold, regular }, y, branding);
+  y = drawHeader(page, { bold, regular }, y, layout);
   y -= 28;
 
-  y = drawCustomerBlock(page, { bold, regular }, y, estimate);
-  y -= 24;
+  y = drawCustomerBlock(page, { bold, regular }, y, layout);
+  y -= 20;
 
-  y = drawLineItems(page, { bold, regular, mono }, y, lineItems);
+  y = drawJobSite(page, { bold, regular }, y, layout);
+  y -= 20;
+
+  y = drawLineItems(page, { bold, regular, mono }, y, layout);
   y -= 12;
 
-  const total = estimate.presented_total ?? estimate.subtotal;
-  y = drawTotal(page, { bold, mono }, y, total);
-  y -= 28;
+  y = drawTotals(page, { bold, regular, mono }, y, layout);
+  y -= 24;
 
-  if (signature) {
-    y = await drawSignature(doc, page, { bold, regular }, y, signature);
+  if (layout.signature.signed) {
+    y = await drawSignedBlock(doc, page, { bold, regular }, y, layout);
     y -= 24;
   }
 
-  if (branding.terms) {
-    drawTerms(page, regular, y, branding.terms);
+  if (layout.notes) {
+    drawNotes(page, regular, y, layout.notes.value);
   }
 
   return doc.save();
@@ -86,9 +83,9 @@ function drawHeader(
   page: PDFPage,
   fonts: { bold: PDFFont; regular: PDFFont },
   y: number,
-  branding: EstimateBranding
+  layout: DocumentLayout
 ): number {
-  page.drawText(branding.companyName, {
+  page.drawText(layout.header.companyName, {
     x: MARGIN,
     y,
     size: 18,
@@ -97,11 +94,8 @@ function drawHeader(
   });
   y -= 18;
 
-  const contactLine = [branding.address, branding.phone, branding.email]
-    .filter(Boolean)
-    .join("  ·  ");
-  if (contactLine) {
-    page.drawText(contactLine, {
+  if (layout.header.companyContactLine) {
+    page.drawText(layout.header.companyContactLine, {
       x: MARGIN,
       y,
       size: 9,
@@ -111,12 +105,47 @@ function drawHeader(
     y -= 14;
   }
 
+  // Right-aligned header block — ESTIMATE label, status, number, dates —
+  // same fields EstimateDocument.tsx shows in its own header, in the same
+  // order.
+  let ry = PAGE_HEIGHT - MARGIN;
+  const rx = PAGE_WIDTH - MARGIN - 160;
   page.drawText("ESTIMATE", {
-    x: PAGE_WIDTH - MARGIN - 80,
-    y: PAGE_HEIGHT - MARGIN,
+    x: rx,
+    y: ry,
     size: 14,
     font: fonts.bold,
     color: rgb(0.16, 0.31, 0.62),
+  });
+  page.drawText(layout.header.statusLabel, {
+    x: rx + 90,
+    y: ry,
+    size: 9,
+    font: fonts.regular,
+    color: rgb(0.4, 0.4, 0.4),
+  });
+  ry -= 16;
+
+  if (layout.header.estimateNumber) {
+    page.drawText(layout.header.estimateNumber, {
+      x: rx,
+      y: ry,
+      size: 10,
+      font: fonts.regular,
+      color: rgb(0.2, 0.2, 0.2),
+    });
+    ry -= 13;
+  }
+
+  const dateLine = layout.header.validUntil
+    ? `${layout.header.estimateDate.value} · valid until ${layout.header.validUntil.value}`
+    : layout.header.estimateDate.value;
+  page.drawText(dateLine, {
+    x: rx,
+    y: ry,
+    size: 9,
+    font: fonts.regular,
+    color: rgb(0.5, 0.5, 0.5),
   });
 
   return y;
@@ -126,21 +155,11 @@ function drawCustomerBlock(
   page: PDFPage,
   fonts: { bold: PDFFont; regular: PDFFont },
   y: number,
-  estimate: Estimate
+  layout: DocumentLayout
 ): number {
-  const lines = [
-    estimate.company ?? estimate.contact_name ?? "—",
-    estimate.company ? estimate.contact_name : null,
-    estimate.site_address,
-    [estimate.phone, estimate.email].filter(Boolean).join("  ·  ") || null,
-    estimate.squares != null || estimate.pitch != null
-      ? `${estimate.squares ?? "—"} squares · pitch ${estimate.pitch ?? "—"}`
-      : null,
-  ].filter((l): l is string => !!l);
-
+  const lines = layout.customer.summaryLines ?? [];
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    page.drawText(line, {
+    page.drawText(lines[i], {
       x: MARGIN,
       y,
       size: i === 0 ? 12 : 10,
@@ -149,28 +168,50 @@ function drawCustomerBlock(
     });
     y -= i === 0 ? 16 : 13;
   }
+  return y;
+}
 
-  page.drawText(`Estimate #${estimate.id.slice(0, 8)}  ·  ${date(estimate.created_at)}`, {
-    x: MARGIN,
-    y: y - 4,
-    size: 9,
-    font: fonts.regular,
-    color: rgb(0.55, 0.55, 0.55),
-  });
-
-  return y - 4;
+function drawJobSite(
+  page: PDFPage,
+  fonts: { bold: PDFFont; regular: PDFFont },
+  y: number,
+  layout: DocumentLayout
+): number {
+  if (layout.jobSite.address.value && layout.jobSite.address.value !== "—") {
+    page.drawText(layout.jobSite.address.value, {
+      x: MARGIN,
+      y,
+      size: 10,
+      font: fonts.regular,
+      color: rgb(0.3, 0.3, 0.3),
+    });
+    y -= 13;
+  }
+  if (layout.jobSite.measurements) {
+    const { squares, pitch } = layout.jobSite.measurements;
+    page.drawText(`${squares.value} · pitch ${pitch.value}`, {
+      x: MARGIN,
+      y,
+      size: 9,
+      font: fonts.regular,
+      color: rgb(0.5, 0.5, 0.5),
+    });
+    y -= 13;
+  }
+  return y;
 }
 
 function drawLineItems(
   page: PDFPage,
   fonts: { bold: PDFFont; regular: PDFFont; mono: PDFFont },
   y: number,
-  lineItems: LineItem[]
+  layout: DocumentLayout
 ): number {
   const colDesc = MARGIN;
-  const colQty = PAGE_WIDTH - MARGIN - 200;
-  const colPrice = PAGE_WIDTH - MARGIN - 130;
-  const colTotal = PAGE_WIDTH - MARGIN - 60;
+  const colQty = PAGE_WIDTH - MARGIN - 220;
+  const colUnit = PAGE_WIDTH - MARGIN - 160;
+  const colPrice = PAGE_WIDTH - MARGIN - 110;
+  const colTotal = PAGE_WIDTH - MARGIN - 55;
 
   page.drawLine({
     start: { x: MARGIN, y },
@@ -182,21 +223,23 @@ function drawLineItems(
 
   page.drawText("Description", { x: colDesc, y, size: 9, font: fonts.bold });
   page.drawText("Qty", { x: colQty, y, size: 9, font: fonts.bold });
-  page.drawText("Unit", { x: colPrice, y, size: 9, font: fonts.bold });
+  page.drawText("Unit", { x: colUnit, y, size: 9, font: fonts.bold });
+  page.drawText("Rate", { x: colPrice, y, size: 9, font: fonts.bold });
   page.drawText("Total", { x: colTotal, y, size: 9, font: fonts.bold });
   y -= 14;
 
-  for (const item of lineItems) {
-    page.drawText(item.description, {
+  for (const row of layout.lineItems.rows) {
+    page.drawText(row.description, {
       x: colDesc,
       y,
       size: 10,
       font: fonts.regular,
       maxWidth: colQty - colDesc - 12,
     });
-    page.drawText(String(item.quantity), { x: colQty, y, size: 10, font: fonts.mono });
-    page.drawText(money(item.unit_price), { x: colPrice, y, size: 10, font: fonts.mono });
-    page.drawText(money(item.line_total), { x: colTotal, y, size: 10, font: fonts.mono });
+    page.drawText(row.quantity, { x: colQty, y, size: 10, font: fonts.mono });
+    page.drawText(row.unit, { x: colUnit, y, size: 10, font: fonts.mono, color: rgb(0.5, 0.5, 0.5) });
+    page.drawText(row.unitPrice, { x: colPrice, y, size: 10, font: fonts.mono });
+    page.drawText(row.lineTotal, { x: colTotal, y, size: 10, font: fonts.mono });
     y -= 16;
   }
 
@@ -210,43 +253,65 @@ function drawLineItems(
   return y;
 }
 
-function drawTotal(
+function drawTotals(
   page: PDFPage,
-  fonts: { bold: PDFFont; mono: PDFFont },
+  fonts: { bold: PDFFont; regular: PDFFont; mono: PDFFont },
   y: number,
-  total: number
+  layout: DocumentLayout
 ): number {
+  const labelX = PAGE_WIDTH - MARGIN - 160;
+  const valueX = PAGE_WIDTH - MARGIN - 90;
+
+  y -= 18;
+  page.drawText("Subtotal", { x: labelX, y, size: 10, font: fonts.regular, color: rgb(0.4, 0.4, 0.4) });
+  page.drawText(layout.totals.subtotal, { x: valueX, y, size: 10, font: fonts.mono });
+
+  if (layout.totals.tax) {
+    y -= 15;
+    page.drawText(`Tax (${layout.totals.tax.percentField.value}%)`, {
+      x: labelX,
+      y,
+      size: 10,
+      font: fonts.regular,
+      color: rgb(0.4, 0.4, 0.4),
+    });
+    page.drawText(layout.totals.tax.amount, { x: valueX, y, size: 10, font: fonts.mono });
+  }
+
   y -= 20;
-  page.drawText("Total", {
-    x: PAGE_WIDTH - MARGIN - 160,
-    y,
-    size: 13,
-    font: fonts.bold,
-  });
-  page.drawText(money(total), {
-    x: PAGE_WIDTH - MARGIN - 90,
-    y,
-    size: 13,
-    font: fonts.mono,
-  });
+  page.drawText("Total", { x: labelX, y, size: 13, font: fonts.bold });
+  page.drawText(layout.totals.total, { x: valueX, y, size: 13, font: fonts.mono });
+
+  if (layout.totals.presentedNote) {
+    y -= 14;
+    page.drawText(layout.totals.presentedNote, {
+      x: labelX,
+      y,
+      size: 8,
+      font: fonts.regular,
+      color: rgb(0.55, 0.55, 0.55),
+      maxWidth: PAGE_WIDTH - MARGIN - labelX,
+    });
+  }
+
   return y;
 }
 
-async function drawSignature(
+async function drawSignedBlock(
   doc: PDFDocument,
   page: PDFPage,
   fonts: { bold: PDFFont; regular: PDFFont },
   y: number,
-  signature: Signature
+  layout: DocumentLayout
 ): Promise<number> {
   page.drawText("Signed", { x: MARGIN, y, size: 10, font: fonts.bold });
   y -= 14;
 
   // signature_data is a canvas toDataURL() PNG ("data:image/png;base64,...")
-  // — SignaturePad (src/components/estimating/SignaturePad.tsx) is the only
-  // producer. A malformed/non-PNG value falls back to text-only rather than
-  // failing the whole PDF.
-  const match = /^data:image\/png;base64,(.+)$/.exec(signature.signature_data);
+  // — SignaturePad is the only producer. A malformed/non-PNG value falls
+  // back to text-only rather than failing the whole PDF.
+  const dataUrl = layout.signature.imageDataUrl;
+  const match = dataUrl ? /^data:image\/png;base64,(.+)$/.exec(dataUrl) : null;
   if (match) {
     try {
       const png = await doc.embedPng(Buffer.from(match[1], "base64"));
@@ -260,25 +325,25 @@ async function drawSignature(
     }
   }
 
-  page.drawText(`${signature.signer_name} (${signature.signer_role})`, {
-    x: MARGIN,
-    y,
-    size: 10,
-    font: fonts.regular,
-  });
-  y -= 13;
-  page.drawText(date(signature.signed_at), {
-    x: MARGIN,
-    y,
-    size: 9,
-    font: fonts.regular,
-    color: rgb(0.5, 0.5, 0.5),
-  });
+  if (layout.signature.signerLine) {
+    page.drawText(layout.signature.signerLine, { x: MARGIN, y, size: 10, font: fonts.regular });
+    y -= 13;
+  }
+  if (layout.signature.dateLine) {
+    page.drawText(layout.signature.dateLine, {
+      x: MARGIN,
+      y,
+      size: 9,
+      font: fonts.regular,
+      color: rgb(0.5, 0.5, 0.5),
+    });
+  }
   return y;
 }
 
-function drawTerms(page: PDFPage, font: PDFFont, y: number, terms: string): void {
-  page.drawText(terms, {
+function drawNotes(page: PDFPage, font: PDFFont, y: number, notes: string): void {
+  if (!notes) return;
+  page.drawText(notes, {
     x: MARGIN,
     y,
     size: 8,

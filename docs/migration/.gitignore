@@ -1,0 +1,10 @@
+# BMR export data contains customer PII (names, phones, emails, addresses).
+# NEVER commit the data files — git history is permanent.
+# Track only this file, the README, and the transform SQL (source code, no
+# PII — it reads from staging tables, never embeds row data).
+*
+!.gitignore
+!README.md
+!bmr_transform.sql
+!load_remaining_raw.sql
+!bmr_rollback.sql

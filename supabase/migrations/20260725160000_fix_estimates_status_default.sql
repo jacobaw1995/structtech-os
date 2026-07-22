@@ -1,0 +1,21 @@
+-- StructTech OS — Chunk 5 bug fix: estimates.status default is stale.
+--
+-- Found live during Chunk 5 verification (Delete-test setup): clicking
+-- "+ Create estimate" on ANY lead threw a raw Postgres error —
+--   new row for relation "estimates" violates check constraint
+--   "estimates_status_check"
+-- create_estimate_from_deal() never sets `status` explicitly (by design —
+-- a fresh estimate should start in whatever the "new" state is), relying on
+-- the column DEFAULT. The Chunk 1 migration correctly narrowed
+-- estimates_status_check to ('draft','presented','signed','void') but never
+-- updated the column default off the old 4-step-wizard value 'preliminary'
+-- (draft/validate/present/sign predates the rebuild). Every new estimate
+-- since Chunk 1 has been uncreatable until now — this is the single most
+-- important entry point in the document rebuild.
+--
+-- Straight ALTER ... SET DEFAULT, no CHECK-constraint value change and no
+-- existing rows to migrate (the default is only consulted on INSERT) — none
+-- of the DROP/UPDATE/ADD ordering from the CHECK-constraint migration trap
+-- applies here.
+
+alter table public.estimates alter column status set default 'draft';

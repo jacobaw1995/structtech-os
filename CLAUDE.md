@@ -134,7 +134,56 @@ Do **not** build these now, but do **not** make choices that block them (full de
 
 ---
 
-## CURRENT PHASE — CRM Depth (turn the pipeline into a real CRM)
+## Migration discipline — learned the hard way, do not skip
+
+1. **`CREATE OR REPLACE` with a CHANGED SIGNATURE creates an OVERLOAD, not a replacement.** Adding even a
+   trailing optional param counts. Always `DROP FUNCTION` the exact old signature first. "Safe for existing
+   callers" is about *callers* — it says nothing about overloads. (Hit 3+ times: line-item RPCs, milestone
+   RPCs, `update_estimate_details`.)
+2. **`DROP FUNCTION IF EXISTS` with a mistyped signature SILENTLY SUCCEEDS.** `IF EXISTS` suppresses the
+   no-match error, so a hand-transcribed type list that's off by one `text` drops nothing and reports
+   success. **Copy the signature verbatim from `pg_get_function_identity_arguments()`; never retype it.**
+   (Hit 7/24 on `update_deal_details`.)
+3. **Verify DB state after applying — never trust the success response.** Both traps above were caught only
+   by re-querying `pg_proc` afterward. Confirm overload counts and that drops actually dropped.
+4. **CHECK-constraint value changes need DROP → UPDATE rows → ADD.** Updating rows to a value the *old*
+   constraint forbids aborts the migration. (Hit on `lead_type`, again on `estimates.status`.)
+5b. **Migrations hit prod IMMEDIATELY; UI deploys lag. A migration must stay backward-compatible with
+   the CURRENTLY-DEPLOYED UI until the matching UI ships.** Chunk 1 narrowed `estimates.status` vocabulary
+   in prod while the deployed wizard still read the old values — which silently broke estimate *creation*
+   (bug #4) AND *step advancement* (flow.ts) in production for days. If a migration changes a value set,
+   constraint, or default the live UI depends on, either ship the UI in the same window or keep the change
+   additive/backward-compatible until you do. When in doubt, test the DEPLOYED commit against the migrated
+   schema (git worktree at the prod commit + live DB) — reasoning isn't enough.
+5. **PL/pgSQL treats a NULL `IF` condition as FALSE.** `if not (is_manager or v_owner_id = auth.uid())`
+   silently *allows* the action when `owner_id IS NULL`. Wrap nullable comparisons in
+   `coalesce(..., false)`. (Hit 7/24 — a real authorization bypass on unowned rows.)
+
+---
+
+## CURRENT PHASE — DEPTH PASS (set 7/20, after Isaac's first real demo)
+
+**STOP BUILDING NEW MODULES.** First client demo exposed the gap: the *foundation* held (security,
+tenancy, attribution, the 946-row BMR migration) but the *workflow surface* did not. Estimating,
+coordination and field were built fast in Weeks 2–3 as skeletons and never got a depth pass.
+
+**The rule now: depth on what exists, in Isaac's real workflow order, until he'd CHOOSE this over his
+old app rather than tolerate it.** No new modules until then.
+
+**Full priority list + detail: `docs/BACKLOG.md` → "🔴 ISAAC FEEDBACK (7/20) — DEPTH PASS."**
+Order: **P0** stage-gating removal (SCOPE §2.8) → **P1** estimate builder as a Joist-style
+document-as-editor (Manual/Guided toggle), real coordination sign-off (signature + document + homeowner
+confirmation), field depth (office-side upload + per-role file permissions), dashboard → **P2** Present
+Mode as a true multi-section sales deck that *sells the roof*.
+
+**NEW NON-NEGOTIABLE — SCOPE §2.8 "Never block the user."** Never disable a tab, button, or field
+because other data is incomplete. Guidance is advisory. Enforcement is per-tenant config, default OFF.
+This ranks with §2.6 (full CRUD) and §2.7 (configurable platform) — all three came from real users
+telling us the software was in their way.
+
+---
+
+## PREVIOUS PHASE (COMPLETE 7/19) — CRM Depth (turn the pipeline into a real CRM)
 
 **Weeks 1–3 COMPLETE and live at os.structek.com** — foundation/auth/multi-tenancy/shell (W1); pipeline both tenants + BMR live estimating (W2); BMR coordination + field + management-controls retrofit (W3). All the create/edit/delete controls exist per §2.6.
 

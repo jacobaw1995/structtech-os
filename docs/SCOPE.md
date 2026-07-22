@@ -28,6 +28,29 @@ Productized delivery that carries a client from **scan → sold → delivered �
 6. **User-managed data — full CRUD, always (non-negotiable).** Every entity a user creates is theirs to **edit, delete, archive, void, or reassign from the UI.** A management/operations platform never requires a developer, an admin, or raw SQL to correct human error or change course. "Create-and-advance only" is not acceptable — every module ships with the controls to *undo and fix* what it lets you *do*. (Prefer soft-delete/archive over hard-delete where history matters; guard by role.)
 7. **Configurable platform, tenant-authored (the core value prop).** StructTech OS is a **configurable engine, not a hardcoded app.** A tenant can self-onboard and shape the platform to *their* operation: their **pipelines** (multiple, of different types — sales, campaign, marketing/automation, custom — each with stages they can add/edit/delete/reorder), their **checklists/stages/fields**, their **pricing logic**, their **document templates**. Nothing operational is hardcoded per tenant — **definitions live in per-tenant config the engine reads generically; shipped sets (e.g. BMR's) are seeded defaults, not code.** The goal: hundreds of tenants, each running their own way with their own controls, on one build. The authoring UIs are built incrementally (backlog), but **the data model must never hard-wire a single tenant's shape** (see §12F). This is what "one build, licensed per tenant" (#1) actually requires under the hood.
 
+8. **Never block the user (non-negotiable — learned from Isaac, 7/20).** The platform **never prevents
+   navigation or data entry based on the completeness or order of other data.** Guidance is
+   *advisory*: show progress, show what's missing, recommend the next action — but never disable a tab,
+   a button, or a field because a prior step is incomplete. Real sales work is **non-linear** — you
+   learn the roof color before you measure the pitch, you get a scope note before an email address. A
+   tool that refuses input in the order reality delivers it is worse than a legal pad.
+   > *"I would rather not use the system at all than for it to have bugs and force me to input data
+   > before I can access other data points. I want to be able to navigate freely and add information as
+   > I have it."* — Isaac Smith, BMR owner, 7/20
+   Where a tenant genuinely wants enforced process, that is **per-tenant config, defaulted OFF**
+   (`enforce_stage_gating`), never the shipped default. Same relationship as #6/#7: the user's control
+   over their own workflow outranks our model of how the workflow *should* go.
+
+   **Clarification (7/24, from Isaac's walkthrough) — "never block" ≠ "never confirm."** §2.8 forbids
+   preventing the user from *entering data they have*. It does **not** forbid protecting *established
+   records from accidental change*. The distinction is what the field is doing:
+   - **Being gathered** (empty checklist rows, fields you're actively filling) → **tap to edit in place.**
+     Friction here is the thing Isaac hated.
+   - **Established reference data** (a customer's saved phone, email, address) → **explicit Edit action.**
+     A stray thumb on a phone at a job site must not silently overwrite a customer's number.
+   Both serve the same master: the user stays in control of their data. One protects them from *the
+   software's* rules; the other protects them from *a mis-tap*. Neither is a gate on what they may enter.
+
 ---
 
 ## 3. Tenant model

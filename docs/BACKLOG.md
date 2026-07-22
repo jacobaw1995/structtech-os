@@ -10,6 +10,147 @@ move it into the active CLAUDE.md phase; when done, delete it here.
 
 ---
 
+## 🔴 ISAAC FEEDBACK (7/20) — DEPTH PASS. Supersedes all other priorities.
+
+First real client demo. **Verdict: the foundation held; the workflow surface did not.** Security,
+tenancy, attribution and the 946-row migration all landed clean. But estimating / coordination / field
+were built fast in Weeks 2–3 as skeletons, never got a depth pass, and were written up as working
+modules. Isaac's demo exposed the gap.
+
+**STRATEGIC DECISION (Jacob, 7/20): STOP building new modules. Depth on what exists**, in Isaac's real
+workflow order, until he'd *choose* this over his old app rather than tolerate it.
+
+### P0 — churn risk, fix immediately
+- **Stage gating removal** (in flight 7/20) — see new **SCOPE §2.8 "Never block the user."** Gating
+  becomes advisory + per-tenant `enforce_stage_gating`, default OFF. Split `reached` (semantic) from
+  `navigable` (clickable); milestone buttons never disabled; completion shown as a hint. No DB migration.
+- **Estimating intermittent failure** — "start on-site visit" didn't advance during a demo; worked later
+  on different wifi. Likely network/server-action flake, NOT reproducible. **Watch item:** if it recurs,
+  capture browser console + network tab at that moment. Don't hunt it blind.
+
+### P0.5 — SYSTEMIC: coalesce-based update RPCs can't CLEAR a field (found 7/20, Chunk 3)
+
+Every `update_*` RPC in the codebase uses `coalesce(p_field, field)`, i.e. **null means "don't change."**
+There is therefore **no way to clear a field back to empty** — only to change it to another value. The
+action layer compounds it: `optionalString()` turns `''` into `undefined` → null → coalesce keeps the old
+value. **The user clears a field, the UI re-renders showing the old data, and nothing errors.** Silent.
+
+**Same root cause as the `owner_id` "Unassigned" no-op** found during C1 — which had been silently broken
+for weeks before anyone noticed. That was one field; this is the pattern.
+
+- **✅ FIXED (7/24) — Isaac's live path.** `update_deal_details` (24-scalar-param, coalesce-based) replaced
+  by `update_deal_fields(p_deal_id uuid, p_patch jsonb)`: key absent = untouched, key present (including
+  explicit null/`''`) = write it, clearing finally works. Security: server-side allowlist of exactly the
+  columns the old RPC exposed — `org_id`/`id`/`owner_id`/`created_at`/`stage`/etc. structurally cannot be
+  patched; any unlisted key raises and aborts the whole call (no partial-apply). All four real call sites
+  in `src/lib/crm/actions.ts` rewired (`updateDealDetails`, `updateDealColumnField` — Isaac's actual LCC
+  path, `updateDealTags`, `updateDealServiceAddress` — the ask named two, grep found four). Verified live
+  on synthetic data: text (email via the LCC inline row), numeric (crew_size), array (tags → `'{}'`, not
+  reverted), composite address (per-field granularity confirmed). `update_deal_details` dropped
+  (20260724130000) once all four were confirmed working — first drop attempt hand-transcribed the 24-type
+  signature and silently no-op'd (`IF EXISTS` swallows a signature mismatch); re-ran from the exact
+  `pg_get_function_identity_arguments()` string, confirmed gone.
+- **Array-clear convention (Jacob, 7/24):** the UI always sends a real `[]` for "cleared," never JSON
+  `null` — users can't express "unknown" vs "none" in a multi-select, so the two must never diverge in
+  the data. The RPC keeps the three-way capability (absent/null/`[]`); the client just never uses null.
+- **contact_name is the one field that keeps old coalesce-ish fallback behavior on purpose** (not a plain
+  "empty clears it" field) — see `20260724120000`'s header comment. Preserves the existing
+  derive-from-first/last-name behavior that "Contact name (override)" depends on.
+- **NULL-authorization gap found in review, fixed in `update_deal_fields`, NOT YET fixed elsewhere:**
+  `v_owner_id = auth.uid()` is NULL on an unowned deal, so for a non-manager
+  `not (is_org_manager OR NULL)` = `not NULL` = **PL/pgSQL treats a NULL IF condition as false — the
+  authorization raise is silently skipped.** Any authenticated org member could edit an unowned deal.
+  Fix is `coalesce(v_owner_id = auth.uid(), false)`. **The identical construct is in all eight other
+  C3-gated RPCs** (`update_deal_stage`, `archive_deal`, `restore_deal`, `update_intake_checklist_field`,
+  `complete_site_survey`, `order_scope`, `present_quote`) **and `assign_deal_owner`'s rep branch — separate
+  migration, not bundled with this one.** Verify with a synthetic rep + an UNOWNED deal — the case C3's 13
+  scenarios didn't cover (they tested owned-by-someone-else, not unowned).
+- **Remaining scope, not yet fixed:** `update_estimate_contact` (all fields coalesce-only);
+  `update_estimate_details`'s squares/pitch/site_address/estimate_date/notes_terms (tax_rate/valid_until
+  got explicit `p_clear_*` flags in Chunk 3 — 20260723160000 — because they're a numeric/date "one-way
+  door"; the rest weren't, on the same reasoning that made contact_name/notes_terms/estimate_date
+  exceptions above); the line-item RPCs; `update_production_packet_notes`. Same decision needed: explicit
+  `p_clear_<field>` flags per-field vs. the JSONB-patch convention now proven out on deals — decide once,
+  don't refight this per table.
+
+### From Isaac's walkthrough tutorial (7/24) — three items
+
+**(a) Contact info must require an explicit Edit action — P1, small.**
+Tap-to-edit on established contact fields means a stray thumb silently overwrites a customer's phone
+number. **Not a §2.8 violation** — see the §2.8 clarification: fields being *gathered* stay tap-to-edit;
+*established reference data* gets an explicit Edit affordance. Apply to the Lead Control Center prospect-
+data block (an "Edit lead details" path already exists — route through it) and re-examine the same risk on
+the new estimate document's customer/job-site blocks, which are currently tap-to-edit everywhere.
+Checklist rows being filled during intake are NOT affected — leave those alone.
+
+**(b) Post-signature edits need change control — INTERIM now, Change Orders backlogged.**
+Once a work order is a signed project with approved color/finish, changing scope silently is wrong
+commercially (that's what a change order is for). Jacob: **Change Orders is a real feature, backlogged until
+the rest of MVP is done.**
+*Interim, do NOT lock the fields* — locking without a change-order path would strand the user (§2.6). Instead
+**log and surface**: stamp post-signature changes to work-order scope fields (color/finish/materials) in the
+activity log with actor, and flag them visually on the record ("changed after sign-off"), the same pattern
+as the estimate's "edited since presented." Visibility now, formal process later. The estimate itself already
+freezes at `signed` (Chunk 1), so this is specifically about the coordination-module fields downstream of it.
+
+**(c) Admin-assistant role — granular capability flags. P1, real design work.**
+Isaac needs a login for an assistant who can see all leads and add notes but **not** see lead value or
+estimates. That's **field-level visibility**, which today's role model (screen-level `org_members.role`)
+can't express — but SCOPE §5 already anticipates it ("per-module level → granular flags → item-level roles").
+Shape:
+- `permissions` jsonb on `org_members` (per-tenant, per-user capability flags — fits the config-driven model).
+- A SMALL fixed set of capabilities, not per-field toggles, or it sprawls into an unmaintainable matrix:
+  `view_financials` (lead value, estimate totals, pricing), `view_estimates`, `edit_leads`, `add_notes`,
+  `manage_users`, `view_field`.
+- ⚠️ **Enforce SERVER-SIDE — strip the fields in the RPC/query layer, never hide them in the UI.** A
+  client-side hide is cosmetic; the data still ships to the browser. `fetch_deal` and the deals list must
+  omit `value` entirely for a caller without `view_financials`.
+- Interacts with C3 edit-by-ownership — capabilities gate *what you can see*, ownership gates *what you can
+  change*. Keep the two orthogonal; don't merge them into one role enum.
+
+### P1 — make the half-built modules real
+- **Estimate builder → document-as-editor (Joist model).** Replace the 4-step wizard with a WYSIWYG
+  document: the editor IS the PDF the customer receives. Customer + job site pre-fill from the lead;
+  line items are the primitive (tap to add description/qty/rate); totals, notes/terms, signature block.
+  **Mode toggle: Manual (Isaac's default — type anything, any order) vs Guided** (scope checklist +
+  pricing matrix auto-generate line items). *This rescues the checklist/pricing-matrix work — it becomes
+  the optional power path instead of the only path.* Mock built 7/20; **get Isaac's reaction before building.**
+- **Coordination "sign-off" is a stub.** Today it captures color/finish text and calls it sign-off.
+  Needs: real homeowner **signature/initials capture**, a **generated document** attached to the job,
+  and **confirmation delivered to the homeowner**. Currently misrepresents what it does.
+- **Field module — "cool but clunky."** Open questions to answer from the code, then fix:
+  (a) can Isaac (office/owner) create field datapoints or upload roof data himself, or is it crew-only?
+  (b) can crew **edit or delete** a file Isaac uploaded? Needs a real per-role file permission model.
+  (c) general UX pass.
+- **No dashboard / home view.** Nav is pipeline · estimate · coordination · field with no overview.
+
+### P2 — the differentiator: Present Mode (CORRECTED understanding 7/20)
+**Present Mode is NOT the estimate rendered nicely.** It's a multi-section **sales presentation that
+sells the roof**, walked through with the homeowner on a tablet at the kitchen table, closing with a
+signature before you leave. Also printable as a booklet/brochure. Reference: roofdocsstudio.com (18-section
+proposal — cover with the customer's home, credentials, testimonials + star ratings, findings/damage
+photos, **the roof product itself**, scope in plain language, investment summary, 30/40/30 payment
+schedule, warranty, signature).
+
+Most content already exists — Present Mode *assembles* it (no re-entry applied to selling):
+
+| Deck section | Source |
+|---|---|
+| Cover (customer, address, their home) | lead record |
+| Company credentials / branding | tenant config |
+| Testimonials, past jobs | **new** (small table) |
+| Findings + damage photos | site-visit checklist + field photos |
+| **The roof — material, profile, color, gauge, warranty, good/better/best** | roof-type options → product catalog (§12B) |
+| Scope of work | site-visit scope checklist |
+| Investment summary | estimate line items |
+| Payment schedule | **new** (deposit/progress/final on the estimate) |
+| Signature | already built |
+
+Tablet-first; printable; **per-tenant template + branding** (§12E/§12F). **Sequencing: estimate builder
+FIRST** — the investment summary generates from those line items.
+
+---
+
 ## Next up — revenue layer (owed from the Week 2 "close-tool" fork)
 
 - **`proposals` + Present Mode module** (internal-only; SCOPE §4). StructTech's own
@@ -212,6 +353,26 @@ Still open, lower priority (post-go-live):
   once he does, the free-text value is unused. Not a migration — just cleanup Isaac can do himself.
 
 ---
+
+## Self-serve password reset — "Forgot password?" (raised 7/19, confirmed needed)
+
+`/login` is email+password only with **no recovery path** — a forgotten password today means Jacob
+resetting it from the Supabase dashboard. Fine at one client, untenable at ten. Not a Monday blocker
+(Isaac gets a password via dashboard recovery), but the next auth work after go-live.
+
+Shape:
+- `Forgot password?` link on `/login` → **`/forgot-password`**: email input → `resetPasswordForEmail(email,
+  { redirectTo: <SITE_URL>/reset-password })`. Always show the same "if that email exists, we sent a link"
+  confirmation — never reveal whether an account exists (account-enumeration leak).
+- **`/reset-password`**: new-password form → `updateUser({ password })` → redirect to `/select-workspace`.
+- ⚠️ **The fiddly part — the callback.** Supabase recovery links use PKCE / `token_hash`; with the SSR
+  client the token must be exchanged for a session in a route handler (`/auth/confirm` or
+  `/auth/callback`) before `/reset-password` can call `updateUser`. Skipping this is the usual reason
+  reset "silently does nothing." Follow CLAUDE.md rules 1–2 (`getSession()`, server `createClient()`).
+- Redirect allow-list already covers it via `https://os.structtek.com/**` (set 7/19).
+- Also worth it then: **email deliverability** — Supabase's built-in mailer is rate-limited and lands in
+  spam. Resend is already in the stack (CLAUDE.md §Tech stack); wiring it up as custom SMTP makes both
+  recovery AND invites reliable. Do these together.
 
 ## First-timer onboarding tour (raised 7/19 — hold until after Isaac's Mon walkthrough)
 

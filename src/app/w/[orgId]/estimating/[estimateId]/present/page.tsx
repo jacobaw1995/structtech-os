@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { requireModuleAccess } from "@/lib/workspace/context";
 import { parseEstimateBranding } from "@/lib/estimating/branding";
 import { EstimateDocument } from "@/components/estimating/EstimateDocument";
@@ -10,21 +9,23 @@ type Estimate = Database["public"]["Tables"]["estimates"]["Row"];
 type LineItem = Database["public"]["Tables"]["estimate_line_items"]["Row"];
 type Signature = Database["public"]["Tables"]["signatures"]["Row"];
 
-// Chunk 5 cutover — this IS the document now (was the 4-step wizard
-// through Chunk 4; the document lived at the /document suffix through
-// Chunks 2-4). No more step params, no more wizard. The old /document path
-// is a redirect-only stub (document/page.tsx) for anything bookmarked.
-export default async function EstimatePage({
+// Chunk 5 — Present Mode: the same document, full-screen, customer-facing.
+// WorkspaceShell (src/components/workspace/WorkspaceShell.tsx) strips its
+// own chrome for any route ending in /present, so this renders with no
+// sidebar/topbar at all. A pure VIEW — visiting this URL never mutates
+// anything; "Present to client" (the editor's button) is what calls
+// present_estimate() before navigating here. `presentationMode` on
+// EstimateDocument hides every operator-only affordance EXCEPT the
+// signature block, which stays fully live — a customer signs IN Present
+// Mode, at the kitchen table, on the tablet (Jacob's Chunk 5 correction).
+export default async function EstimatePresentPage({
   params,
-  searchParams,
 }: {
   params: { orgId: string; estimateId: string };
-  searchParams: { error?: string; scopeUnmapped?: string; scopeUnparseable?: string };
 }) {
   const ctx = await requireModuleAccess(params.orgId, "estimating");
   const supabase = ctx.supabase;
 
-  // Single-record fetch RPC (CLAUDE.md rule 4).
   const { data: fetched } = await supabase.rpc("fetch_estimate", {
     p_estimate_id: params.estimateId,
   });
@@ -63,10 +64,7 @@ export default async function EstimatePage({
   );
 
   return (
-    <div className="flex h-full flex-col gap-4 overflow-y-auto py-2">
-      <Link href={`/w/${params.orgId}/estimating`} className="text-sm text-muted">
-        ← Estimates
-      </Link>
+    <div className="min-h-dvh bg-bg px-4 py-6 sm:px-8">
       <EstimateOutdoorShell>
         <EstimateDocument
           orgId={params.orgId}
@@ -74,9 +72,7 @@ export default async function EstimatePage({
           lineItems={lineItems}
           signature={signature}
           branding={branding}
-          errorMessage={searchParams.error}
-          scopeUnmapped={searchParams.scopeUnmapped ? searchParams.scopeUnmapped.split(",") : []}
-          scopeUnparseable={searchParams.scopeUnparseable ? searchParams.scopeUnparseable.split(",") : []}
+          presentationMode
         />
       </EstimateOutdoorShell>
     </div>

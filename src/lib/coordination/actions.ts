@@ -31,9 +31,8 @@ function workOrderHref(orgId: string, workOrderId: string, error?: string) {
   return `/w/${orgId}/coordination/${workOrderId}${qs}`;
 }
 
-// Same Router Cache rationale as revalidateEstimate in estimating/actions.ts
-// — redirecting back to the page the form was already on is a no-op without
-// this.
+// Next's client-side Router Cache treats redirect(x) back to the route the
+// form was already on as a no-op — this busts that cache entry first.
 function revalidateWorkOrder(orgId: string, workOrderId: string) {
   revalidatePath(`/w/${orgId}/coordination/${workOrderId}`);
 }
@@ -55,7 +54,7 @@ export async function createWorkOrderFromEstimate(formData: FormData) {
 
   if (error) {
     redirect(
-      `/w/${orgId}/estimating/${estimateId}?step=4&error=${encodeURIComponent(error.message)}`
+      `/w/${orgId}/estimating/${estimateId}?error=${encodeURIComponent(error.message)}`
     );
   }
 

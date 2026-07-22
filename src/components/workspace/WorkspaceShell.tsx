@@ -54,6 +54,17 @@ export function WorkspaceShell({
     active.tenant_type === "contractor" && active.role === "agency_admin";
   const homeOrg = orgs.find((o) => o.tenant_type === "internal");
 
+  // Present Mode (Chunk 5) is genuinely full-screen, customer-facing — no
+  // sidebar, no topbar, no "viewing as" chrome, nothing that identifies
+  // this as an internal tool while a homeowner is looking at it on the
+  // tablet. WorkspaceShell lives in the [orgId] layout (wraps EVERY route
+  // under /w/[orgId]/*), so this is the one place that can opt a route out
+  // of the shell entirely — App Router layouts always wrap their children,
+  // there's no per-page "skip my parent's layout" mechanism otherwise.
+  if (pathname?.endsWith("/present")) {
+    return <>{children}</>;
+  }
+
   return (
     // h-dvh (dynamic viewport height), not h-screen — 100vh doesn't account
     // for mobile browser chrome (iOS Safari's address bar most notably), so
