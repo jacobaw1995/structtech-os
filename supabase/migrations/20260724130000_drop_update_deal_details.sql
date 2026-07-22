@@ -1,0 +1,27 @@
+-- StructTech OS — P0.5 cleanup: drop update_deal_details
+--
+-- update_deal_fields(uuid, jsonb) (20260724120000) has fully replaced
+-- update_deal_details as of this migration. All four action-layer callers
+-- (updateDealDetails, updateDealTags, updateDealColumnField,
+-- updateDealServiceAddress — src/lib/crm/actions.ts) were rewired and
+-- verified live before this ran: text (email, via updateDealColumnField —
+-- Isaac's actual LCC path), numeric (crew_size, via updateDealDetails),
+-- array (tags, via updateDealTags — confirmed clears to '{}', not null,
+-- per the array-UI decision), and the composite address form
+-- (updateDealServiceAddress — confirmed per-field granularity, clearing
+-- street left city untouched). Each verified set -> clear -> blur -> hard
+-- reload -> confirmed in both DB and UI, on synthetic data only. Grepped
+-- afterward for any remaining app-code caller of update_deal_details —
+-- none found.
+--
+-- Live signature confirmed against pg_proc immediately before writing this
+-- drop (same discipline as every other DROP in this repo, after the Chunk 1
+-- overload-trap lesson) — and confirmed AGAIN the hard way: a first attempt
+-- at this DROP hand-transcribed the 24-type list and dropped one `text`
+-- (23 types instead of 24), so `drop function if exists` matched nothing
+-- and silently no-op'd — IF EXISTS suppresses the error, so the only tell
+-- was re-querying pg_proc afterward and finding the function still there.
+-- Re-ran using the exact argument string copied verbatim from
+-- pg_get_function_identity_arguments(), not retyped:
+
+drop function if exists public.update_deal_details(p_deal_id uuid, p_contact_name text, p_company text, p_email text, p_phone text, p_value numeric, p_trade text, p_crew_size integer, p_lead_type text, p_project_address text, p_billing_address text, p_first_name text, p_last_name text, p_secondary_phone text, p_remodel_or_new_construction text, p_existing_roof_type text[], p_roof_type_requested text[], p_service_address_street text, p_service_address_city text, p_service_address_state text, p_service_address_zip text, p_referral_name text, p_owner_id uuid, p_tags text[]);

@@ -2,10 +2,8 @@
 
 export function estimateStatusLabel(status: string): string {
   switch (status) {
-    case "preliminary":
-      return "Preliminary";
-    case "validated":
-      return "Validated";
+    case "draft":
+      return "Draft";
     case "presented":
       return "Presented";
     case "signed":

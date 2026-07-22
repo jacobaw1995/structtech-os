@@ -21,16 +21,13 @@ function optionalString(formData: FormData, key: string): string | undefined {
   return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
-function optionalNumber(formData: FormData, key: string): number | undefined {
-  const raw = optionalString(formData, key);
-  return raw === undefined ? undefined : Number(raw);
-}
-
 // Comma-separated tag/roof-type inputs -> text[]. Empty input intentionally
-// resolves to [] (clears the array), not undefined — array params aren't
-// subject to update_deal_details' coalesce-keeps-old-value convention the
-// way scalar text params are, so "cleared the box" reads as "clear the
-// tags," matching what a user typing into an empty-looking field expects.
+// resolves to [] (clears the array), not undefined — matches Jacob's
+// array-UI decision (always send a real array, never JSON null, since a
+// multi-select can't express "unknown" vs "none" so the two must never
+// diverge in the data) and, before that decision existed, was already what
+// kept arrays clearable even under the old coalesce-based update_deal_details
+// (coalesce only defers on true SQL NULL, and [] isn't one).
 // A multi-select (roof-type dropdowns with seeded options) submits several
 // form entries under the same name; a free-text fallback (no options
 // configured for that field) submits one comma-separated string. Handle
@@ -46,6 +43,51 @@ function tagList(formData: FormData, key: string): string[] {
     .split(",")
     .map((s) => s.trim())
     .filter((s) => s.length > 0);
+}
+
+// update_deal_fields(jsonb) replaces update_deal_details' coalesce-based
+// design (BACKLOG.md P0.5 — clearing a field silently kept the old value).
+// Key ABSENT from the patch = untouched; PRESENT (including empty) = write
+// it, empty string becoming JSON null so the RPC actually clears the
+// column. These three builders are the fix: optionalString()/
+// optionalNumber() collapsed '' to undefined (=absent) BEFORE the RPC ever
+// saw it, which is exactly what made clearing impossible under the old
+// design — these check FormData presence directly instead.
+function patchScalar(
+  formData: FormData,
+  key: string,
+  patch: Record<string, string | number | string[] | null>,
+  patchKey: string = key
+) {
+  const value = formData.get(key);
+  if (typeof value !== "string") return; // key not part of THIS submission
+  patch[patchKey] = value.length > 0 ? value : null;
+}
+
+function patchNumber(
+  formData: FormData,
+  key: string,
+  patch: Record<string, string | number | string[] | null>,
+  patchKey: string = key
+) {
+  const value = formData.get(key);
+  if (typeof value !== "string") return;
+  patch[patchKey] = value.length > 0 ? Number(value) : null;
+}
+
+// Arrays already had correct clear semantics (tagList() never returns
+// undefined, only a real array) — this just moves them onto the patch
+// object. Per Jacob's array-UI decision: always send a real array (never
+// JSON null) so "unknown" and "none" never diverge in a multi-select the
+// user has no way to distinguish between.
+function patchArray(
+  formData: FormData,
+  key: string,
+  patch: Record<string, string | number | string[] | null>,
+  patchKey: string = key
+) {
+  if (!formData.has(key)) return;
+  patch[patchKey] = tagList(formData, key);
 }
 
 // Every checklist row and the Prospect Data panel need to redirect back to
@@ -154,29 +196,32 @@ export async function updateDealDetails(formData: FormData) {
   } = await supabase.auth.getSession();
   if (!session) redirect("/login");
 
-  const { error } = await supabase.rpc("update_deal_details", {
+  const patch: Record<string, string | number | string[] | null> = {};
+  patchScalar(formData, "contact_name", patch);
+  patchScalar(formData, "company", patch);
+  patchScalar(formData, "email", patch);
+  patchScalar(formData, "phone", patch);
+  patchNumber(formData, "value", patch);
+  patchScalar(formData, "trade", patch);
+  patchNumber(formData, "crew_size", patch);
+  patchScalar(formData, "lead_type", patch);
+  patchScalar(formData, "project_address", patch);
+  patchScalar(formData, "billing_address", patch);
+  patchScalar(formData, "first_name", patch);
+  patchScalar(formData, "last_name", patch);
+  patchScalar(formData, "secondary_phone", patch);
+  patchScalar(formData, "remodel_or_new_construction", patch);
+  patchArray(formData, "existing_roof_type", patch);
+  patchArray(formData, "roof_type_requested", patch);
+  patchScalar(formData, "service_address_street", patch);
+  patchScalar(formData, "service_address_city", patch);
+  patchScalar(formData, "service_address_state", patch);
+  patchScalar(formData, "service_address_zip", patch);
+  patchScalar(formData, "referral_name", patch);
+
+  const { error } = await supabase.rpc("update_deal_fields", {
     p_deal_id: dealId,
-    p_contact_name: optionalString(formData, "contact_name"),
-    p_company: optionalString(formData, "company"),
-    p_email: optionalString(formData, "email"),
-    p_phone: optionalString(formData, "phone"),
-    p_value: optionalNumber(formData, "value"),
-    p_trade: optionalString(formData, "trade"),
-    p_crew_size: optionalNumber(formData, "crew_size"),
-    p_lead_type: optionalString(formData, "lead_type"),
-    p_project_address: optionalString(formData, "project_address"),
-    p_billing_address: optionalString(formData, "billing_address"),
-    p_first_name: optionalString(formData, "first_name"),
-    p_last_name: optionalString(formData, "last_name"),
-    p_secondary_phone: optionalString(formData, "secondary_phone"),
-    p_remodel_or_new_construction: optionalString(formData, "remodel_or_new_construction"),
-    p_existing_roof_type: formData.has("existing_roof_type") ? tagList(formData, "existing_roof_type") : undefined,
-    p_roof_type_requested: formData.has("roof_type_requested") ? tagList(formData, "roof_type_requested") : undefined,
-    p_service_address_street: optionalString(formData, "service_address_street"),
-    p_service_address_city: optionalString(formData, "service_address_city"),
-    p_service_address_state: optionalString(formData, "service_address_state"),
-    p_service_address_zip: optionalString(formData, "service_address_zip"),
-    p_referral_name: optionalString(formData, "referral_name"),
+    p_patch: patch,
   });
 
   if (error) {
@@ -236,9 +281,12 @@ export async function updateDealTags(formData: FormData) {
   } = await supabase.auth.getSession();
   if (!session) redirect("/login");
 
-  const { error } = await supabase.rpc("update_deal_details", {
+  const patch: Record<string, string | number | string[] | null> = {};
+  patchArray(formData, "tags", patch);
+
+  const { error } = await supabase.rpc("update_deal_fields", {
     p_deal_id: dealId,
-    p_tags: tagList(formData, "tags"),
+    p_patch: patch,
   });
 
   redirect(dealRedirectPath(orgId, dealId, stage, error?.message));
@@ -246,33 +294,44 @@ export async function updateDealTags(formData: FormData) {
 
 // The single write path for every "column"/"columns"-sourced checklist
 // row. `field` names the config field key (e.g. "first_name",
-// "existing_roof_type") — mapped to update_deal_details' named param via a
-// fixed switch (not dynamic SQL; field is never interpolated into a
-// query). Unknown/readonly keys hit the default case and no-op rather than
+// "existing_roof_type") — mapped to a patch entry via a fixed switch (not
+// dynamic SQL; field is never interpolated into a query). Unknown/readonly
+// keys hit the default case and produce an empty patch (no-op) rather than
 // erroring, since a stale row from an edited config shouldn't hard-fail.
-function columnFieldRpcParams(field: string, formData: FormData): Record<string, unknown> {
+function columnFieldPatch(field: string, formData: FormData): Record<string, string | number | string[] | null> {
+  const patch: Record<string, string | number | string[] | null> = {};
   switch (field) {
     case "first_name":
-      return { p_first_name: optionalString(formData, "value") };
+      patchScalar(formData, "value", patch, "first_name");
+      break;
     case "last_name":
-      return { p_last_name: optionalString(formData, "value") };
+      patchScalar(formData, "value", patch, "last_name");
+      break;
     case "phone":
-      return { p_phone: optionalString(formData, "value") };
+      patchScalar(formData, "value", patch, "phone");
+      break;
     case "email":
-      return { p_email: optionalString(formData, "value") };
+      patchScalar(formData, "value", patch, "email");
+      break;
     case "lead_type":
-      return { p_lead_type: optionalString(formData, "value") };
+      patchScalar(formData, "value", patch, "lead_type");
+      break;
     case "remodel_or_new_construction":
-      return { p_remodel_or_new_construction: optionalString(formData, "value") };
+      patchScalar(formData, "value", patch, "remodel_or_new_construction");
+      break;
     case "value":
-      return { p_value: optionalNumber(formData, "value") };
+      patchNumber(formData, "value", patch, "value");
+      break;
     case "existing_roof_type":
-      return { p_existing_roof_type: tagList(formData, "value") };
+      patchArray(formData, "value", patch, "existing_roof_type");
+      break;
     case "roof_type_requested":
-      return { p_roof_type_requested: tagList(formData, "value") };
+      patchArray(formData, "value", patch, "roof_type_requested");
+      break;
     default:
-      return {};
+      break;
   }
+  return patch;
 }
 
 export async function updateDealColumnField(formData: FormData) {
@@ -287,9 +346,9 @@ export async function updateDealColumnField(formData: FormData) {
   } = await supabase.auth.getSession();
   if (!session) redirect("/login");
 
-  const { error } = await supabase.rpc("update_deal_details", {
+  const { error } = await supabase.rpc("update_deal_fields", {
     p_deal_id: dealId,
-    ...columnFieldRpcParams(field, formData),
+    p_patch: columnFieldPatch(field, formData),
   });
 
   redirect(dealRedirectPath(orgId, dealId, stage, error?.message));
@@ -306,12 +365,15 @@ export async function updateDealServiceAddress(formData: FormData) {
   } = await supabase.auth.getSession();
   if (!session) redirect("/login");
 
-  const { error } = await supabase.rpc("update_deal_details", {
+  const patch: Record<string, string | number | string[] | null> = {};
+  patchScalar(formData, "street", patch, "service_address_street");
+  patchScalar(formData, "city", patch, "service_address_city");
+  patchScalar(formData, "state", patch, "service_address_state");
+  patchScalar(formData, "zip", patch, "service_address_zip");
+
+  const { error } = await supabase.rpc("update_deal_fields", {
     p_deal_id: dealId,
-    p_service_address_street: optionalString(formData, "street"),
-    p_service_address_city: optionalString(formData, "city"),
-    p_service_address_state: optionalString(formData, "state"),
-    p_service_address_zip: optionalString(formData, "zip"),
+    p_patch: patch,
   });
 
   redirect(dealRedirectPath(orgId, dealId, stage, error?.message));

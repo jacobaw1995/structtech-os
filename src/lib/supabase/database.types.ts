@@ -767,7 +767,9 @@ export type Database = {
           org_id: string
           product_id: string | null
           quantity: number
+          scope_key: string | null
           sort_order: number
+          unit: string | null
           unit_price: number
           updated_at: string
         }
@@ -780,7 +782,9 @@ export type Database = {
           org_id: string
           product_id?: string | null
           quantity?: number
+          scope_key?: string | null
           sort_order?: number
+          unit?: string | null
           unit_price?: number
           updated_at?: string
         }
@@ -793,7 +797,9 @@ export type Database = {
           org_id?: string
           product_id?: string | null
           quantity?: number
+          scope_key?: string | null
           sort_order?: number
+          unit?: string | null
           unit_price?: number
           updated_at?: string
         }
@@ -814,14 +820,41 @@ export type Database = {
           },
         ]
       }
+      estimate_number_counters: {
+        Row: {
+          next_number: number
+          org_id: string
+        }
+        Insert: {
+          next_number?: number
+          org_id: string
+        }
+        Update: {
+          next_number?: number
+          org_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "estimate_number_counters_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       estimates: {
         Row: {
+          build_mode: string
           company: string | null
           contact_name: string | null
           created_at: string
           deal_id: string
           email: string | null
+          estimate_date: string | null
+          estimate_number: string | null
           id: string
+          notes_terms: string | null
           org_id: string
           phone: string | null
           pitch: string | null
@@ -832,15 +865,22 @@ export type Database = {
           squares: number | null
           status: string
           subtotal: number
+          tax_amount: number | null
+          tax_rate: number | null
           updated_at: string
+          valid_until: string | null
         }
         Insert: {
+          build_mode?: string
           company?: string | null
           contact_name?: string | null
           created_at?: string
           deal_id: string
           email?: string | null
+          estimate_date?: string | null
+          estimate_number?: string | null
           id?: string
+          notes_terms?: string | null
           org_id: string
           phone?: string | null
           pitch?: string | null
@@ -851,15 +891,22 @@ export type Database = {
           squares?: number | null
           status?: string
           subtotal?: number
+          tax_amount?: number | null
+          tax_rate?: number | null
           updated_at?: string
+          valid_until?: string | null
         }
         Update: {
+          build_mode?: string
           company?: string | null
           contact_name?: string | null
           created_at?: string
           deal_id?: string
           email?: string | null
+          estimate_date?: string | null
+          estimate_number?: string | null
           id?: string
+          notes_terms?: string | null
           org_id?: string
           phone?: string | null
           pitch?: string | null
@@ -870,7 +917,10 @@ export type Database = {
           squares?: number | null
           status?: string
           subtotal?: number
+          tax_amount?: number | null
+          tax_rate?: number | null
           updated_at?: string
+          valid_until?: string | null
         }
         Relationships: [
           {
@@ -1243,6 +1293,99 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      migration_bmr_activity_raw: {
+        Row: {
+          loaded_at: string
+          old_id: string
+          payload: Json
+        }
+        Insert: {
+          loaded_at?: string
+          old_id: string
+          payload: Json
+        }
+        Update: {
+          loaded_at?: string
+          old_id?: string
+          payload?: Json
+        }
+        Relationships: []
+      }
+      migration_bmr_id_map: {
+        Row: {
+          created_at: string
+          entity: string
+          new_id: string | null
+          old_id: string
+        }
+        Insert: {
+          created_at?: string
+          entity: string
+          new_id?: string | null
+          old_id: string
+        }
+        Update: {
+          created_at?: string
+          entity?: string
+          new_id?: string | null
+          old_id?: string
+        }
+        Relationships: []
+      }
+      migration_bmr_leads_raw: {
+        Row: {
+          loaded_at: string
+          old_id: string
+          payload: Json
+        }
+        Insert: {
+          loaded_at?: string
+          old_id: string
+          payload: Json
+        }
+        Update: {
+          loaded_at?: string
+          old_id?: string
+          payload?: Json
+        }
+        Relationships: []
+      }
+      migration_bmr_notes_raw: {
+        Row: {
+          loaded_at: string
+          old_id: string
+          payload: Json
+        }
+        Insert: {
+          loaded_at?: string
+          old_id: string
+          payload: Json
+        }
+        Update: {
+          loaded_at?: string
+          old_id?: string
+          payload?: Json
+        }
+        Relationships: []
+      }
+      migration_bmr_users_raw: {
+        Row: {
+          loaded_at: string
+          old_id: string
+          payload: Json
+        }
+        Insert: {
+          loaded_at?: string
+          old_id: string
+          payload: Json
+        }
+        Update: {
+          loaded_at?: string
+          old_id?: string
+          payload?: Json
+        }
+        Relationships: []
       }
       org_invites: {
         Row: {
@@ -2200,6 +2343,7 @@ export type Database = {
           p_product_id?: string
           p_quantity?: number
           p_sort_order?: number
+          p_unit?: string
           p_unit_price?: number
         }
         Returns: string
@@ -2454,12 +2598,16 @@ export type Database = {
       fetch_estimate: {
         Args: { p_estimate_id: string }
         Returns: {
+          build_mode: string
           company: string | null
           contact_name: string | null
           created_at: string
           deal_id: string
           email: string | null
+          estimate_date: string | null
+          estimate_number: string | null
           id: string
+          notes_terms: string | null
           org_id: string
           phone: string | null
           pitch: string | null
@@ -2470,7 +2618,10 @@ export type Database = {
           squares: number | null
           status: string
           subtotal: number
+          tax_amount: number | null
+          tax_rate: number | null
           updated_at: string
+          valid_until: string | null
         }[]
         SetofOptions: {
           from: "*"
@@ -2636,6 +2787,10 @@ export type Database = {
         Args: { p_check_in_id: string; p_photo_data_url: string }
         Returns: undefined
       }
+      reorder_estimate_line_items: {
+        Args: { p_estimate_id: string; p_line_item_ids: string[] }
+        Returns: undefined
+      }
       restore_deal: { Args: { p_deal_id: string }; Returns: undefined }
       restore_tracker_item: { Args: { p_item_id: string }; Returns: undefined }
       restore_tracker_project: {
@@ -2678,37 +2833,16 @@ export type Database = {
         }
         Returns: undefined
       }
-      update_deal_details: {
-        Args: {
-          p_billing_address?: string
-          p_company?: string
-          p_contact_name?: string
-          p_crew_size?: number
-          p_deal_id: string
-          p_email?: string
-          p_existing_roof_type?: string[]
-          p_first_name?: string
-          p_last_name?: string
-          p_lead_type?: string
-          p_owner_id?: string
-          p_phone?: string
-          p_project_address?: string
-          p_referral_name?: string
-          p_remodel_or_new_construction?: string
-          p_roof_type_requested?: string[]
-          p_secondary_phone?: string
-          p_service_address_city?: string
-          p_service_address_state?: string
-          p_service_address_street?: string
-          p_service_address_zip?: string
-          p_tags?: string[]
-          p_trade?: string
-          p_value?: number
-        }
+      update_deal_fields: {
+        Args: { p_deal_id: string; p_patch: Json }
         Returns: undefined
       }
       update_deal_stage: {
         Args: { p_deal_id: string; p_new_stage: string }
+        Returns: undefined
+      }
+      update_estimate_build_mode: {
+        Args: { p_build_mode: string; p_estimate_id: string }
         Returns: undefined
       }
       update_estimate_contact: {
@@ -2723,10 +2857,16 @@ export type Database = {
       }
       update_estimate_details: {
         Args: {
+          p_clear_tax_rate?: boolean
+          p_clear_valid_until?: boolean
+          p_estimate_date?: string
           p_estimate_id: string
+          p_notes_terms?: string
           p_pitch?: string
           p_site_address?: string
           p_squares?: number
+          p_tax_rate?: number
+          p_valid_until?: string
         }
         Returns: undefined
       }
@@ -2736,6 +2876,7 @@ export type Database = {
           p_line_item_id: string
           p_quantity?: number
           p_sort_order?: number
+          p_unit?: string
           p_unit_price?: number
         }
         Returns: undefined
@@ -2798,6 +2939,10 @@ export type Database = {
           p_project_id: string
           p_status?: string
         }
+        Returns: undefined
+      }
+      upsert_estimate_scope_line_items: {
+        Args: { p_estimate_id: string; p_items: Json }
         Returns: undefined
       }
       void_estimate: { Args: { p_estimate_id: string }; Returns: undefined }
