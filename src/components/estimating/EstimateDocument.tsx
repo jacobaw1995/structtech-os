@@ -1,9 +1,9 @@
 import { EditableField } from "@/components/estimating/EditableField";
+import { EstimateContactEditForm } from "@/components/estimating/EstimateContactEditForm";
 import { LineItemsEditor } from "@/components/estimating/LineItemsEditor";
 import { EstimateSignatureBlock } from "@/components/estimating/EstimateSignatureBlock";
 import { buildDocumentLayout } from "@/lib/estimating/document-layout";
 import {
-  updateEstimateDocumentContact,
   updateEstimateDocumentDetails,
   switchEstimateToManual,
   switchEstimateToGuided,
@@ -72,7 +72,6 @@ export function EstimateDocument({
   });
 
   const detailsHidden = { orgId, estimateId: estimate.id };
-  const contactHidden = { orgId, estimateId: estimate.id };
   const opsHidden = { orgId, estimateId: estimate.id };
 
   // Operator-control visibility — deliberately NOT all the same condition
@@ -183,65 +182,24 @@ export function EstimateDocument({
           <p className="text-[10px] font-semibold uppercase tracking-wide text-muted">
             {layout.customer.sectionLabel} <span className="normal-case">— from lead</span>
           </p>
-          {layout.customer.summaryLines ? (
-            layout.customer.summaryLines.length === 0 ? (
-              <p className="text-sm text-muted">—</p>
-            ) : (
-              layout.customer.summaryLines.map((line, i) => (
-                <p key={i} className={i === 0 ? "text-sm font-semibold text-text" : "text-sm text-text"}>
-                  {line}
-                </p>
-              ))
-            )
+          {layout.customer.summaryLines.length === 0 ? (
+            <p className="text-sm text-muted">—</p>
           ) : (
-            <>
-              <EditableField
-                key={`company-${estimate.id}-${estimate.company}`}
-                value={estimate.company ?? ""}
-                placeholder="Company"
-                action={updateEstimateDocumentContact}
-                hidden={contactHidden}
-                name="company"
-                locked={effectivelyLocked}
-                className="text-sm font-semibold text-text"
-                block
-              />
-              <EditableField
-                key={`contact-${estimate.id}-${estimate.contact_name}`}
-                value={estimate.contact_name ?? ""}
-                placeholder="Contact name"
-                action={updateEstimateDocumentContact}
-                hidden={contactHidden}
-                name="contact_name"
-                locked={effectivelyLocked}
-                className="text-sm text-text"
-                block
-              />
-              <EditableField
-                key={`phone-${estimate.id}-${estimate.phone}`}
-                value={estimate.phone ?? ""}
-                placeholder="Phone"
-                action={updateEstimateDocumentContact}
-                hidden={contactHidden}
-                name="phone"
-                type="tel"
-                locked={effectivelyLocked}
-                className="text-sm text-text"
-                block
-              />
-              <EditableField
-                key={`email-${estimate.id}-${estimate.email}`}
-                value={estimate.email ?? ""}
-                placeholder="Email"
-                action={updateEstimateDocumentContact}
-                hidden={contactHidden}
-                name="email"
-                type="email"
-                locked={effectivelyLocked}
-                className="text-sm text-text"
-                block
-              />
-            </>
+            layout.customer.summaryLines.map((line, i) => (
+              <p key={i} className={i === 0 ? "text-sm font-semibold text-text" : "text-sm text-text"}>
+                {line}
+              </p>
+            ))
+          )}
+          {!effectivelyLocked && layout.customer.fields && (
+            <EstimateContactEditForm
+              orgId={orgId}
+              estimateId={estimate.id}
+              company={layout.customer.fields.company.value}
+              contactName={layout.customer.fields.contactName.value}
+              phone={layout.customer.fields.phone.value}
+              email={layout.customer.fields.email.value}
+            />
           )}
         </div>
 

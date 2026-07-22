@@ -69,8 +69,8 @@ export type DocumentLayout = {
   };
   customer: {
     sectionLabel: string;
-    summaryLines: string[] | null; // locked view
-    fields: { company: DocumentField; contactName: DocumentField; phone: DocumentField; email: DocumentField } | null; // unlocked view
+    summaryLines: string[]; // always populated — always the display, regardless of lock state
+    fields: { company: DocumentField; contactName: DocumentField; phone: DocumentField; email: DocumentField } | null; // present only when editable (feeds the explicit Edit form)
   };
   jobSite: {
     sectionLabel: string;
@@ -143,7 +143,11 @@ export function buildDocumentLayout(input: {
     },
     customer: {
       sectionLabel: "Customer",
-      summaryLines: locked ? summaryLines : null,
+      // Task A (7/24 walkthrough): always available now, not just when
+      // locked — the editor shows this as plain-text display too (established
+      // contact data, not a field being gathered), with edits routed through
+      // an explicit Edit disclosure (fields, below) instead of tap-to-edit.
+      summaryLines,
       fields: locked
         ? null
         : {
