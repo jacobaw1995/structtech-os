@@ -1793,6 +1793,63 @@ export type Database = {
         }
         Relationships: []
       }
+      roadmap_items: {
+        Row: {
+          created_at: string
+          feature: string
+          id: string
+          notes: string | null
+          org_id: string
+          phase: string
+          section: string
+          sort_order: number
+          status: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          feature: string
+          id?: string
+          notes?: string | null
+          org_id: string
+          phase: string
+          section: string
+          sort_order?: number
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          feature?: string
+          id?: string
+          notes?: string | null
+          org_id?: string
+          phase?: string
+          section?: string
+          sort_order?: number
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "roadmap_items_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "roadmap_items_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       schedule_blocks: {
         Row: {
           blocked: boolean
@@ -2497,6 +2554,18 @@ export type Database = {
         Args: { p_name: string; p_tenant_type: string; p_trade?: string }
         Returns: string
       }
+      create_roadmap_item: {
+        Args: {
+          p_feature: string
+          p_notes?: string
+          p_org_id: string
+          p_phase: string
+          p_section: string
+          p_sort_order?: number
+          p_status?: string
+        }
+        Returns: string
+      }
       create_tracker_item: {
         Args: {
           p_assignee_id?: string
@@ -2550,6 +2619,7 @@ export type Database = {
         Args: { p_callout_id: string; p_production_packet_id: string }
         Returns: undefined
       }
+      delete_roadmap_item: { Args: { p_id: string }; Returns: undefined }
       delete_schedule_block: {
         Args: { p_schedule_block_id: string }
         Returns: undefined
@@ -2947,6 +3017,10 @@ export type Database = {
       }
       update_production_packet_notes: {
         Args: { p_notes: string; p_production_packet_id: string }
+        Returns: undefined
+      }
+      update_roadmap_fields: {
+        Args: { p_id: string; p_patch: Json }
         Returns: undefined
       }
       update_schedule_block: {
