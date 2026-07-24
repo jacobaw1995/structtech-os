@@ -12,10 +12,12 @@ export function InlineNotesInput({
   orgId,
   itemId,
   value,
+  returnTo,
 }: {
   orgId: string;
   itemId: string;
   value: string;
+  returnTo?: string;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const [isPending, startTransition] = useTransition();
@@ -24,6 +26,7 @@ export function InlineNotesInput({
     <form ref={formRef} action={updateRoadmapItemNotes}>
       <input type="hidden" name="orgId" value={orgId} />
       <input type="hidden" name="itemId" value={itemId} />
+      {returnTo && <input type="hidden" name="returnTo" value={returnTo} />}
       <input
         name="notes"
         defaultValue={value}

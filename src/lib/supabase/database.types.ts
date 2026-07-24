@@ -1801,6 +1801,7 @@ export type Database = {
           notes: string | null
           org_id: string
           phase: string
+          project_id: string
           section: string
           sort_order: number
           status: string
@@ -1814,6 +1815,7 @@ export type Database = {
           notes?: string | null
           org_id: string
           phase: string
+          project_id: string
           section: string
           sort_order?: number
           status?: string
@@ -1827,6 +1829,7 @@ export type Database = {
           notes?: string | null
           org_id?: string
           phase?: string
+          project_id?: string
           section?: string
           sort_order?: number
           status?: string
@@ -1842,10 +1845,55 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "roadmap_items_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "roadmap_projects"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "roadmap_items_updated_by_fkey"
             columns: ["updated_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      roadmap_projects: {
+        Row: {
+          created_at: string
+          id: string
+          key: string
+          name: string
+          org_id: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          key: string
+          name: string
+          org_id: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          key?: string
+          name?: string
+          org_id?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "roadmap_projects_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -2560,9 +2608,19 @@ export type Database = {
           p_notes?: string
           p_org_id: string
           p_phase: string
+          p_project_id: string
           p_section: string
           p_sort_order?: number
           p_status?: string
+        }
+        Returns: string
+      }
+      create_roadmap_project: {
+        Args: {
+          p_key: string
+          p_name: string
+          p_org_id: string
+          p_sort_order?: number
         }
         Returns: string
       }
@@ -2620,6 +2678,10 @@ export type Database = {
         Returns: undefined
       }
       delete_roadmap_item: { Args: { p_id: string }; Returns: undefined }
+      delete_roadmap_project: {
+        Args: { p_project_id: string }
+        Returns: undefined
+      }
       delete_schedule_block: {
         Args: { p_schedule_block_id: string }
         Returns: undefined
@@ -3021,6 +3083,10 @@ export type Database = {
       }
       update_roadmap_fields: {
         Args: { p_id: string; p_patch: Json }
+        Returns: undefined
+      }
+      update_roadmap_project: {
+        Args: { p_name?: string; p_project_id: string; p_sort_order?: number }
         Returns: undefined
       }
       update_schedule_block: {

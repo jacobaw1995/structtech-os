@@ -13,6 +13,7 @@ export function InlineFieldSelect({
   fieldName,
   value,
   options,
+  returnTo,
   className,
 }: {
   action: (formData: FormData) => void;
@@ -21,6 +22,7 @@ export function InlineFieldSelect({
   fieldName: string;
   value: string;
   options: readonly { key: string; label: string }[];
+  returnTo?: string;
   className?: string;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
@@ -30,6 +32,7 @@ export function InlineFieldSelect({
     <form ref={formRef} action={action}>
       <input type="hidden" name="orgId" value={orgId} />
       <input type="hidden" name="itemId" value={itemId} />
+      {returnTo && <input type="hidden" name="returnTo" value={returnTo} />}
       <select
         name={fieldName}
         defaultValue={value}
