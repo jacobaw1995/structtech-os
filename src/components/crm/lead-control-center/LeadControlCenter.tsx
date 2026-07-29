@@ -35,7 +35,9 @@ export function LeadControlCenter({
   closeHref,
   errorMessage,
   estimates,
-  canCreateEstimate,
+  canViewEstimates,
+  canCreateNewEstimate,
+  canViewFinancials = true,
 }: {
   orgId: string;
   deal: DealRow;
@@ -49,7 +51,9 @@ export function LeadControlCenter({
   closeHref: string;
   errorMessage?: string;
   estimates: Estimate[];
-  canCreateEstimate: boolean;
+  canViewEstimates: boolean;
+  canCreateNewEstimate: boolean;
+  canViewFinancials?: boolean;
 }) {
   const activeStageLabel = state.stages.find((s) => s.key === state.activeStage)?.label ?? "—";
   const overallPercent =
@@ -102,14 +106,22 @@ export function LeadControlCenter({
       deal={deal}
       leadTypeOptions={lccConfig.leadTypeOptions}
       remodelOptions={remodelOptions}
+      canViewFinancials={canViewFinancials}
     />
   );
 
   const prospectData = (
-    <ProspectDataPanel orgId={orgId} deal={deal} viewedStage={viewedStage} kanbanStages={kanbanStages} members={members} />
+    <ProspectDataPanel
+      orgId={orgId}
+      deal={deal}
+      viewedStage={viewedStage}
+      kanbanStages={kanbanStages}
+      members={members}
+      canViewFinancials={canViewFinancials}
+    />
   );
 
-  const estimatesBlock = canCreateEstimate && !deal.archived_at && (
+  const estimatesBlock = canViewEstimates && !deal.archived_at && (
     <div className="flex flex-col gap-2">
       <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">Estimates</h3>
       <div className="flex flex-col gap-1.5">
@@ -127,16 +139,18 @@ export function LeadControlCenter({
           </Link>
         ))}
       </div>
-      <form action={createEstimateFromDeal}>
-        <input type="hidden" name="orgId" value={orgId} />
-        <input type="hidden" name="dealId" value={deal.id} />
-        <button
-          type="submit"
-          className="min-h-14 w-full rounded-md border border-accent-strong px-3 text-sm font-medium text-accent-strong hover:bg-accent-soft sm:min-h-0 sm:py-1.5 sm:text-xs"
-        >
-          + Create estimate
-        </button>
-      </form>
+      {canCreateNewEstimate && (
+        <form action={createEstimateFromDeal}>
+          <input type="hidden" name="orgId" value={orgId} />
+          <input type="hidden" name="dealId" value={deal.id} />
+          <button
+            type="submit"
+            className="min-h-14 w-full rounded-md border border-accent-strong px-3 text-sm font-medium text-accent-strong hover:bg-accent-soft sm:min-h-0 sm:py-1.5 sm:text-xs"
+          >
+            + Create estimate
+          </button>
+        </form>
+      )}
     </div>
   );
 

@@ -19,11 +19,13 @@ export function MobilePipelineBoard({
   dealsByStage,
   boardHref,
   selectedDeal,
+  canViewFinancials = true,
 }: {
   stages: (CrmStage & { count: number })[];
   dealsByStage: Map<string, Deal[]>;
   boardHref: string;
   selectedDeal: Deal | null;
+  canViewFinancials?: boolean;
 }) {
   const initialIndex = selectedDeal
     ? Math.max(
@@ -122,6 +124,7 @@ export function MobilePipelineBoard({
               href={`${boardHref}?deal=${deal.id}`}
               selected={selectedDeal?.id === deal.id}
               nextAction={active.next_action}
+              canViewFinancials={canViewFinancials}
             />
           ))
         )}

@@ -6,7 +6,15 @@ import { LEAD_TYPE_OPTIONS, REMODEL_OPTIONS, type DealRow } from "@/lib/crm/comm
 // by a command-stage checklist. Relocated + extended from the old
 // DealPanel's "Edit details" block (Stage 1/2 fields) with the rest of the
 // Stage 2 lead-data-model columns that had no editor at all until now.
-export function EditLeadDetailsForm({ orgId, deal }: { orgId: string; deal: DealRow }) {
+export function EditLeadDetailsForm({
+  orgId,
+  deal,
+  canViewFinancials = true,
+}: {
+  orgId: string;
+  deal: DealRow;
+  canViewFinancials?: boolean;
+}) {
   return (
     <details className="rounded-md border border-border text-sm">
       <summary className="cursor-pointer select-none px-3 py-2 font-medium text-accent-strong">Edit lead details →</summary>
@@ -82,8 +90,14 @@ export function EditLeadDetailsForm({ orgId, deal }: { orgId: string; deal: Deal
 
         <Field label="Referral name" name="referral_name" defaultValue={deal.referral_name ?? ""} />
 
-        <div className="grid grid-cols-3 gap-2">
-          <Field label="Value" name="value" type="number" defaultValue={deal.value ?? ""} />
+        {/* Value dropped entirely (not just disabled) when the caller lacks
+            view_financials — update_deal_fields already rejects a patch
+            containing it (chunk 2), and deal.value is already null server-
+            side, so a visible-but-inert $ input would just be confusing. */}
+        <div className={canViewFinancials ? "grid grid-cols-3 gap-2" : "grid grid-cols-2 gap-2"}>
+          {canViewFinancials && (
+            <Field label="Value" name="value" type="number" defaultValue={deal.value ?? ""} />
+          )}
           <Field label="Trade" name="trade" defaultValue={deal.trade ?? ""} />
           <Field label="Crew size" name="crew_size" type="number" defaultValue={deal.crew_size ?? ""} />
         </div>

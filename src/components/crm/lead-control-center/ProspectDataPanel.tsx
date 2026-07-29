@@ -11,12 +11,14 @@ export function ProspectDataPanel({
   viewedStage,
   kanbanStages,
   members,
+  canViewFinancials = true,
 }: {
   orgId: string;
   deal: DealRow;
   viewedStage: string;
   kanbanStages: CrmStage[];
   members: { user_id: string; full_name: string | null }[];
+  canViewFinancials?: boolean;
 }) {
   return (
     <div className="flex flex-col gap-3">
@@ -51,7 +53,7 @@ export function ProspectDataPanel({
         <StageSelect orgId={orgId} dealId={deal.id} currentStage={deal.stage} stages={kanbanStages} />
       </div>
 
-      <EditLeadDetailsForm orgId={orgId} deal={deal} />
+      <EditLeadDetailsForm orgId={orgId} deal={deal} canViewFinancials={canViewFinancials} />
     </div>
   );
 }

@@ -1474,6 +1474,7 @@ export type Database = {
           created_at: string
           full_name: string | null
           org_id: string
+          permissions: Json
           role: string
           user_id: string
         }
@@ -1481,6 +1482,7 @@ export type Database = {
           created_at?: string
           full_name?: string | null
           org_id: string
+          permissions?: Json
           role?: string
           user_id: string
         }
@@ -1488,6 +1490,7 @@ export type Database = {
           created_at?: string
           full_name?: string | null
           org_id?: string
+          permissions?: Json
           role?: string
           user_id?: string
         }
@@ -2924,6 +2927,10 @@ export type Database = {
       get_or_create_production_packet: {
         Args: { p_work_order_id: string }
         Returns: string
+      }
+      has_capability: {
+        Args: { p_capability: string; p_org_id: string }
+        Returns: boolean
       }
       is_org_manager: { Args: { p_org_id: string }; Returns: boolean }
       is_pipeline_manager: { Args: never; Returns: boolean }

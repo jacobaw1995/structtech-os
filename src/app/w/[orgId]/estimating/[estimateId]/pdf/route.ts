@@ -35,6 +35,20 @@ export async function GET(
     return new NextResponse("Not found", { status: 404 });
   }
 
+  // Phase A capability model: this route had no module/capability gate at
+  // all before this check — org membership alone let anyone with the URL
+  // pull a PDF, bypassing the view_estimates gate every estimating page
+  // enforces via requireModuleAccess. has_capability() short-circuits true
+  // for every manager-tier role, so this is a no-op for every caller except
+  // a member-tier one with view_estimates explicitly set false.
+  const { data: canViewEstimates } = await supabase.rpc("has_capability", {
+    p_org_id: params.orgId,
+    p_capability: "view_estimates",
+  });
+  if (canViewEstimates !== true) {
+    return new NextResponse("Unauthorized", { status: 403 });
+  }
+
   const [{ data: lineItemsData }, { data: signaturesData }, { data: moduleRow }, { data: orgRows }] =
     await Promise.all([
       supabase

@@ -38,30 +38,42 @@ export default async function CrmPage({
   // org, the explicit .eq(org_id) additionally pins this to the ACTIVE org
   // (a caller can belong to more than one org; RLS alone would return every
   // org's rows they're a member of, not just this workspace's).
-  const [{ data: moduleRow }, { data: deals }, { data: memberRows }] = await Promise.all([
-    supabase
-      .from("tenant_modules")
-      .select("config")
-      .eq("org_id", params.orgId)
-      .eq("module_key", "crm"),
-    supabase
-      .from("deals")
-      .select("*")
-      .eq("org_id", params.orgId)
-      .is("archived_at", null)
-      .order("created_at", { ascending: true }),
-    // Dedicated RPC (Stage 5 Track C1) rather than a direct table query —
-    // list_org_members is the single source OwnerSelect and authorName()
-    // both resolve against, org_members-backed for consistency with actor
-    // name resolution elsewhere in the Lead Control Center.
-    supabase.rpc("list_org_members", { p_org_id: params.orgId }),
-  ]);
+  const [{ data: moduleRow }, { data: deals }, { data: memberRows }, { data: viewFinancials }] =
+    await Promise.all([
+      supabase
+        .from("tenant_modules")
+        .select("config")
+        .eq("org_id", params.orgId)
+        .eq("module_key", "crm"),
+      supabase
+        .from("deals")
+        .select("*")
+        .eq("org_id", params.orgId)
+        .is("archived_at", null)
+        .order("created_at", { ascending: true }),
+      // Dedicated RPC (Stage 5 Track C1) rather than a direct table query —
+      // list_org_members is the single source OwnerSelect and authorName()
+      // both resolve against, org_members-backed for consistency with actor
+      // name resolution elsewhere in the Lead Control Center.
+      supabase.rpc("list_org_members", { p_org_id: params.orgId }),
+      // Capability check (Phase A assistant role, Interaction 3): this is a
+      // direct table query, not fetch_deal, so it can't rely on that RPC's
+      // jsonb-strip — the list itself has to null `value` here, server-side,
+      // before dealList is ever handed to DealCard/byStage below.
+      supabase.rpc("has_capability", {
+        p_org_id: params.orgId,
+        p_capability: "view_financials",
+      }),
+    ]);
 
   const rawConfig = moduleRow?.[0]?.config ?? null;
   const stages = parseCrmStages(rawConfig);
   const lccConfig = parseLeadControlCenterConfig(rawConfig);
   const members = memberRows ?? [];
-  const dealList = (deals ?? []) as Deal[];
+  const canViewFinancials = viewFinancials === true;
+  const dealList = ((deals ?? []) as Deal[]).map((deal) =>
+    canViewFinancials ? deal : { ...deal, value: null }
+  );
 
   const byStage = new Map<string, Deal[]>();
   for (const stage of stages) byStage.set(stage.key, []);
@@ -107,9 +119,24 @@ export default async function CrmPage({
   let estimates: Estimate[] = [];
 
   // estimating is contractor-only (CLAUDE.md module registry) — only fetch
-  // and offer "Create estimate" when this org is actually entitled, same
-  // gate the route guard applies to /w/[orgId]/estimating.
-  const canCreateEstimate = ctx.visibleModules.includes("estimating");
+  // when this org is actually entitled AND (Phase A capability model)
+  // ctx.visibleModules already folded in view_estimates, same gate the
+  // route guard applies to /w/[orgId]/estimating (see getWorkspaceContext).
+  const canViewEstimates = ctx.visibleModules.includes("estimating");
+
+  // create_estimates is a SEPARATE capability from view_estimates (a caller
+  // could see existing estimates but not create new ones) — gates only the
+  // "+ Create estimate" button, not the whole estimates block. Only fired
+  // when canViewEstimates, so a restricted-view caller never even issues
+  // this RPC.
+  const canCreateNewEstimate =
+    canViewEstimates &&
+    (
+      await supabase.rpc("has_capability", {
+        p_org_id: params.orgId,
+        p_capability: "create_estimates",
+      })
+    ).data === true;
 
   if (searchParams.deal) {
     // Single-record fetch RPC (rule 4), not a direct .select().single().
@@ -136,7 +163,7 @@ export default async function CrmPage({
           .select("*")
           .eq("deal_id", candidate.id)
           .order("created_at", { ascending: false }),
-        canCreateEstimate
+        canViewEstimates
           ? supabase
               .from("estimates")
               .select("*")
@@ -207,6 +234,7 @@ export default async function CrmPage({
               dealsByStage={mobileDealsByStage}
               boardHref={boardHref}
               selectedDeal={selectedDeal}
+              canViewFinancials={canViewFinancials}
             />
           </div>
 
@@ -248,6 +276,7 @@ export default async function CrmPage({
                           href={`${boardHref}?deal=${deal.id}`}
                           selected={selectedDeal?.id === deal.id}
                           nextAction={stage.next_action}
+                          canViewFinancials={canViewFinancials}
                         />
                       ))}
                       {stageDeals.length === 0 && (
@@ -273,6 +302,7 @@ export default async function CrmPage({
                         href={`${boardHref}?deal=${deal.id}`}
                         selected={selectedDeal?.id === deal.id}
                         nextAction={null}
+                        canViewFinancials={canViewFinancials}
                       />
                     ))}
                   </div>
@@ -334,7 +364,9 @@ export default async function CrmPage({
                   closeHref={boardHref}
                   errorMessage={searchParams.error}
                   estimates={estimates}
-                  canCreateEstimate={canCreateEstimate}
+                  canViewEstimates={canViewEstimates}
+                  canCreateNewEstimate={canCreateNewEstimate}
+                  canViewFinancials={canViewFinancials}
                 />
               );
             })()}

@@ -60,10 +60,26 @@ export const getWorkspaceContext = cache(
       redirect("/select-workspace");
     }
 
-    const visibleModules = modulesVisibleForRole(
+    let visibleModules = modulesVisibleForRole(
       active.role,
       active.entitled_modules ?? []
     );
+
+    // Capability gate layered on top of role/entitlement visibility (Phase A
+    // assistant role, Interaction 2 — resolved design: capabilities OVERRIDE
+    // role screen-defaults, never merely add to them). Only estimating has a
+    // capability gate today; has_capability() short-circuits true for every
+    // manager-tier role, so this is a no-op RPC for every user except a
+    // member-tier caller with view_estimates explicitly set false.
+    if (visibleModules.includes("estimating")) {
+      const { data: canViewEstimates } = await supabase.rpc("has_capability", {
+        p_org_id: orgId,
+        p_capability: "view_estimates",
+      });
+      if (canViewEstimates !== true) {
+        visibleModules = visibleModules.filter((m) => m !== "estimating");
+      }
+    }
 
     return { session, supabase, orgs, active, visibleModules };
   }

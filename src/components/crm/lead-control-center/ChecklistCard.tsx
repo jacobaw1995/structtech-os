@@ -25,6 +25,7 @@ export function ChecklistCard({
   deal,
   leadTypeOptions,
   remodelOptions,
+  canViewFinancials = true,
 }: {
   orgId: string;
   dealId: string;
@@ -34,6 +35,7 @@ export function ChecklistCard({
   deal: DealRow;
   leadTypeOptions: LeadTypeOption[];
   remodelOptions: LeadTypeOption[];
+  canViewFinancials?: boolean;
 }) {
   const stageDef = state.stages.find((s) => s.key === viewedStage);
   if (!stageDef) {
@@ -107,7 +109,7 @@ export function ChecklistCard({
       </div>
 
       {isCurrent && (
-        <MilestoneAction orgId={orgId} dealId={dealId} viewedStage={viewedStage} deal={deal} state={state} />
+        <MilestoneAction orgId={orgId} dealId={dealId} viewedStage={viewedStage} deal={deal} state={state} canViewFinancials={canViewFinancials} />
       )}
     </div>
   );
@@ -129,12 +131,14 @@ function MilestoneAction({
   viewedStage,
   deal,
   state,
+  canViewFinancials = true,
 }: {
   orgId: string;
   dealId: string;
   viewedStage: string;
   deal: DealRow;
   state: CommandCenterState;
+  canViewFinancials?: boolean;
 }) {
   if (viewedStage === "site_visit" && !deal.site_survey_complete_at) {
     return (
@@ -160,7 +164,11 @@ function MilestoneAction({
   }
   if (viewedStage === "quote" && !deal.quote_presented_at) {
     // Never disabled (Isaac 7/20) — missing a quote amount is now just a
-    // hint under the button, not a block.
+    // hint under the button, not a block. Suppressed entirely (not just
+    // reworded) for a caller without view_financials: deal.value is always
+    // null for her (server-side strip, Phase A capability model) whether
+    // or not a real quote amount exists, so the hint would be misleading
+    // rather than helpful — she has no way to act on it either way.
     return (
       <MilestoneButton
         orgId={orgId}
@@ -168,7 +176,7 @@ function MilestoneAction({
         action={presentQuote}
         label="Present Quote"
         disabled={false}
-        reason={deal.value == null ? "Set a quote amount first" : undefined}
+        reason={canViewFinancials && deal.value == null ? "Set a quote amount first" : undefined}
       />
     );
   }
