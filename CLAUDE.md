@@ -1,10 +1,30 @@
 # CLAUDE.md — StructTech OS Build Directive
 
+## Before you change anything
+
+Read `docs/STRUCTTECH_OS_DIRECTIVE.md` first. It is the single source of truth for
+this build — current phase, decisions of record, active stage, and backlog. Read §1
+(Current Position) and §11 (Active Execution Week) to know where we are and what
+today's task is.
+
+Rules: if a request doesn't map to a task in §5 it goes to the backlog in §6, not into
+the branch. If a task's "Done when" depends on something not written in §5, fix the
+directive first — never fill the gap silently in code. The directive wins over the
+Build Tracker; if they disagree, correct the tracker.
+
 You are building **StructTech OS**: one modular, multi-tenant platform that runs StructTech's own business and is licensed, in configurable pieces, to StructTech's clients. **One build, licensed per tenant.** StructTech is tenant #1; contractor clients (e.g. Brothers Metal Roofing) are tenants granted a subset of modules.
 
 **Read these first, in order, before writing any code:**
-1. `docs/SCOPE.md` — authoritative product scope: tenant/module/role model, confirmed architecture decisions, data-model direction, non-goals. **If this file and SCOPE.md ever disagree, SCOPE.md wins.**
-2. `docs/BUILD_PLAN_3WEEK.md` — the phased sequence and per-phase "done =" acceptance.
+1. `docs/SCOPE.md` — authoritative product scope: tenant/module/role model, confirmed architecture decisions, data-model direction, non-goals. **Precedence: `docs/STRUCTTECH_OS_DIRECTIVE.md` wins over everything. SCOPE.md and
+   the module scope docs remain authoritative for anything the directive does not
+   cover. If this file disagrees with either, they win over this file.**
+2. `docs/ROADMAP.md` — the CURRENT forward timeline + cadence (reset 7/24). Supersedes
+   `docs/BUILD_PLAN_3WEEK.md`, which is complete and now historical.
+2a. **In-app Build Tracker (`roadmap_items` table, StructTech org) — the live feature-status source AND a
+    two-way input channel.** Before scoping or building ANY feature, **read its `roadmap_items.notes`
+    first** — Jacob drops questions, concerns, workflow, and expectations there; they are a REQUIRED input
+    to the spec, same weight as SCOPE/BACKLOG. Write decisions/answers back into the note so each feature
+    carries its own decision log. Flip a feature to `in_progress` when picked up, `shipped` when done.
 2b. `docs/BACKLOG.md` — the durable queue of deferred/queued work (what's owed and what's next). The queue lives here, NOT in this file's phase section or a session's memory.
 3. `docs/wireframes/StructTech OS - HiFi (standalone).html` — the **locked visual source of truth**. Match it. Design tokens are extracted below.
 4. `docs/reference/` — read-only reference: existing DB schema and domain specs to build on (do not treat as the base app; do not copy wholesale).
