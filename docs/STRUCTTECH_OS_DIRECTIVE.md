@@ -44,8 +44,8 @@ Read **§1 (Current Position)** and **§11 (Active Execution Week)**. Between th
 | **Phase** | A — Production Core |
 | **Stage** | A1 — Job Spine |
 | **Last completed task** | **A1 Foundation (partial, 2026-08-16)** — anon exposure closed by moving both colour-normalisation backups to a private `archive` schema (migration `archive_wh_color_normalization_backups`); security advisors verified clean of `rls_disabled` and all ERROR-level findings; coordination RPC surface inventoried and corrected from 14 to 27 (§4.4). |
-| **Outstanding from Foundation** | (1) Land this directive as `docs/STRUCTTECH_OS_DIRECTIVE.md` + pointer in `CLAUDE.md`. (2) CLI is authenticated to the wrong Supabase org and the project is not linked — no DB credentials available locally. (3) Take a verified backup. (4) **NEW — A1.0 migration baseline**, see §4.7. (5) Cut the A1 branch. **A1.1 must not start until A1.0 closes and a backup exists.** |
-| **NEXT STEP** | **A1.0 — Migration baseline reset** (§5.1) |
+| **Outstanding from Foundation** | (1) Land this directive as `docs/STRUCTTECH_OS_DIRECTIVE.md` + pointer in `CLAUDE.md`. (2) CLI is authenticated to the wrong Supabase org and the project is not linked — no DB credentials available locally. (3) Take a verified backup. (4) **A1.0 migration baseline — DEFERRED**, see §4.7; it is hygiene, not a blocker, and does not gate A1.1. (5) Cut the A1 branch. **A1.1 proceeds now; every migration goes through MCP `apply_migration` with a matching repo file. Never `supabase db push` or `db reset` — see §4.7.** |
+| **NEXT STEP** | **A1.1 — Job spine schema** (§5.1) |
 | **Blocked** | Nothing in A1. Assistant-role seed is blocked externally (tenant must supply a name + email) and is not on the critical path. |
 | **Phase opened** | 2026-08-16 |
 | **Phase gate** | §5.6 — golden path run twice, second run crew-driven |
@@ -174,6 +174,8 @@ The repository is **not** a reliable record of the database schema:
 
 **Fourth finding — direct connection unusable.** `db.ejlhrykcdfcyeooooodx.supabase.co` is IPv6-only and the build machine has no IPv6 egress. Use the **Session pooler** connection string (IPv4, port 5432). Not Direct, not Transaction pooler (6543 cannot serve `pg_dump`).
 
+**MITIGATION, NOT BLOCKER (2026-08-16). The divergence does not prevent new migrations. Applying a migration via MCP `apply_migration` works correctly and records properly in remote history. The divergence is only dangerous if someone runs `supabase db push` or `supabase db reset`, which would attempt to replay 46 stale local files against production. HARD RULE: never run `supabase db push` or `supabase db reset` on this project until the baseline reset is complete. New migrations go through MCP `apply_migration`, with a matching file written to `supabase/migrations/` so the repo stays current going forward.**
+
 ---
 
 # 5 · PHASE A — PRODUCTION CORE
@@ -193,7 +195,7 @@ Six stages, dependency-ordered. **A stage closes when every task's *Done when* p
 
 ## 5.1 · Stage A1 — Job Spine
 
-**A1.0 — Migration baseline reset** *(added 2026-08-16 — prerequisite to everything else in A1)*
+**A1.0 — Migration baseline reset (DEFERRED — hygiene, not blocking. Requires CLI credentials. Do when convenient.)**
 Reconcile the repo with the database so the repo becomes the source of truth for schema going forward. **Decided approach: baseline reset, not backfill — do not reconstruct the 39 missing migration files.** Authenticate the CLI to the correct org using `--profile`, link the project, take a verified backup first, pull the current remote schema as a single new baseline migration, move the 46 stale local files to `supabase/migrations/_archive_pre_baseline/` (move, do not delete), and use `supabase migration repair` to mark prior remote migrations as applied. Every migration from A1.1 onward originates in the repo.
 **Done when:** `supabase migration list` shows local and remote in agreement, the baseline migration is committed, and a trivial reversible schema change made in the repo applies cleanly to the database and reverts.
 
