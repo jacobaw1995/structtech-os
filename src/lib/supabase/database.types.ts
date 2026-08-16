@@ -2412,6 +2412,78 @@ export type Database = {
           },
         ]
       }
+      work_order_agreements: {
+        Row: {
+          colors_finishes: Json
+          created_at: string
+          id: string
+          org_id: string
+          sent_at: string | null
+          sign_token_hash: string | null
+          signature_data: string | null
+          signed_at: string | null
+          signer_name: string | null
+          signer_role: string | null
+          snapshot: Json
+          status: string
+          updated_at: string
+          void_reason: string | null
+          voided_at: string | null
+          work_order_id: string
+        }
+        Insert: {
+          colors_finishes?: Json
+          created_at?: string
+          id?: string
+          org_id: string
+          sent_at?: string | null
+          sign_token_hash?: string | null
+          signature_data?: string | null
+          signed_at?: string | null
+          signer_name?: string | null
+          signer_role?: string | null
+          snapshot: Json
+          status?: string
+          updated_at?: string
+          void_reason?: string | null
+          voided_at?: string | null
+          work_order_id: string
+        }
+        Update: {
+          colors_finishes?: Json
+          created_at?: string
+          id?: string
+          org_id?: string
+          sent_at?: string | null
+          sign_token_hash?: string | null
+          signature_data?: string | null
+          signed_at?: string | null
+          signer_name?: string | null
+          signer_role?: string | null
+          snapshot?: Json
+          status?: string
+          updated_at?: string
+          void_reason?: string | null
+          voided_at?: string | null
+          work_order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_order_agreements_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_order_agreements_work_order_id_fkey"
+            columns: ["work_order_id"]
+            isOneToOne: false
+            referencedRelation: "work_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       work_orders: {
         Row: {
           created_at: string
@@ -2647,6 +2719,10 @@ export type Database = {
           p_name: string
           p_org_id: string
         }
+        Returns: string
+      }
+      create_work_order_agreement: {
+        Args: { p_work_order_id: string }
         Returns: string
       }
       create_work_order_from_estimate: {
@@ -2916,6 +2992,33 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "work_orders"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      fetch_work_order_agreement: {
+        Args: { p_work_order_id: string }
+        Returns: {
+          colors_finishes: Json
+          created_at: string
+          id: string
+          org_id: string
+          sent_at: string | null
+          sign_token_hash: string | null
+          signature_data: string | null
+          signed_at: string | null
+          signer_name: string | null
+          signer_role: string | null
+          snapshot: Json
+          status: string
+          updated_at: string
+          void_reason: string | null
+          voided_at: string | null
+          work_order_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "work_order_agreements"
           isOneToOne: false
           isSetofReturn: true
         }

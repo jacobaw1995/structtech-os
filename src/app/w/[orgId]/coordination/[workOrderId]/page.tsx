@@ -16,6 +16,7 @@ type Estimate = Database["public"]["Tables"]["estimates"]["Row"];
 type MaterialItem = Database["public"]["Tables"]["material_items"]["Row"];
 type ScheduleBlock = Database["public"]["Tables"]["schedule_blocks"]["Row"];
 type WorkOrderActivity = Database["public"]["Tables"]["work_order_activity"]["Row"];
+type Agreement = Database["public"]["Tables"]["work_order_agreements"]["Row"];
 
 export default async function WorkOrderPage({
   params,
@@ -40,32 +41,47 @@ export default async function WorkOrderPage({
     redirect(`/w/${params.orgId}/coordination`);
   }
 
-  const [{ data: fetchedEstimate }, { data: materialsData }, { data: scheduleData }, { data: activityData }, { data: memberRows }] =
-    await Promise.all([
-      supabase.rpc("fetch_estimate", { p_estimate_id: workOrder.estimate_id }),
-      supabase
-        .from("material_items")
-        .select("*")
-        .eq("work_order_id", workOrder.id)
-        .order("sort_order", { ascending: true }),
-      supabase
-        .from("schedule_blocks")
-        .select("*")
-        .eq("work_order_id", workOrder.id)
-        .order("start_date", { ascending: true }),
-      supabase
-        .from("work_order_activity")
-        .select("*")
-        .eq("work_order_id", workOrder.id)
-        .order("created_at", { ascending: true }),
-      supabase.rpc("list_org_members", { p_org_id: params.orgId }),
-    ]);
+  // Real sign-off (Phase A Week 2): ensure a pending agreement exists
+  // before the panel renders, same "ensure then fetch" shape as the rest
+  // of this Promise.all. create_work_order_agreement is idempotent — a
+  // work order that already has an active agreement just gets its id back,
+  // so this is cheap to call unconditionally on every page load.
+  await supabase.rpc("create_work_order_agreement", { p_work_order_id: workOrder.id });
+
+  const [
+    { data: fetchedEstimate },
+    { data: materialsData },
+    { data: scheduleData },
+    { data: activityData },
+    { data: memberRows },
+    { data: agreementData },
+  ] = await Promise.all([
+    supabase.rpc("fetch_estimate", { p_estimate_id: workOrder.estimate_id }),
+    supabase
+      .from("material_items")
+      .select("*")
+      .eq("work_order_id", workOrder.id)
+      .order("sort_order", { ascending: true }),
+    supabase
+      .from("schedule_blocks")
+      .select("*")
+      .eq("work_order_id", workOrder.id)
+      .order("start_date", { ascending: true }),
+    supabase
+      .from("work_order_activity")
+      .select("*")
+      .eq("work_order_id", workOrder.id)
+      .order("created_at", { ascending: true }),
+    supabase.rpc("list_org_members", { p_org_id: params.orgId }),
+    supabase.rpc("fetch_work_order_agreement", { p_work_order_id: workOrder.id }),
+  ]);
 
   const estimate = fetchedEstimate?.[0] as Estimate | undefined;
   const materials = (materialsData ?? []) as MaterialItem[];
   const scheduleBlocks = (scheduleData ?? []) as ScheduleBlock[];
   const activity = (activityData ?? []) as WorkOrderActivity[];
   const members = memberRows ?? [];
+  const agreement = (agreementData?.[0] ?? null) as Agreement | null;
 
   function authorName(userId: string | null): string {
     if (!userId) return "Unknown";
@@ -120,7 +136,13 @@ export default async function WorkOrderPage({
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <div className="flex flex-col gap-4">
-          <SignOffPanel orgId={params.orgId} workOrder={workOrder} activity={activity} authorName={authorName} />
+          <SignOffPanel
+            orgId={params.orgId}
+            workOrderId={workOrder.id}
+            agreement={agreement}
+            activity={activity}
+            authorName={authorName}
+          />
 
           <div className="rounded-lg border border-border bg-surface p-3">
             <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">

@@ -21,9 +21,10 @@ modules. Isaac's demo exposed the gap.
 workflow order, until he'd *choose* this over his old app rather than tolerate it.
 
 ### P0 — churn risk, fix immediately
-- **Stage gating removal** (in flight 7/20) — see new **SCOPE §2.8 "Never block the user."** Gating
-  becomes advisory + per-tenant `enforce_stage_gating`, default OFF. Split `reached` (semantic) from
-  `navigable` (clickable); milestone buttons never disabled; completion shown as a hint. No DB migration.
+- **✅ DONE (7/20) — Stage gating removal.** See **SCOPE §2.8 "Never block the user."** Gating is now
+  advisory + per-tenant `enforce_stage_gating`, default OFF. `reached` (semantic) split from `navigable`
+  (clickable); milestone buttons never disabled; completion shown as a hint. Verified on Isaac's real
+  scenario (3/14 checklist, jumped every stage), committed, deployed.
 - **Estimating intermittent failure** — "start on-site visit" didn't advance during a demo; worked later
   on different wifi. Likely network/server-action flake, NOT reproducible. **Watch item:** if it recurs,
   capture browser console + network tab at that moment. Don't hunt it blind.
@@ -56,15 +57,15 @@ for weeks before anyone noticed. That was one field; this is the pattern.
 - **contact_name is the one field that keeps old coalesce-ish fallback behavior on purpose** (not a plain
   "empty clears it" field) — see `20260724120000`'s header comment. Preserves the existing
   derive-from-first/last-name behavior that "Contact name (override)" depends on.
-- **NULL-authorization gap found in review, fixed in `update_deal_fields`, NOT YET fixed elsewhere:**
-  `v_owner_id = auth.uid()` is NULL on an unowned deal, so for a non-manager
-  `not (is_org_manager OR NULL)` = `not NULL` = **PL/pgSQL treats a NULL IF condition as false — the
-  authorization raise is silently skipped.** Any authenticated org member could edit an unowned deal.
-  Fix is `coalesce(v_owner_id = auth.uid(), false)`. **The identical construct is in all eight other
-  C3-gated RPCs** (`update_deal_stage`, `archive_deal`, `restore_deal`, `update_intake_checklist_field`,
-  `complete_site_survey`, `order_scope`, `present_quote`) **and `assign_deal_owner`'s rep branch — separate
-  migration, not bundled with this one.** Verify with a synthetic rep + an UNOWNED deal — the case C3's 13
-  scenarios didn't cover (they tested owned-by-someone-else, not unowned).
+- **✅ FIXED (7/24, "Task 0") — NULL-authorization gap.** `v_owner_id = auth.uid()` is NULL on an unowned
+  deal, so for a non-manager `not (is_org_manager OR NULL)` = `not NULL` = PL/pgSQL treats a NULL IF as
+  false → the authorization raise was silently skipped, and any org member could edit an unowned deal. Fixed
+  with `coalesce(v_owner_id = auth.uid(), false)` across all 8 C3-gated RPCs (`update_deal_stage`,
+  `archive_deal`, `restore_deal`, `update_intake_checklist_field`, `complete_site_survey`, `order_scope`,
+  `present_quote`) + `assign_deal_owner`'s rep branch (`20260726120000`, commit `4f69f4f`). Verified
+  behaviorally: synthetic rep on an UNOWNED deal now raises on all 8; rep self-claim still works; manager
+  still succeeds. The 5 `my_*` metrics functions also compare `owner_id = auth.uid()` but use it as a WHERE
+  FILTER (NULL-excludes is correct there) — deliberately NOT touched.
 - **Remaining scope, not yet fixed:** `update_estimate_contact` (all fields coalesce-only);
   `update_estimate_details`'s squares/pitch/site_address/estimate_date/notes_terms (tax_rate/valid_until
   got explicit `p_clear_*` flags in Chunk 3 — 20260723160000 — because they're a numeric/date "one-way
@@ -75,23 +76,20 @@ for weeks before anyone noticed. That was one field; this is the pattern.
 
 ### From Isaac's walkthrough tutorial (7/24) — three items
 
-**(a) Contact info must require an explicit Edit action — P1, small.**
-Tap-to-edit on established contact fields means a stray thumb silently overwrites a customer's phone
-number. **Not a §2.8 violation** — see the §2.8 clarification: fields being *gathered* stay tap-to-edit;
-*established reference data* gets an explicit Edit affordance. Apply to the Lead Control Center prospect-
-data block (an "Edit lead details" path already exists — route through it) and re-examine the same risk on
-the new estimate document's customer/job-site blocks, which are currently tap-to-edit everywhere.
-Checklist rows being filled during intake are NOT affected — leave those alone.
+**(a) ✅ DONE (7/24, commit `0be0667`) — Contact info requires an explicit Edit action.**
+Established contact fields (LCC prospect block + estimate document customer/job-site blocks) now route
+through an explicit Edit affordance instead of tap-to-edit, so a stray thumb can't silently overwrite a
+customer's phone. Checklist rows being *gathered* during intake stay tap-to-edit (per the §2.8
+clarification: never-block ≠ never-confirm). Verified at phone width.
 
-**(b) Post-signature edits need change control — INTERIM now, Change Orders backlogged.**
-Once a work order is a signed project with approved color/finish, changing scope silently is wrong
-commercially (that's what a change order is for). Jacob: **Change Orders is a real feature, backlogged until
-the rest of MVP is done.**
-*Interim, do NOT lock the fields* — locking without a change-order path would strand the user (§2.6). Instead
-**log and surface**: stamp post-signature changes to work-order scope fields (color/finish/materials) in the
-activity log with actor, and flag them visually on the record ("changed after sign-off"), the same pattern
-as the estimate's "edited since presented." Visibility now, formal process later. The estimate itself already
-freezes at `signed` (Chunk 1), so this is specifically about the coordination-module fields downstream of it.
+**(b) ✅ DONE (7/24, commit `cbc92ef`) — Post-signature change logging (interim).**
+`work_order_activity` table + the 4 coordination RPCs now stamp any change to work-order scope
+(materials via add/update/delete, color/finish via sign-off notes) made AFTER `sign_off_at`, with actor,
+and the UI surfaces "changed after sign-off" (mirrors "edited since presented"). Fields are NOT locked
+(§2.6). Bug caught in review: the notes-edit path had no UI trigger (dead code) — added "Edit notes →";
+and `record_work_order_sign_off` was resetting `sign_off_at` on every call → fixed to
+`coalesce(sign_off_at, now())` so the original approval time is preserved. **The FORMAL feature — Change
+Orders — is still backlogged** (Jacob: after the rest of MVP). This shipped visibility + audit trail only.
 
 **(c) Admin-assistant role — granular capability flags. P1, real design work.**
 Isaac needs a login for an assistant who can see all leads and add notes but **not** see lead value or
@@ -108,6 +106,30 @@ Shape:
 - Interacts with C3 edit-by-ownership — capabilities gate *what you can see*, ownership gates *what you can
   change*. Keep the two orthogonal; don't merge them into one role enum.
 
+**REAL SEAT NOW FILLED (7/24) — Isaac has an employee. Task C becomes a BUILD after the audit.**
+Her concrete profile (first real capability config; toggleable per Jacob "adjusted over time / maybe full
+CRUD later" — so these MUST be per-user flags, not a fixed role):
+- `add_notes` ON · `edit_leads` ON · `schedule` ON · sees ALL leads (not restricted to assigned)
+- `view_financials` OFF (hide lead `value` + pipeline-value totals) · `view_estimates` OFF (hide estimating
+  entirely) · `create_estimates` OFF · `manage_users` OFF
+
+**Three interactions the PLAN must resolve (don't hand-wave):**
+1. **edit_leads × C3 edit-by-ownership.** She must edit ANY lead (office support for the whole book), but
+   C3 gates edits to `is_org_manager(org) OR owner_id = auth.uid()`. As a plain member she'd be BLOCKED
+   from editing leads she doesn't own. Resolve WITHOUT breaking "capabilities = see / ownership = change":
+   option (a) give her a manager-tier `org_members.role` + capabilities restrict visibility on top; option
+   (b) a capability that widens edit-scope. Propose one, flag the tradeoff. `is_org_manager` today = role in
+   (owner/admin/agency_admin) — `office` is NOT in it.
+2. **capability × role defaults.** SCOPE §5 `office` role is defined as seeing estimating — but she must
+   NOT. Capabilities must OVERRIDE role screen-defaults (role = baseline, capability = further restriction),
+   not merely add. Make precedence explicit in the plan.
+3. **edit_leads × view_financials.** She edits lead details but can't see `value`. The edit form omits
+   `value` AND `update_deal_fields` must REJECT a patch containing `value` from a caller without
+   view_financials (else she blind-writes it). Server-side, via the allowlist pattern.
+
+Note: `schedule` flag can be granted now but the appointments feature is thin (Stage 6 on hold) — the flag
+is real, the surface behind it minimal. Don't build Stage 6 to satisfy this.
+
 ### P1 — make the half-built modules real
 - **Estimate builder → document-as-editor (Joist model).** Replace the 4-step wizard with a WYSIWYG
   document: the editor IS the PDF the customer receives. Customer + job site pre-fill from the lead;
@@ -115,9 +137,18 @@ Shape:
   **Mode toggle: Manual (Isaac's default — type anything, any order) vs Guided** (scope checklist +
   pricing matrix auto-generate line items). *This rescues the checklist/pricing-matrix work — it becomes
   the optional power path instead of the only path.* Mock built 7/20; **get Isaac's reaction before building.**
+- **Signing SYSTEM (not just in-person capture) — shared by estimating AND coordination sign-off.**
+  Two paths on the same infrastructure: (1) **in-person** signature at the kitchen table (built for
+  estimates); (2) **remote/emailed** — send a tokenized signing link, customer opens it from their email
+  and signs on their own device, OS updates status, and the signed copy is **auto-emailed back**.
+  Hooks exist: `signatures.sign_token` (current schema) + the old BMR `estimate_signing_invites` table
+  (the original intent). **Dependency: remote signing needs reliable email (Resend/SMTP) — currently
+  Phase D; recommend pulling it into Phase A so remote-sign, password reset, and homeowner invites all
+  unblock at once.** Build the tokenized-remote-sign + email-copy path once; use it for estimate signing
+  and coordination sign-off both.
 - **Coordination "sign-off" is a stub.** Today it captures color/finish text and calls it sign-off.
-  Needs: real homeowner **signature/initials capture**, a **generated document** attached to the job,
-  and **confirmation delivered to the homeowner**. Currently misrepresents what it does.
+  Needs: real homeowner **signature/initials capture** (both paths above), a **generated signed document**
+  attached to the job, and **the signed copy delivered to the homeowner**. Currently misrepresents what it does.
 - **Field module — "cool but clunky."** Open questions to answer from the code, then fix:
   (a) can Isaac (office/owner) create field datapoints or upload roof data himself, or is it crew-only?
   (b) can crew **edit or delete** a file Isaac uploaded? Needs a real per-role file permission model.
@@ -148,6 +179,56 @@ Most content already exists — Present Mode *assembles* it (no re-entry applied
 
 Tablet-first; printable; **per-tenant template + branding** (§12E/§12F). **Sequencing: estimate builder
 FIRST** — the investment summary generates from those line items.
+
+---
+
+## 🛠️ In-app Build Tracker — StructTech-internal module (PULLED FORWARD — building NOW, Jacob 7/24)
+
+**PRIORITY CALL (Jacob 7/24):** built FIRST, before Phase A Week 1, as a ~1-day investment in operational
+control — a single attributed source of truth beats scattered file tracking across the rest of the build.
+The roadmap/matrix/checklist becomes a **feature inside StructTech OS on the StructTech (internal) tenant**
+— Jacob / CC / the architect all edit it from the app or the DB, with **who-changed-what attribution**
+(reuse the actor-stamping pattern). Dogfoods the platform. **Once live, it supersedes `ROADMAP_MATRIX.html`
++ `ROLLOUT_CHECKLIST.md`** (those become the seed source + then retire; `ROADMAP.md` stays as narrative).
+- Data model: `roadmap_items` (phase, section, feature, status [shipped/in_progress/planned], notes,
+  sort_order, `updated_by`, `updated_at`) — StructTech-internal, entitlement-gated (`module_key='build'`).
+- UI: grouped table (the matrix) + per-item status + notes; StructTech workspace only; full CRUD (§2.6).
+- Seed from the `ROADMAP_MATRIX.html` data array (~65 items) so it launches populated.
+- Small (~a day) — CRUD, attribution, entitlement/nav patterns all already exist. Uses the JSONB-patch
+  update convention (avoids the coalesce-clear bug) and migration discipline (CLAUDE.md).
+- **After it ships → return to Phase A Week 1 (assistant role).**
+- **Multi-project (7/26, Jacob = Option A unified):** `roadmap_projects` table + `project_id` on
+  `roadmap_items`; the tracker holds StructTech OS + Material Matrix + future builds, each its own tab
+  (features never shown merged). One command center so a feature on one project can be referenced to CC for
+  another. **Accepted tradeoff:** Material Matrix's separate codebase writes into StructTech's DB (the one
+  coupling) — worth it for the single viewer + cross-reference. **MM-side follow-up (in the MM repo/session,
+  later):** connect the StructTech Supabase project so MM's CC reads/writes `roadmap_items` for the
+  material_matrix project; add the "read a feature's notes before building" rule to MM's CLAUDE.md; populate
+  MM's roadmap items.
+
+## 🏠 CUSTOMER / HOMEOWNER PORTAL (directed by Jacob; was NOT scoped — gap caught 7/24)
+
+**The contractor-tenant's END customers (homeowners) get a portal** to see everything about *their* job:
+the signed estimate/work order and other docs, the schedule for their job, progress/status, and photos.
+A core differentiator Jacob directed early — a big reason a contractor would license the platform ("give
+your customers a portal to watch their roof job"). **Not to be confused with the existing `delivery`
+portal** (that's StructTech → contractor; this is contractor → homeowner — the SAME pattern one level down,
+so `delivery` + the `client_portal_viewer` role are the architectural precedent/seed).
+
+Why it's a phase, not a row:
+- **New external actor class — the heavy part.** Homeowners are NOT `org_members`; they see exactly ONE
+  job's data. Needs its own access model: tokenized per-job magic links (no account) and/or lightweight
+  homeowner accounts, plus RLS/security-definer read paths scoped to a single deal/job. Must not leak the
+  contractor's other jobs, pricing internals, or any other tenant. This is where the real design work is.
+- **Downstream of what it displays** — can only show a signed estimate, a schedule, and photos once those
+  are real (Phase A sign-off + docs) and wants R2 photo storage for the photos to look good (currently Later).
+- **Needs email** to invite homeowners (Resend/SMTP — see the signing-system dependency; pull into Phase A).
+
+Scope tiers: **v1** = read-only (signed docs + schedule + status). **v2** = photos + progress timeline.
+**v3** = homeowner confirms/schedules items (mirrors delivery portal's client-confirm interactions).
+**Sequencing (Jacob's call):** it's downstream of Phase A and benefits from B's polished docs — natural fit
+is **Phase C**, but Jacob flagged it *critical*, so decide whether v1 pulls ahead of / alongside Present
+Mode (B). Present Mode wins the job; the portal delivers the experience after — both customer-facing edges.
 
 ---
 
@@ -339,6 +420,12 @@ Still open, lower priority (post-go-live):
 - **Docs section** — one place to view / download / send work orders + estimates (signed or
   not), later invoices + packets. Ties to the tenant-customizable document-template system
   (SCOPE §12E). Jacob: "add to later build if needed."
+- **Global search bar — currently a disabled stub, not wired (confirmed 7/24).** The top-bar search input
+  in `WorkspaceShell.tsx` has `disabled` + `title="Coming in Week 2+"` — an intentional placeholder from
+  the original shell, never built. NOT a bug/regression. When built: search across leads (name/phone/
+  address), then estimates/work orders. Must respect the capability layer (Task C) — a user without
+  `view_financials` can't have search leak a $ value in results. Small-to-medium; not urgent while the
+  pipeline is one board Isaac can eyeball, real once the book grows.
 
 ---
 

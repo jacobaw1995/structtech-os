@@ -62,9 +62,14 @@ export async function createWorkOrderFromEstimate(formData: FormData) {
   redirect(workOrderHref(orgId, workOrderId));
 }
 
-export async function recordWorkOrderSignOff(formData: FormData) {
+// record_work_order_sign_off (the notes-only stub) is retired from the app
+// as of the real sign-off flow (Phase A Week 2 chunk 2) — see
+// signWorkOrderAgreement below. The DB function itself is left in place,
+// not dropped, as a separate cleanup concern.
+export async function signWorkOrderAgreement(formData: FormData) {
   const orgId = requireString(formData, "orgId");
   const workOrderId = requireString(formData, "workOrderId");
+  const agreementId = requireString(formData, "agreementId");
 
   const supabase = createClient();
   const {
@@ -72,9 +77,12 @@ export async function recordWorkOrderSignOff(formData: FormData) {
   } = await supabase.auth.getSession();
   if (!session) redirect("/login");
 
-  const { error } = await supabase.rpc("record_work_order_sign_off", {
-    p_work_order_id: workOrderId,
-    p_notes: optionalString(formData, "notes"),
+  const { error } = await supabase.rpc("sign_work_order_agreement", {
+    p_agreement_id: agreementId,
+    p_colors_finishes: JSON.parse(requireString(formData, "colors_finishes")),
+    p_signer_name: requireString(formData, "signer_name"),
+    p_signer_role: requireString(formData, "signer_role"),
+    p_signature_data: requireString(formData, "signature_data"),
   });
 
   if (error) {
