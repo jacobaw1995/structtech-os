@@ -2601,6 +2601,10 @@ export type Database = {
         Args: { p_deal_id: string }
         Returns: string
       }
+      create_job_from_estimate: {
+        Args: { p_estimate_id: string }
+        Returns: Json
+      }
       create_organization: {
         Args: { p_name: string; p_tenant_type: string; p_trade?: string }
         Returns: string
@@ -2646,6 +2650,16 @@ export type Database = {
           p_linked_org_id?: string
           p_name: string
           p_org_id: string
+        }
+        Returns: string
+      }
+      create_trade_work_order: {
+        Args: {
+          p_assignee_ref?: string
+          p_assignee_type?: string
+          p_master_work_order_id: string
+          p_predecessor_id?: string
+          p_trade: string
         }
         Returns: string
       }

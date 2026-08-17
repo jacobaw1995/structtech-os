@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { signEstimate } from "@/lib/estimating/actions";
-import { createWorkOrderFromEstimate } from "@/lib/coordination/actions";
+import { createJobFromEstimate } from "@/lib/coordination/actions";
 import { formatMoney } from "@/lib/crm/stages";
 import { SignaturePad, type SignaturePadHandle } from "@/components/estimating/SignaturePad";
 
@@ -78,7 +78,7 @@ export function EstimateSignatureBlock({
     formData.set("orgId", orgId);
     formData.set("estimateId", estimateId);
     startTransition(() => {
-      createWorkOrderFromEstimate(formData);
+      createJobFromEstimate(formData);
     });
   }
 

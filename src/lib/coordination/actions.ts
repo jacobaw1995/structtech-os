@@ -37,7 +37,9 @@ function revalidateWorkOrder(orgId: string, workOrderId: string) {
   revalidatePath(`/w/${orgId}/coordination/${workOrderId}`);
 }
 
-export async function createWorkOrderFromEstimate(formData: FormData) {
+// A1.2 — the creation RPC is split: this one makes the job and its master work
+// order. Trades are added under the master by create_trade_work_order (A1.3 UI).
+export async function createJobFromEstimate(formData: FormData) {
   const orgId = requireString(formData, "orgId");
   const estimateId = requireString(formData, "estimateId");
 
@@ -47,19 +49,34 @@ export async function createWorkOrderFromEstimate(formData: FormData) {
   } = await supabase.auth.getSession();
   if (!session) redirect("/login");
 
-  const { data: workOrderId, error } = await supabase.rpc(
-    "create_work_order_from_estimate",
-    { p_estimate_id: estimateId }
-  );
+  // Returns jsonb {job_id, master_work_order_id} — it creates two rows and both
+  // ids are load-bearing, so there is no single uuid it could return instead.
+  const { data, error } = await supabase.rpc("create_job_from_estimate", {
+    p_estimate_id: estimateId,
+  });
+
+  const estimateHref = (message: string) =>
+    `/w/${orgId}/estimating/${estimateId}?error=${encodeURIComponent(message)}`;
 
   if (error) {
+    redirect(estimateHref(error.message));
+  }
+
+  const masterWorkOrderId = (data as { master_work_order_id?: string } | null)
+    ?.master_work_order_id;
+
+  // Without this the redirect below builds /coordination/undefined — a 404 that
+  // reads as "the work order is missing" rather than "the call came back wrong".
+  if (!masterWorkOrderId) {
     redirect(
-      `/w/${orgId}/estimating/${estimateId}?error=${encodeURIComponent(error.message)}`
+      estimateHref(
+        "work order was not created — create_job_from_estimate returned no master_work_order_id"
+      )
     );
   }
 
-  revalidateWorkOrder(orgId, workOrderId);
-  redirect(workOrderHref(orgId, workOrderId));
+  revalidateWorkOrder(orgId, masterWorkOrderId);
+  redirect(workOrderHref(orgId, masterWorkOrderId));
 }
 
 export async function recordWorkOrderSignOff(formData: FormData) {

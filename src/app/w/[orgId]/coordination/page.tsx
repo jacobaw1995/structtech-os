@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireModuleAccess } from "@/lib/workspace/context";
-import { createWorkOrderFromEstimate } from "@/lib/coordination/actions";
+import { createJobFromEstimate } from "@/lib/coordination/actions";
 import { formatDate } from "@/lib/crm/stages";
 import type { Database } from "@/lib/supabase/database.types";
 
@@ -58,7 +58,7 @@ export default async function CoordinationPage({
           {unconvertedSigned.map((estimate) => (
             <form
               key={estimate.id}
-              action={createWorkOrderFromEstimate}
+              action={createJobFromEstimate}
               className="flex items-center justify-between gap-4 rounded-lg border border-border bg-surface px-4 py-3"
             >
               <input type="hidden" name="orgId" value={params.orgId} />
