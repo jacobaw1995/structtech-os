@@ -9,6 +9,7 @@ import { AddMaterialItemForm } from "@/components/coordination/AddMaterialItemFo
 import { ScheduleBlockRow } from "@/components/coordination/ScheduleBlockRow";
 import { AddScheduleBlockForm } from "@/components/coordination/AddScheduleBlockForm";
 import { WorkOrderDangerZone } from "@/components/coordination/WorkOrderDangerZone";
+import { AddTradeWorkOrderForm } from "@/components/coordination/AddTradeWorkOrderForm";
 import type { Database } from "@/lib/supabase/database.types";
 
 type WorkOrder = Database["public"]["Tables"]["work_orders"]["Row"];
@@ -40,7 +41,7 @@ export default async function WorkOrderPage({
     redirect(`/w/${params.orgId}/coordination`);
   }
 
-  const [{ data: fetchedEstimate }, { data: materialsData }, { data: scheduleData }, { data: activityData }, { data: memberRows }] =
+  const [{ data: fetchedEstimate }, { data: materialsData }, { data: scheduleData }, { data: activityData }, { data: memberRows }, { data: jobWorkOrderData }, { data: tradeNameData }] =
     await Promise.all([
       supabase.rpc("fetch_estimate", { p_estimate_id: workOrder.estimate_id }),
       supabase
@@ -59,6 +60,22 @@ export default async function WorkOrderPage({
         .eq("work_order_id", workOrder.id)
         .order("created_at", { ascending: true }),
       supabase.rpc("list_org_members", { p_org_id: params.orgId }),
+      // Every work order on this job — one query serves both pages: a master
+      // renders the trades under it, a trade renders a link back up to its
+      // master. List query, so direct table access is fine (CLAUDE.md rule 5).
+      supabase
+        .from("work_orders")
+        .select("*")
+        .eq("job_id", workOrder.job_id)
+        .order("created_at", { ascending: true }),
+      // Trade names this org has already used — the datalist's only source.
+      // Not a fixed vocabulary: it is empty on a tenant's first job and never
+      // limits what can be typed.
+      supabase
+        .from("work_orders")
+        .select("trade")
+        .eq("org_id", params.orgId)
+        .eq("kind", "trade"),
     ]);
 
   const estimate = fetchedEstimate?.[0] as Estimate | undefined;
@@ -66,6 +83,29 @@ export default async function WorkOrderPage({
   const scheduleBlocks = (scheduleData ?? []) as ScheduleBlock[];
   const activity = (activityData ?? []) as WorkOrderActivity[];
   const members = memberRows ?? [];
+
+  const isMaster = workOrder.kind === "master";
+  const jobWorkOrders = (jobWorkOrderData ?? []) as WorkOrder[];
+  const trades = jobWorkOrders.filter((w) => w.kind === "trade");
+  const master = jobWorkOrders.find((w) => w.kind === "master");
+  const tradeSuggestions = Array.from(
+    new Set(
+      ((tradeNameData ?? []) as { trade: string | null }[])
+        .map((r) => r.trade)
+        .filter((t): t is string => t !== null && t.length > 0)
+    )
+  ).sort();
+
+  function tradeById(id: string | null): WorkOrder | undefined {
+    return id ? jobWorkOrders.find((w) => w.id === id) : undefined;
+  }
+
+  // "crew · Ramirez crew". Both halves are always present or both absent —
+  // create_trade_work_order refuses a half-specified assignee.
+  function assigneeLabel(w: WorkOrder): string {
+    if (!w.assignee_type || !w.assignee_ref) return "Unassigned";
+    return `${w.assignee_type} · ${w.assignee_ref}`;
+  }
 
   function authorName(userId: string | null): string {
     if (!userId) return "Unknown";
@@ -77,6 +117,14 @@ export default async function WorkOrderPage({
     materialCount: materials.length,
     scheduleCount: scheduleBlocks.length,
   });
+
+  // The trades.length gate is a UI-level stopgap only: delete_work_order does
+  // not yet know about children, so offering delete on a master with trades
+  // would orphan them. A1.4 makes the RPC itself refuse or cascade explicitly,
+  // and that is the real enforcement — this only keeps A1.3a from shipping a
+  // new way to break the tree.
+  const canDelete =
+    materials.length === 0 && scheduleBlocks.length === 0 && trades.length === 0;
 
   const nextMaterialSortOrder =
     materials.length === 0 ? 0 : Math.max(...materials.map((m) => m.sort_order)) + 1;
@@ -90,10 +138,23 @@ export default async function WorkOrderPage({
         >
           ← Coordination
         </Link>
-        <div className="mt-1 flex items-center gap-2">
+        {!isMaster && master && (
+          <Link
+            href={`/w/${params.orgId}/coordination/${master.id}`}
+            className="ml-3 text-sm text-muted"
+          >
+            ↑ Master work order
+          </Link>
+        )}
+        <div className="mt-1 flex flex-wrap items-center gap-2">
           <h1 className="text-2xl font-semibold text-text">
             {estimate?.company || estimate?.contact_name || "Work order"}
           </h1>
+          {!isMaster && workOrder.trade && (
+            <span className="rounded-full bg-accent-soft px-2 py-0.5 text-xs font-medium text-accent-strong">
+              {workOrder.trade}
+            </span>
+          )}
           {workOrder.voided_at && (
             <span className="rounded-full bg-surface2 px-2 py-0.5 text-xs font-medium text-muted line-through">
               Voided
@@ -102,6 +163,13 @@ export default async function WorkOrderPage({
         </div>
         {estimate?.site_address && (
           <p className="text-sm text-muted">{estimate.site_address}</p>
+        )}
+        {!isMaster && (
+          <p className="text-xs text-muted">
+            {assigneeLabel(workOrder)}
+            {workOrder.predecessor_id &&
+              ` · after ${tradeById(workOrder.predecessor_id)?.trade ?? "another trade"}`}
+          </p>
         )}
         {estimate?.squares != null && (
           <p className="font-mono text-xs text-muted">
@@ -116,6 +184,52 @@ export default async function WorkOrderPage({
         <p className="rounded-md bg-warn-soft px-3 py-2 text-sm text-text">
           {searchParams.error}
         </p>
+      )}
+
+      {/* Master only — trades do not nest, so a trade page offers no way to
+          create another trade and shows no trade list. */}
+      {isMaster && (
+        <div className="rounded-lg border border-border bg-surface p-3">
+          <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
+            Trade work orders
+          </h2>
+          {trades.length === 0 && (
+            <p className="py-2 text-sm text-muted">
+              No trade work orders yet. Add the first one below — the trade is
+              whatever this job actually needs, typed in full.
+            </p>
+          )}
+          {trades.map((t) => (
+            <Link
+              key={t.id}
+              href={`/w/${params.orgId}/coordination/${t.id}`}
+              className="flex items-center justify-between gap-3 border-b border-border py-2 last:border-b-0"
+            >
+              <div className="min-w-0">
+                <p className="flex items-center gap-2 text-sm font-semibold text-text">
+                  <span className="truncate">{t.trade}</span>
+                  {t.voided_at && (
+                    <span className="shrink-0 rounded-full bg-surface2 px-2 py-0.5 text-xs font-medium text-muted line-through">
+                      Voided
+                    </span>
+                  )}
+                </p>
+                <p className="truncate text-xs text-muted">
+                  {assigneeLabel(t)}
+                  {t.predecessor_id &&
+                    ` · after ${tradeById(t.predecessor_id)?.trade ?? "another trade"}`}
+                </p>
+              </div>
+              <span className="shrink-0 text-muted">→</span>
+            </Link>
+          ))}
+          <AddTradeWorkOrderForm
+            orgId={params.orgId}
+            masterWorkOrderId={workOrder.id}
+            siblingTrades={trades}
+            tradeSuggestions={tradeSuggestions}
+          />
+        </div>
       )}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -173,7 +287,7 @@ export default async function WorkOrderPage({
         orgId={params.orgId}
         workOrderId={workOrder.id}
         voidedAt={workOrder.voided_at}
-        canDelete={materials.length === 0 && scheduleBlocks.length === 0}
+        canDelete={canDelete}
       />
     </div>
   );

@@ -38,7 +38,7 @@ function revalidateWorkOrder(orgId: string, workOrderId: string) {
 }
 
 // A1.2 — the creation RPC is split: this one makes the job and its master work
-// order. Trades are added under the master by create_trade_work_order (A1.3 UI).
+// order. Trades are added under the master by createTradeWorkOrder below (A1.3a).
 export async function createJobFromEstimate(formData: FormData) {
   const orgId = requireString(formData, "orgId");
   const estimateId = requireString(formData, "estimateId");
@@ -75,6 +75,49 @@ export async function createJobFromEstimate(formData: FormData) {
     );
   }
 
+  revalidateWorkOrder(orgId, masterWorkOrderId);
+  redirect(workOrderHref(orgId, masterWorkOrderId));
+}
+
+// A1.3a. Creates a trade under a master. org_id, estimate_id and job_id are NOT
+// parameters — create_trade_work_order reads all three off the master, which is
+// what makes it impossible to land a trade in the wrong org or on the wrong job.
+//
+// Every invalid case (trade under a trade, half-specified assignee, duplicate
+// active trade, predecessor from another job) is refused by the RPC with a
+// readable message, and that message is what the user sees. Deliberately no
+// client-side re-implementation of those rules: the RPC is the gate, and a
+// second copy of the logic here would drift from it.
+export async function createTradeWorkOrder(formData: FormData) {
+  const orgId = requireString(formData, "orgId");
+  const masterWorkOrderId = requireString(formData, "masterWorkOrderId");
+
+  const supabase = createClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) redirect("/login");
+
+  // Passed through as-is rather than via requireString: an empty trade is a
+  // case the RPC already answers ("trade is required on a trade work order"),
+  // and throwing here would replace that message with an error boundary.
+  const trade = formData.get("trade");
+
+  const { error } = await supabase.rpc("create_trade_work_order", {
+    p_master_work_order_id: masterWorkOrderId,
+    p_trade: typeof trade === "string" ? trade : "",
+    p_assignee_type: optionalString(formData, "assignee_type"),
+    p_assignee_ref: optionalString(formData, "assignee_ref"),
+    p_predecessor_id: optionalString(formData, "predecessor_id"),
+  });
+
+  if (error) {
+    redirect(workOrderHref(orgId, masterWorkOrderId, error.message));
+  }
+
+  // Back to the master, not into the new trade: trades are normally added
+  // several at a time, and the master is where the list that proves it worked
+  // is rendered.
   revalidateWorkOrder(orgId, masterWorkOrderId);
   redirect(workOrderHref(orgId, masterWorkOrderId));
 }

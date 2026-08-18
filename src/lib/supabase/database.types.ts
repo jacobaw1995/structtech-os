@@ -993,6 +993,67 @@ export type Database = {
           },
         ]
       }
+      jobs: {
+        Row: {
+          created_at: string
+          deal_id: string
+          estimate_id: string
+          id: string
+          org_id: string
+          service_address_city: string | null
+          service_address_state: string | null
+          service_address_street: string | null
+          service_address_zip: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          deal_id: string
+          estimate_id: string
+          id?: string
+          org_id: string
+          service_address_city?: string | null
+          service_address_state?: string | null
+          service_address_street?: string | null
+          service_address_zip?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          deal_id?: string
+          estimate_id?: string
+          id?: string
+          org_id?: string
+          service_address_city?: string | null
+          service_address_state?: string | null
+          service_address_street?: string | null
+          service_address_zip?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jobs_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jobs_estimate_id_fkey"
+            columns: ["estimate_id"]
+            isOneToOne: true
+            referencedRelation: "estimates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jobs_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_activity: {
         Row: {
           action: Database["public"]["Enums"]["lead_activity_action"]
@@ -2414,32 +2475,50 @@ export type Database = {
       }
       work_orders: {
         Row: {
+          assignee_ref: string | null
+          assignee_type: string | null
           created_at: string
           estimate_id: string
           id: string
+          job_id: string
+          kind: string
           org_id: string
+          predecessor_id: string | null
           sign_off_at: string | null
           sign_off_notes: string | null
+          trade: string | null
           updated_at: string
           voided_at: string | null
         }
         Insert: {
+          assignee_ref?: string | null
+          assignee_type?: string | null
           created_at?: string
           estimate_id: string
           id?: string
+          job_id: string
+          kind?: string
           org_id: string
+          predecessor_id?: string | null
           sign_off_at?: string | null
           sign_off_notes?: string | null
+          trade?: string | null
           updated_at?: string
           voided_at?: string | null
         }
         Update: {
+          assignee_ref?: string | null
+          assignee_type?: string | null
           created_at?: string
           estimate_id?: string
           id?: string
+          job_id?: string
+          kind?: string
           org_id?: string
+          predecessor_id?: string | null
           sign_off_at?: string | null
           sign_off_notes?: string | null
+          trade?: string | null
           updated_at?: string
           voided_at?: string | null
         }
@@ -2447,8 +2526,15 @@ export type Database = {
           {
             foreignKeyName: "work_orders_estimate_id_fkey"
             columns: ["estimate_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "estimates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_orders_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
             referencedColumns: ["id"]
           },
           {
@@ -2456,6 +2542,13 @@ export type Database = {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_orders_predecessor_id_fkey"
+            columns: ["predecessor_id"]
+            isOneToOne: false
+            referencedRelation: "work_orders"
             referencedColumns: ["id"]
           },
         ]
