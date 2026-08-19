@@ -1,7 +1,4 @@
 import { createTradeWorkOrder } from "@/lib/coordination/actions";
-import type { Database } from "@/lib/supabase/database.types";
-
-type WorkOrder = Database["public"]["Tables"]["work_orders"]["Row"];
 
 // Rendered only on a master (see the work order page) — trades do not nest, so
 // a trade page never gets this form.
@@ -13,7 +10,10 @@ export function AddTradeWorkOrderForm({
 }: {
   orgId: string;
   masterWorkOrderId: string;
-  siblingTrades: WorkOrder[];
+  // Only the id and the name are used, so this takes the narrow shape rather
+  // than a full work_orders row — A1.4 feeds it from fetch_work_order_tree's
+  // trade nodes, which are not table rows.
+  siblingTrades: { id: string; trade: string | null }[];
   tradeSuggestions: string[];
 }) {
   const datalistId = `trade-suggestions-${masterWorkOrderId}`;

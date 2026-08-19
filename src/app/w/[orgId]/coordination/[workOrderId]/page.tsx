@@ -18,6 +18,33 @@ type MaterialItem = Database["public"]["Tables"]["material_items"]["Row"];
 type ScheduleBlock = Database["public"]["Tables"]["schedule_blocks"]["Row"];
 type WorkOrderActivity = Database["public"]["Tables"]["work_order_activity"]["Row"];
 
+// Shape of fetch_work_order_tree's jsonb. Declared here because a jsonb-
+// returning RPC is `Json` to the generated types — the contract lives in the
+// migration, and this is the one place that reads it.
+type TradeNode = {
+  id: string;
+  trade: string | null;
+  assignee_type: string | null;
+  assignee_ref: string | null;
+  predecessor_id: string | null;
+  voided_at: string | null;
+  voided_by_cascade: boolean;
+  material_count: number;
+  schedule_count: number;
+};
+type WorkOrderTree = {
+  work_order_id: string;
+  level: "master" | "trade";
+  job_id: string;
+  master_id: string | null;
+  master_sign_off_at: string | null;
+  voided_at: string | null;
+  voided_by_cascade: boolean;
+  trades: TradeNode[];
+  job_material_count: number;
+  job_schedule_count: number;
+};
+
 export default async function WorkOrderPage({
   params,
   searchParams,
@@ -41,7 +68,14 @@ export default async function WorkOrderPage({
     redirect(`/w/${params.orgId}/coordination`);
   }
 
-  const [{ data: fetchedEstimate }, { data: materialsData }, { data: scheduleData }, { data: activityData }, { data: memberRows }, { data: jobWorkOrderData }, { data: tradeNameData }] =
+  // A1.4 — the hierarchy comes from one RPC instead of two ad-hoc job-scoped
+  // table queries. fetch_work_order_tree returns this work order's level, the
+  // job's master id, and every trade on the job with its own voided state and
+  // whether that void was its own or its master's cascade. fetch_work_order
+  // above is unchanged and still returns the row itself: its `setof
+  // work_orders` shape is what the deployed page reads, and narrowing it would
+  // have broken production between the migration and the deploy (rule 5b).
+  const [{ data: fetchedEstimate }, { data: materialsData }, { data: scheduleData }, { data: activityData }, { data: memberRows }, { data: treeData }, { data: tradeNameData }] =
     await Promise.all([
       supabase.rpc("fetch_estimate", { p_estimate_id: workOrder.estimate_id }),
       supabase
@@ -60,14 +94,7 @@ export default async function WorkOrderPage({
         .eq("work_order_id", workOrder.id)
         .order("created_at", { ascending: true }),
       supabase.rpc("list_org_members", { p_org_id: params.orgId }),
-      // Every work order on this job — one query serves both pages: a master
-      // renders the trades under it, a trade renders a link back up to its
-      // master. List query, so direct table access is fine (CLAUDE.md rule 5).
-      supabase
-        .from("work_orders")
-        .select("*")
-        .eq("job_id", workOrder.job_id)
-        .order("created_at", { ascending: true }),
+      supabase.rpc("fetch_work_order_tree", { p_work_order_id: workOrder.id }),
       // Trade names this org has already used — the datalist's only source.
       // Not a fixed vocabulary: it is empty on a tenant's first job and never
       // limits what can be typed.
@@ -84,10 +111,14 @@ export default async function WorkOrderPage({
   const activity = (activityData ?? []) as WorkOrderActivity[];
   const members = memberRows ?? [];
 
+  const tree = (treeData ?? null) as WorkOrderTree | null;
   const isMaster = workOrder.kind === "master";
-  const jobWorkOrders = (jobWorkOrderData ?? []) as WorkOrder[];
-  const trades = jobWorkOrders.filter((w) => w.kind === "trade");
-  const master = jobWorkOrders.find((w) => w.kind === "master");
+  const trades = tree?.trades ?? [];
+  const masterId = tree?.master_id ?? null;
+  const jobMaterialCount = tree?.job_material_count ?? 0;
+  const jobScheduleCount = tree?.job_schedule_count ?? 0;
+  const liveTrades = trades.filter((t) => t.voided_at === null);
+  const cascadeVoidedTrades = trades.filter((t) => t.voided_by_cascade);
   const tradeSuggestions = Array.from(
     new Set(
       ((tradeNameData ?? []) as { trade: string | null }[])
@@ -96,25 +127,16 @@ export default async function WorkOrderPage({
     )
   ).sort();
 
-  // A1.3b: materials and schedule now live on trades, so a master's own
-  // material_items/schedule_blocks queries return nothing by definition. The
-  // master still needs to SUMMARISE them, so count them across the job. Second
-  // round trip rather than one: the ids come from the query above.
-  const jobWorkOrderIds = jobWorkOrders.map((w) => w.id);
-  const [{ data: jobMaterialData }, { data: jobScheduleData }] = await Promise.all([
-    supabase.from("material_items").select("id").in("work_order_id", jobWorkOrderIds),
-    supabase.from("schedule_blocks").select("id").in("work_order_id", jobWorkOrderIds),
-  ]);
-  const jobMaterialCount = (jobMaterialData ?? []).length;
-  const jobScheduleCount = (jobScheduleData ?? []).length;
-
-  function tradeById(id: string | null): WorkOrder | undefined {
-    return id ? jobWorkOrders.find((w) => w.id === id) : undefined;
+  function tradeById(id: string | null): TradeNode | undefined {
+    return id ? trades.find((w) => w.id === id) : undefined;
   }
 
   // "crew · Ramirez crew". Both halves are always present or both absent —
   // create_trade_work_order refuses a half-specified assignee.
-  function assigneeLabel(w: WorkOrder): string {
+  function assigneeLabel(w: {
+    assignee_type: string | null;
+    assignee_ref: string | null;
+  }): string {
     if (!w.assignee_type || !w.assignee_ref) return "Unassigned";
     return `${w.assignee_type} · ${w.assignee_ref}`;
   }
@@ -130,16 +152,16 @@ export default async function WorkOrderPage({
   // Material/schedule counts are job-wide on a master and own-trade on a trade,
   // which is exactly what each level is responsible for.
   const stages = coordinationStages({
-    signOffAt: master?.sign_off_at ?? null,
+    signOffAt: tree?.master_sign_off_at ?? null,
     materialCount: isMaster ? jobMaterialCount : materials.length,
     scheduleCount: isMaster ? jobScheduleCount : scheduleBlocks.length,
   });
 
-  // The trades.length gate is a UI-level stopgap only: delete_work_order does
-  // not yet know about children, so offering delete on a master with trades
-  // would orphan them. A1.4 makes the RPC itself refuse or cascade explicitly,
-  // and that is the real enforcement — this only keeps A1.3a from shipping a
-  // new way to break the tree.
+  // A1.4 moved the real guard into the RPC: delete_work_order now refuses a
+  // master that still has trades and names the count in the message. This
+  // stays as a UI hint so the button is not offered in a case that will only
+  // produce an error — the same "UI hint + RPC is the real guard" split used
+  // everywhere else, no longer the stopgap it was in A1.3a.
   const canDelete = isMaster
     ? trades.length === 0 && jobMaterialCount === 0 && jobScheduleCount === 0
     : materials.length === 0 && scheduleBlocks.length === 0;
@@ -156,9 +178,9 @@ export default async function WorkOrderPage({
         >
           ← Coordination
         </Link>
-        {!isMaster && master && (
+        {!isMaster && masterId && (
           <Link
-            href={`/w/${params.orgId}/coordination/${master.id}`}
+            href={`/w/${params.orgId}/coordination/${masterId}`}
             className="ml-3 text-sm text-muted"
           >
             ↑ Master work order
@@ -175,7 +197,7 @@ export default async function WorkOrderPage({
           )}
           {workOrder.voided_at && (
             <span className="rounded-full bg-surface2 px-2 py-0.5 text-xs font-medium text-muted line-through">
-              Voided
+              {tree?.voided_by_cascade ? "Voided with master" : "Voided"}
             </span>
           )}
         </div>
@@ -228,7 +250,10 @@ export default async function WorkOrderPage({
                   <span className="truncate">{t.trade}</span>
                   {t.voided_at && (
                     <span className="shrink-0 rounded-full bg-surface2 px-2 py-0.5 text-xs font-medium text-muted line-through">
-                      Voided
+                      {/* Restoring the master brings back only the trades the
+                          cascade took. A trade voided on its own stays voided,
+                          and the user has to be able to see which is which. */}
+                      {t.voided_by_cascade ? "Voided with master" : "Voided"}
                     </span>
                   )}
                 </p>
@@ -326,6 +351,10 @@ export default async function WorkOrderPage({
         orgId={params.orgId}
         workOrderId={workOrder.id}
         voidedAt={workOrder.voided_at}
+        voidedByCascade={tree?.voided_by_cascade ?? false}
+        masterId={masterId}
+        liveTradeCount={liveTrades.length}
+        cascadeVoidedTradeCount={cascadeVoidedTrades.length}
         canDelete={canDelete}
       />
     </div>

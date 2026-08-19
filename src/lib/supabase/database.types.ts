@@ -2473,6 +2473,91 @@ export type Database = {
           },
         ]
       }
+      work_order_agreements: {
+        Row: {
+          colors_finishes: Json
+          created_at: string
+          id: string
+          org_id: string
+          sent_at: string | null
+          sign_token_hash: string | null
+          signature_data: string | null
+          signed_at: string | null
+          signer_name: string | null
+          signer_role: string | null
+          snapshot: Json
+          status: string
+          updated_at: string
+          void_cascade_prior_status: string | null
+          void_cascade_source_id: string | null
+          void_reason: string | null
+          voided_at: string | null
+          work_order_id: string
+        }
+        Insert: {
+          colors_finishes?: Json
+          created_at?: string
+          id?: string
+          org_id: string
+          sent_at?: string | null
+          sign_token_hash?: string | null
+          signature_data?: string | null
+          signed_at?: string | null
+          signer_name?: string | null
+          signer_role?: string | null
+          snapshot: Json
+          status?: string
+          updated_at?: string
+          void_cascade_prior_status?: string | null
+          void_cascade_source_id?: string | null
+          void_reason?: string | null
+          voided_at?: string | null
+          work_order_id: string
+        }
+        Update: {
+          colors_finishes?: Json
+          created_at?: string
+          id?: string
+          org_id?: string
+          sent_at?: string | null
+          sign_token_hash?: string | null
+          signature_data?: string | null
+          signed_at?: string | null
+          signer_name?: string | null
+          signer_role?: string | null
+          snapshot?: Json
+          status?: string
+          updated_at?: string
+          void_cascade_prior_status?: string | null
+          void_cascade_source_id?: string | null
+          void_reason?: string | null
+          voided_at?: string | null
+          work_order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_order_agreements_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_order_agreements_void_cascade_source_id_fkey"
+            columns: ["void_cascade_source_id"]
+            isOneToOne: false
+            referencedRelation: "work_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_order_agreements_work_order_id_fkey"
+            columns: ["work_order_id"]
+            isOneToOne: false
+            referencedRelation: "work_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       work_orders: {
         Row: {
           assignee_ref: string | null
@@ -2488,6 +2573,7 @@ export type Database = {
           sign_off_notes: string | null
           trade: string | null
           updated_at: string
+          void_cascade_source_id: string | null
           voided_at: string | null
         }
         Insert: {
@@ -2504,6 +2590,7 @@ export type Database = {
           sign_off_notes?: string | null
           trade?: string | null
           updated_at?: string
+          void_cascade_source_id?: string | null
           voided_at?: string | null
         }
         Update: {
@@ -2520,6 +2607,7 @@ export type Database = {
           sign_off_notes?: string | null
           trade?: string | null
           updated_at?: string
+          void_cascade_source_id?: string | null
           voided_at?: string | null
         }
         Relationships: [
@@ -2547,6 +2635,13 @@ export type Database = {
           {
             foreignKeyName: "work_orders_predecessor_id_fkey"
             columns: ["predecessor_id"]
+            isOneToOne: false
+            referencedRelation: "work_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_orders_void_cascade_source_id_fkey"
+            columns: ["void_cascade_source_id"]
             isOneToOne: false
             referencedRelation: "work_orders"
             referencedColumns: ["id"]
@@ -3011,13 +3106,20 @@ export type Database = {
       fetch_work_order: {
         Args: { p_work_order_id: string }
         Returns: {
+          assignee_ref: string | null
+          assignee_type: string | null
           created_at: string
           estimate_id: string
           id: string
+          job_id: string
+          kind: string
           org_id: string
+          predecessor_id: string | null
           sign_off_at: string | null
           sign_off_notes: string | null
+          trade: string | null
           updated_at: string
+          void_cascade_source_id: string | null
           voided_at: string | null
         }[]
         SetofOptions: {
@@ -3026,6 +3128,10 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      fetch_work_order_tree: {
+        Args: { p_work_order_id: string }
+        Returns: Json
       }
       generate_roadmap_for_lead: {
         Args: { p_lead_id: string }

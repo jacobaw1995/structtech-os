@@ -37,6 +37,13 @@ function revalidateWorkOrder(orgId: string, workOrderId: string) {
   revalidatePath(`/w/${orgId}/coordination/${workOrderId}`);
 }
 
+// A1.4 — void and restore on a master move its trades too, so revalidating
+// only the page the form was on leaves every trade page showing a stale
+// voided state. This busts the whole coordination subtree instead.
+function revalidateCoordination(orgId: string) {
+  revalidatePath(`/w/${orgId}/coordination`, "layout");
+}
+
 // A1.2 — the creation RPC is split: this one makes the job and its master work
 // order. Trades are added under the master by createTradeWorkOrder below (A1.3a).
 export async function createJobFromEstimate(formData: FormData) {
@@ -312,7 +319,7 @@ export async function voidWorkOrder(formData: FormData) {
     redirect(workOrderHref(orgId, workOrderId, error.message));
   }
 
-  revalidateWorkOrder(orgId, workOrderId);
+  revalidateCoordination(orgId);
   redirect(workOrderHref(orgId, workOrderId));
 }
 
@@ -334,7 +341,7 @@ export async function restoreWorkOrder(formData: FormData) {
     redirect(workOrderHref(orgId, workOrderId, error.message));
   }
 
-  revalidateWorkOrder(orgId, workOrderId);
+  revalidateCoordination(orgId);
   redirect(workOrderHref(orgId, workOrderId));
 }
 
@@ -358,5 +365,6 @@ export async function deleteWorkOrder(formData: FormData) {
 
   // Unlike void/restore, the row is gone — nothing left at workOrderHref to
   // revalidate into. Back to the list.
+  revalidateCoordination(orgId);
   redirect(`/w/${orgId}/coordination`);
 }
