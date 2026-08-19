@@ -455,6 +455,8 @@ These live in the claude.ai StructTech OS project, not in this repo.
 
 # 10 · CHANGE LOG
 
+> **Rows in this log are historical, not instructions.** A row records what was true and decided on its date. Where a later row supersedes an earlier one, the earlier text stays as written — the live position is always §1, §5 and §11, never a change-log row. If a §10 row and §1 disagree, §1 wins and the row is history.
+
 | Date | Change | By |
 |---|---|---|
 | 2026-08-16 | Directive v1.0 created. Consolidates and supersedes the Phase A scope, backlog, CLAUDE.md directive block, six-week map, remaining-build map, and build-state documents. | Jacob + Claude |
