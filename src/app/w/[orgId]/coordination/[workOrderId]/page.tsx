@@ -96,6 +96,18 @@ export default async function WorkOrderPage({
     )
   ).sort();
 
+  // A1.3b: materials and schedule now live on trades, so a master's own
+  // material_items/schedule_blocks queries return nothing by definition. The
+  // master still needs to SUMMARISE them, so count them across the job. Second
+  // round trip rather than one: the ids come from the query above.
+  const jobWorkOrderIds = jobWorkOrders.map((w) => w.id);
+  const [{ data: jobMaterialData }, { data: jobScheduleData }] = await Promise.all([
+    supabase.from("material_items").select("id").in("work_order_id", jobWorkOrderIds),
+    supabase.from("schedule_blocks").select("id").in("work_order_id", jobWorkOrderIds),
+  ]);
+  const jobMaterialCount = (jobMaterialData ?? []).length;
+  const jobScheduleCount = (jobScheduleData ?? []).length;
+
   function tradeById(id: string | null): WorkOrder | undefined {
     return id ? jobWorkOrders.find((w) => w.id === id) : undefined;
   }
@@ -112,10 +124,15 @@ export default async function WorkOrderPage({
     return members.find((m: { user_id: string; full_name: string | null }) => m.user_id === userId)?.full_name ?? "Unknown";
   }
 
+  // Sign-off always reads off the MASTER — after A1.3b a trade's own
+  // sign_off_at is null by construction, so a trade reading its own column
+  // would permanently show "not signed off" on a job that is signed.
+  // Material/schedule counts are job-wide on a master and own-trade on a trade,
+  // which is exactly what each level is responsible for.
   const stages = coordinationStages({
-    signOffAt: workOrder.sign_off_at,
-    materialCount: materials.length,
-    scheduleCount: scheduleBlocks.length,
+    signOffAt: master?.sign_off_at ?? null,
+    materialCount: isMaster ? jobMaterialCount : materials.length,
+    scheduleCount: isMaster ? jobScheduleCount : scheduleBlocks.length,
   });
 
   // The trades.length gate is a UI-level stopgap only: delete_work_order does
@@ -123,8 +140,9 @@ export default async function WorkOrderPage({
   // would orphan them. A1.4 makes the RPC itself refuse or cascade explicitly,
   // and that is the real enforcement — this only keeps A1.3a from shipping a
   // new way to break the tree.
-  const canDelete =
-    materials.length === 0 && scheduleBlocks.length === 0 && trades.length === 0;
+  const canDelete = isMaster
+    ? trades.length === 0 && jobMaterialCount === 0 && jobScheduleCount === 0
+    : materials.length === 0 && scheduleBlocks.length === 0;
 
   const nextMaterialSortOrder =
     materials.length === 0 ? 0 : Math.max(...materials.map((m) => m.sort_order)) + 1;
@@ -229,13 +247,31 @@ export default async function WorkOrderPage({
             siblingTrades={trades}
             tradeSuggestions={tradeSuggestions}
           />
+          {/* Guidance, not a gate: says where the child objects went rather
+              than leaving the master looking like it lost them. */}
+          {trades.length > 0 && (
+            <p className="pt-2 text-xs text-muted">
+              Materials and schedule live on each trade — {jobMaterialCount}{" "}
+              material{jobMaterialCount === 1 ? "" : "s"} and {jobScheduleCount}{" "}
+              schedule block{jobScheduleCount === 1 ? "" : "s"} across this job.
+            </p>
+          )}
         </div>
       )}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <div className="flex flex-col gap-4">
-          <SignOffPanel orgId={params.orgId} workOrder={workOrder} activity={activity} authorName={authorName} />
+          {/* Sign-off is recorded once on the master (A1.3b) — a trade page does
+              not offer it, because record_work_order_sign_off would refuse it. */}
+          {isMaster && (
+            <SignOffPanel orgId={params.orgId} workOrder={workOrder} activity={activity} authorName={authorName} />
+          )}
 
+          {/* Materials attach to a trade. Rendering this form on a master would
+              offer a control the RPC now always refuses — the third clause of
+              A1.3b's Done when. Hiding what cannot exist at this level is not
+              SCOPE §2.8 blocking: nothing here is disabled pending other data. */}
+          {!isMaster && (
           <div className="rounded-lg border border-border bg-surface p-3">
             <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
               Material list
@@ -257,8 +293,10 @@ export default async function WorkOrderPage({
               nextSortOrder={nextMaterialSortOrder}
             />
           </div>
+          )}
         </div>
 
+        {!isMaster && (
         <div className="rounded-lg border border-border bg-surface p-3">
           <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
             Schedule — crew + dates
@@ -281,6 +319,7 @@ export default async function WorkOrderPage({
           ))}
           <AddScheduleBlockForm orgId={params.orgId} workOrderId={workOrder.id} />
         </div>
+        )}
       </div>
 
       <WorkOrderDangerZone

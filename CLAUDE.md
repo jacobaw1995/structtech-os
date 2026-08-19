@@ -178,6 +178,13 @@ Do **not** build these now, but do **not** make choices that block them (full de
 5. **PL/pgSQL treats a NULL `IF` condition as FALSE.** `if not (is_manager or v_owner_id = auth.uid())`
    silently *allows* the action when `owner_id IS NULL`. Wrap nullable comparisons in
    `coalesce(..., false)`. (Hit 7/24 — a real authorization bypass on unowned rows.)
+6. **`tsc` passing is not evidence the generated types match the schema — only that the code agrees with
+   whatever the types happen to say.** Regenerate or hand-verify `database.types.ts` against
+   `information_schema` in the same task as any migration that adds or drops a column, table or constraint.
+   (Hit 8/18: A1.1 added six columns to `work_orders` and created `jobs`; both A1.1 and A1.2 shipped green
+   with `work_orders` missing all six, `jobs` absent from the types entirely, and `estimate_id` still marked
+   `isOneToOne` after its unique constraint was dropped. Nothing caught it because no code had read the new
+   columns yet.)
 
 ---
 
