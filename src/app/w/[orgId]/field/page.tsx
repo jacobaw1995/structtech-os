@@ -2,36 +2,39 @@ import Link from "next/link";
 import { requireModuleAccess } from "@/lib/workspace/context";
 import { FieldShell } from "@/components/field/FieldShell";
 import { scheduleBlockStatus } from "@/lib/field/today";
-import type { Database } from "@/lib/supabase/database.types";
 
 // More specific than the [moduleKey] placeholder route — see crm/page.tsx's
 // comment for why Next resolves this static segment first.
 //
-// No dollar values queried: the embedded estimate select below is an
-// explicit column list (contact_name/company/site_address/squares/pitch),
-// never estimates(*) — subtotal/presented_total never leave the database
-// for this role. requireModuleAccess already keeps a field-role user off
-// crm/estimating/coordination entirely (modulesVisibleForRole); this page
-// is the second, belt-and-suspenders guarantee that even the one module
-// they DO see never surfaces a price.
+// A1.5 — this page no longer reads `estimates` at all. It used to embed an
+// explicit non-money column list through schedule_blocks; that was a promise
+// the UI made, not a guarantee the database enforced, and a crew-role user
+// could still have selected subtotal/presented_total directly. Constraint 7
+// says no dollars in the field, enforced at RPC and RLS — so `estimates` is now
+// closed to a crew-tier member by a RESTRICTIVE policy, and the non-money job
+// header a crew actually needs comes from fetch_field_jobs(), a security-definer
+// RPC whose select list contains no money column at all. Nothing $-shaped can
+// reach this page even if someone later edits the JSX.
+//
+// fetch_field_jobs also returns TRADE work orders only, so a crew never sees a
+// master here.
 
-type JobEstimate = {
-  id: string;
-  contact_name: string | null;
-  company: string | null;
+// Shape of fetch_field_jobs()'s jsonb. Declared here because a jsonb-returning
+// RPC is `Json` to the generated types — the contract lives in the migration,
+// and this is the one place that reads it. Note what is absent: there is no
+// price, total or cost field to render, by construction.
+type FieldJob = {
+  schedule_block_id: string;
+  work_order_id: string;
+  crew_name: string | null;
+  start_date: string;
+  end_date: string;
+  blocked: boolean;
+  blocked_reason: string | null;
+  job_title: string | null;
   site_address: string | null;
   squares: number | null;
   pitch: string | null;
-};
-
-type JobWorkOrder = {
-  id: string;
-  voided_at: string | null;
-  estimate: JobEstimate | null;
-};
-
-type JobScheduleBlock = Database["public"]["Tables"]["schedule_blocks"]["Row"] & {
-  work_order: JobWorkOrder | null;
 };
 
 export default async function FieldTodayPage({
@@ -43,24 +46,14 @@ export default async function FieldTodayPage({
   const supabase = ctx.supabase;
   const todayIso = new Date().toISOString().slice(0, 10);
 
-  // List query — fine direct per CLAUDE.md rule 5. end_date >= today keeps
-  // this to in-progress + upcoming jobs; past jobs drop off the list.
-  const { data: scheduleBlocks } = await supabase
-    .from("schedule_blocks")
-    .select(
-      "*, work_order:work_orders(id, voided_at, estimate:estimates(id, contact_name, company, site_address, squares, pitch))"
-    )
-    .eq("org_id", params.orgId)
-    .gte("end_date", todayIso)
-    .order("start_date", { ascending: true })
-    .limit(20);
-
-  // Filtered here rather than via a PostgREST embedded-resource filter —
-  // the result set is already capped at 20, and a cancelled job (voided
-  // work order) should simply stop showing up for a crew to check into.
-  const jobs = (
-    (scheduleBlocks ?? []) as unknown as JobScheduleBlock[]
-  ).filter((job) => !job.work_order?.voided_at);
+  // end_date >= today keeps this to in-progress + upcoming jobs; past jobs drop
+  // off. Voided work orders are excluded inside the RPC — a cancelled job
+  // should simply stop showing up for a crew to check into.
+  const { data: jobsData } = await supabase.rpc("fetch_field_jobs", {
+    p_org_id: params.orgId,
+    p_today: todayIso,
+  });
+  const jobs = (jobsData ?? []) as unknown as FieldJob[];
 
   return (
     <FieldShell>
@@ -89,18 +82,14 @@ export default async function FieldTodayPage({
       ) : (
         <div className="flex flex-col gap-3">
           {jobs.map((job) => {
-            const workOrder = job.work_order;
-            const estimate = workOrder?.estimate;
-            const jobTitle = estimate?.company || estimate?.contact_name || "Untitled job";
+            const jobTitle = job.job_title || "Untitled job";
             const status = scheduleBlockStatus(job.start_date, job.end_date, todayIso);
             const active = status.state === "active" && !job.blocked;
 
-            if (!workOrder) return null;
-
             return (
               <Link
-                key={job.id}
-                href={`/w/${params.orgId}/field/${workOrder.id}?tab=check-in`}
+                key={job.schedule_block_id}
+                href={`/w/${params.orgId}/field/${job.work_order_id}?tab=check-in`}
                 className={
                   active
                     ? "flex flex-col gap-3 rounded-2xl border-2 border-accent p-4"
@@ -111,9 +100,9 @@ export default async function FieldTodayPage({
                   <p className="text-base font-semibold text-text group-data-[outdoor=true]/field:text-white">
                     {jobTitle}
                   </p>
-                  {estimate?.site_address && (
+                  {job.site_address && (
                     <p className="text-xs text-muted group-data-[outdoor=true]/field:text-white/60">
-                      {estimate.site_address}
+                      {job.site_address}
                     </p>
                   )}
                   <p className="font-mono text-xs text-muted group-data-[outdoor=true]/field:text-white/60">

@@ -11,12 +11,16 @@ type Estimate = Database["public"]["Tables"]["estimates"]["Row"];
 type CheckIn = Database["public"]["Tables"]["check_ins"]["Row"];
 type ProductionPacket = Database["public"]["Tables"]["production_packets"]["Row"];
 
-// No dollar values rendered anywhere below: `estimate` is fetched via the
-// shared fetch_estimate RPC (which does return subtotal/presented_total —
-// no RPC excludes them), but this file never destructures or passes those
-// fields into JSX or a client component, so nothing $-shaped reaches the
-// rendered HTML or the client bundle. See field/page.tsx's header comment
-// for the belt-and-suspenders reasoning.
+// A1.5 — no dollar values reach this page, and that is now enforced below the
+// UI rather than promised by it. fetch_estimate() returns subtotal,
+// presented_total, tax_rate and tax_amount as NULL to any caller who fails
+// can_view_financials(), and `estimates` is closed to a crew-tier member by a
+// RESTRICTIVE policy, so a crew cannot reach a price through this RPC, through
+// a direct table read, or through an edit to the JSX below.
+//
+// A crew landing on a MASTER's URL: fetch_work_order() applies the same crew
+// gate as the RLS policy, so it returns zero rows and the guard below redirects
+// to /field. A clean redirect, not a stack trace and not an empty shell.
 export default async function FieldJobPage({
   params,
   searchParams,
@@ -35,6 +39,9 @@ export default async function FieldJobPage({
   });
   const workOrder = fetchedWorkOrder?.[0] as WorkOrder | undefined;
 
+  // Covers three cases with one redirect: no such work order, a work order in
+  // another of this user's orgs, and — after A1.5 — a master that this role is
+  // not allowed to see at all.
   if (!workOrder || workOrder.org_id !== params.orgId) {
     redirect(`/w/${params.orgId}/field`);
   }

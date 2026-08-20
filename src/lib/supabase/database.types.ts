@@ -2973,6 +2973,19 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      can_view_financials: { Args: { p_org_id: string }; Returns: boolean }
+      can_view_master_work_order: {
+        Args: { p_org_id: string }
+        Returns: boolean
+      }
+      work_order_is_my_trade: {
+        Args: { p_work_order_id: string }
+        Returns: boolean
+      }
+      fetch_field_jobs: {
+        Args: { p_org_id: string; p_today?: string }
+        Returns: Json
+      }
       fetch_estimate: {
         Args: { p_estimate_id: string }
         Returns: {
