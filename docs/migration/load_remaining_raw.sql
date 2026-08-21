@@ -6,7 +6,7 @@
 -- the 240 already-loaded rows are silently skipped, not duplicated). leads
 -- is not loaded at all yet.
 --
--- HOW TO RUN: Supabase Studio (os.structek.com's project, ejlhrykcdfcyeooooodx)
+-- HOW TO RUN: Supabase Studio (os.structtek.com's project, ejlhrykcdfcyeooooodx)
 -- -> SQL Editor -> paste ONE block below at a time -> replace
 -- <PASTE lead_activity.json HERE> / <PASTE leads.json HERE> with the full,
 -- exact contents of that file (open it in a text editor, select all, copy,

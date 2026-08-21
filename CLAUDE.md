@@ -212,7 +212,7 @@ telling us the software was in their way.
 
 ## PREVIOUS PHASE (COMPLETE 7/19) — CRM Depth (turn the pipeline into a real CRM)
 
-**Weeks 1–3 COMPLETE and live at os.structek.com** — foundation/auth/multi-tenancy/shell (W1); pipeline both tenants + BMR live estimating (W2); BMR coordination + field + management-controls retrofit (W3). All the create/edit/delete controls exist per §2.6.
+**Weeks 1–3 COMPLETE and live at os.structtek.com** — foundation/auth/multi-tenancy/shell (W1); pipeline both tenants + BMR live estimating (W2); BMR coordination + field + management-controls retrofit (W3). All the create/edit/delete controls exist per §2.6.
 
 **Why this phase exists:** what shipped for `crm` is a thin **sales-pipeline view**, not a CRM. Isaac is currently on the BMR app (which he's outgrowing) and StructTech OS's CRM must not be a downgrade. **Full requirements + grounding: `docs/reference/CRM_DEPTH_REQUIREMENTS.md`** — adopt the BMR spec's *features & logic*, NOT its UI/UX/workflow (design fresh from the hi-fi). Every entity gets full CRUD (§2.6).
 
