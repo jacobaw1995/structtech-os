@@ -102,7 +102,9 @@ export default async function CoordinationPage({
               <input type="hidden" name="estimateId" value={estimate.id} />
               <div>
                 <p className="text-sm font-semibold text-text">
-                  {estimate.company || estimate.contact_name || "Untitled"}
+                  {estimate.estimate_number
+                    ? `${estimate.estimate_number}${estimate.signed_at ? ` · signed ${new Date(estimate.signed_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : ""}`
+                    : estimate.company || estimate.contact_name || "Untitled"}
                 </p>
                 {estimate.site_address && (
                   <p className="text-xs text-muted">{estimate.site_address}</p>
