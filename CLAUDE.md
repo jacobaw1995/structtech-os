@@ -39,6 +39,7 @@ You are building **StructTech OS**: one modular, multi-tenant platform that runs
 - **Confirm before behavior-changing decisions.** If the user describes a behavior, confirm it's intended before "fixing" it. Never guess at product behavior.
 - **Ask before:** applying any migration to the live Supabase project, adding a new dependency, changing auth/RLS/security, or anything touching `structtech_state`.
 - **Small, reviewable commits.** One concern per commit. The user reviews diffs.
+- **THIS PROJECT RUNS ON `America/New_York`. RUN `TZ=America/New_York date` BEFORE WRITING ANY DATE.** UTC rolls over at 8 PM EDT and will silently advance a stamp by a day. This has happened twice in one week — the A1 acceptance ran Friday 2026-08-21 at ~8 PM EDT and was stamped 2026-08-22 across the directive because the clock was read in UTC. Never take the date from `date`, `new Date()`, a tool result, or a system-reminder without converting it first.
 
 ---
 
