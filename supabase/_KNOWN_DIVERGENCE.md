@@ -5,8 +5,13 @@ report every entry below, permanently, and **that report is TRUE** — these mig
 really were applied without a repo file, and these files really were applied without a
 ledger row. Nothing here is a defect to be chased. **A future *real* divergence is
 anything in that command's output that is NOT in this file.** Check by diffing the
-command's output against this list. **Never by reading the raw output** — it is 83
+command's output against this list. **Never by reading the raw output** — it is 108
 entries long and a genuinely new row would disappear into it.
+
+**This file lives at `supabase/_KNOWN_DIVERGENCE.md`, deliberately one level ABOVE
+`supabase/migrations/`.** It used to sit inside that directory, where the CLI printed
+`Skipping migration _KNOWN_DIVERGENCE.md...` on every invocation — a file whose job is
+keeping that output clean should not be the thing dirtying it.
 
 ## `migration repair` was NOT used on any of these. Here is why.
 
@@ -24,7 +29,7 @@ That second point is the whole decision. Erasing the rows would not tidy a noisy
 diagnostic — **it would make the tool lie**, replacing a true report with a false one,
 and it would destroy the only surviving copy of 204,782 characters of source
 (`supabase_migrations.schema_migrations.statements`; see
-`backups/a1_0_pre_baseline_20260823/`). **A noisy-but-true diagnostic beats a
+`../backups/a1_0_pre_baseline_20260823/`). **A noisy-but-true diagnostic beats a
 clean-but-false one.**
 
 Writing files for all 69 instead would be a *backfill* — a reversal of A1.0's standing
@@ -32,11 +37,69 @@ decision to take a baseline reset. That it became cheaper once the source was re
 is a reason to re-examine the decision deliberately, not to reverse it inside a hygiene
 task.
 
+## THE ASSERTION — what `supabase migration list` reports, and what to compare it to
+
+Run it without a linked project:
+
+```bash
+supabase migration list --db-url "$SUPABASE_DB_URL" --output-format json
+```
+
+**POST-A1.0 EXPECTED OUTPUT — pin these numbers. Measured 2026-08-23 immediately after the archive:**
+
+| | count |
+|---|---|
+| total entries | **108** |
+| MATCHED (local **and** remote) | **0** |
+| DB-ONLY (remote, no local file) | **107** |
+| REPO-ONLY (local file, no ledger row) | **1** — `20260823143943_baseline.sql` |
+
+**Anything outside those three numbers is a REAL divergence and must be investigated.**
+
+**Why MATCHED is 0 and not 8.** Before A1.0 the command reported **8 matched / 99 DB-only /
+44 repo-only**, because 44 historical files still sat in `supabase/migrations/`. A1.0 moved
+all 52 of them to `_archive_pre_baseline/`, which the CLI does not scan. So every ledger row
+is now DB-only. **That is the intended end state, not a regression** — the baseline replaces
+those files, and their content is preserved in the archive folder and in
+`../backups/a1_0_pre_baseline_20260823/ledger_statements/`.
+
+**Why the baseline itself is REPO-ONLY, permanently.** `20260823143943_baseline.sql` has no
+ledger row because **A1.0 deliberately wrote nothing to `supabase_migrations`.** It was taken
+with `pg_dump`, which cannot write to that table; `supabase db pull`, which can, was not used.
+**Expect this row forever. It is not an error, and it must not be "fixed" with
+`migration repair`** — doing so would overwrite the ledger from a file (measured behaviour,
+directive §4.7.4).
+
+## RECONCILING THE TWO NUMBER SETS — read this before concluding anything mismatches
+
+**This file carries two different counts of the same divergence, and they disagree by design.**
+
+- **The TOOL's numbers (108 / 0 / 107 / 1 above) pair strictly by VERSION STRING.** That is
+  all `supabase migration list` can do: it globs filenames, reads `schema_migrations.version`,
+  and matches them literally.
+- **This file's inventory below (69 orphans + 14 unlogged files) pairs by NAME and, where the
+  two disagreed, by CONTENT.** It is the *explanation* of the divergence, not the assertion
+  against it.
+
+They differ because a migration whose repo file carries a synthetic timestamp
+(`…120000`) while the ledger recorded a real applied time is **one migration with two
+version strings**. The tool counts it twice — once as DB-only, once as repo-only. This file
+counts it once, as recoverable.
+
+**One entry was corrected by content rather than name.** Two ledger rows share the name
+`drop_update_deal_details`. The archived file matches `20260721153326
+drop_update_deal_details_fixed` exactly, so `_fixed` is covered and **`20260721153207` is the
+orphan** — the reverse of a name-only pairing. See the note at the end of section A.
+
+**Practical rule: assert against the tool's numbers; use the inventory to understand what
+they mean.** Anyone diffing 107 against 69 without this section will read a mismatch that
+is not one.
+
 ## A · Ledger rows with no repo file — 69
 
 Applied to production, recorded in `supabase_migrations.schema_migrations`, no file in
 `supabase/migrations/`. Their full source is preserved in
-`backups/a1_0_pre_baseline_20260823/ledger_statements/`.
+`../backups/a1_0_pre_baseline_20260823/ledger_statements/`.
 
 
 ### A1 · OURS — 22
@@ -173,7 +236,7 @@ in as history, which §7.1 Rule 1 forbids.
 | — matched to a repo file at the same version | 7 |
 | — matched to a repo file by name at a different version | 30 |
 | — **no repo file at all (section A)** | **69** |
-| Repo migration files total | 52 |
+| Repo migration files total (pre-A1.0) | 52 — all now in `migrations/_archive_pre_baseline/` |
 | — **no ledger row at all (section B)** | **14** |
 
 Section A was 70 until A1.0b filed
@@ -188,7 +251,7 @@ this list should shrink: one deliberate, reviewed file at a time, never a bulk r
   with its body taken from `statements` (§7.1 Rule 1 — a reconciled file records what
   ran, not what the schema should say today).
 - Regenerate the comparison from
-  `backups/a1_0_pre_baseline_20260823/ledger_statements_index.tsv` and
+  `../backups/a1_0_pre_baseline_20260823/ledger_statements_index.tsv` and
   `supabase/migrations/`.
 
 *Generated 2026-08-23 (A1.0c). Authority: `docs/STRUCTTECH_OS_DIRECTIVE.md` §4.7, §4.7.1–§4.7.4, §7.1.*

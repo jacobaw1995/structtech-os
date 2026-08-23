@@ -1,7 +1,16 @@
 -- StructTech OS — In-app Build Tracker v1 (StructTech-internal module).
 --
--- NOT APPLIED. Author-only migration file — ask before applying to the live
--- Supabase project, same as every other migration in this repo.
+-- APPLIED 2026-07-23 15:47:33 as ledger version 20260723154733.
+--
+-- HEADER CORRECTED 2026-08-23 (A1.0). It previously read "NOT APPLIED.
+-- Author-only migration file", which was FALSE: the row exists in
+-- supabase_migrations.schema_migrations and `roadmap_items` carries 161 live
+-- rows, which CLAUDE.md §2a treats as the live feature-status source. The
+-- file was also RENAMED in the same pass, from the synthetic 20260726120000
+-- to its DB-recorded version above — it previously collided with
+-- fix_null_authorization_gap (now 20260722024727) at the same timestamp,
+-- leaving replay order between them undefined. True chronology is a day
+-- apart, fix_null_authorization_gap first.
 --
 -- Context: CLAUDE.md "NEW — build FIRST" (Jacob's priority call, 7/24) +
 -- BACKLOG.md "In-app Build Tracker". Replaces the static
