@@ -1,0 +1,67 @@
+-- HOTFIX — close anon/authenticated access to the `http` extension
+-- §6.9 · §10, 2026-08-20
+--
+-- WHAT THIS IS NOT
+--   * It does NOT revoke EXECUTE on extensions.http_*. That is IMPOSSIBLE from
+--     this connection and a migration attempting it would report success and
+--     change nothing: the http_* functions are owned by `supabase_admin`, the
+--     grant to PUBLIC was made by `supabase_admin`, and only a grantor can
+--     revoke its own grant. `postgres` is not a superuser, cannot
+--     `set role supabase_admin`, and cannot take ownership. Proven in a
+--     rolled-back test, recorded in §10 (2026-08-20).
+--   * It does NOT drop the extension. Jacob's decision: keep it — the
+--     tg_agenda bot is not in this repo and may call http_* at runtime.
+--     (For the record: `drop extension http` DOES succeed as postgres. It was
+--     available to us and was not taken.)
+--
+-- WHAT IT IS
+--   `postgres` owns the `extensions` schema, so it CAN revoke the USAGE it
+--   granted. Without USAGE, anon and authenticated cannot resolve any function
+--   in that schema — the call fails at name resolution ("function
+--   gen_random_bytes(integer) does not exist") before EXECUTE is ever consulted.
+--   That is the faithful implementation of "revoke the grants, keep the
+--   extension".
+--
+--   EXPECT `has_function_privilege('anon', 'extensions.http_get(varchar)',
+--   'EXECUTE')` TO STILL READ TRUE AFTER THIS. The EXECUTE grant is untouched
+--   and unreachable; schema USAGE is what now blocks the call. Anyone reading
+--   `anon=true` later and concluding the fix failed is reading the wrong signal.
+--
+-- REVERSIBLE with one statement:
+--   grant usage on schema extensions to anon, authenticated;
+--
+-- BLAST RADIUS — measured in a rolled-back pre-flight, not reasoned.
+--   `extensions` also holds pgcrypto, uuid-ossp and pg_stat_statements, and
+--   SEVEN column defaults in `public` call them UNQUALIFIED, resolved through
+--   search_path:
+--       audits.id, proposals.id, prospects.id        -> uuid_generate_v4()
+--       org_invites.token, staff_invites.token,
+--       pipeline_invites.token                       -> gen_random_bytes(12)
+--       client_roadmaps.token                        -> gen_random_bytes(9)
+--   Column defaults evaluate as the INSERTING role, so this mattered.
+--   Pre-flight results, with the revoke applied:
+--     (a) as `authenticated`, directly: all seven INSERTs fail — but every one
+--         of them fails on ROW-LEVEL SECURITY, not on the extension. Those
+--         tables are not writable by `authenticated` in the first place, so the
+--         revoke removes nothing that was reachable. `authenticated` also sees
+--         0 rows of org_invites under RLS.
+--     (b) through the definer path: PASSES. `generate_roadmap_for_lead()`
+--         called AS `authenticated` (SECURITY DEFINER, owned by postgres)
+--         succeeded and wrote a client_roadmaps row with a non-null token, so
+--         gen_random_bytes evaluated correctly inside it. The
+--         auto_create_roadmap trigger ran without error. All three token tables
+--         and all three uuid_generate_v4 tables insert normally as the owner
+--         role.
+--   (a) failing while (b) passes is the expected and acceptable result: the
+--   app's real write paths are SECURITY DEFINER and run as their owner, which
+--   keeps USAGE.
+--
+--   Zero column defaults, constraints or invoker-rights functions in `public`
+--   reference `extensions.` schema-qualified — which is why the FIRST
+--   blast-radius query found nothing and was wrong. A schema-qualified grep
+--   cannot find a search_path-resolved call. See §6.9.
+--
+-- postgres, service_role and dashboard_user are deliberately untouched, so
+-- edge functions and every SECURITY DEFINER caller keep working.
+
+revoke usage on schema extensions from anon, authenticated;

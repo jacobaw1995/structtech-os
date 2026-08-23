@@ -38,7 +38,20 @@ yarn-error.log*
 .claude/worktrees/
 
 # database backups — schema + data dumps, never committed
-/backups/
+/backups/*
+
+# EXCEPTION — the A1.0 pre-baseline LEDGER ARCHIVE is tracked deliberately.
+# `supabase_migrations.schema_migrations.statements` holds the full executed SQL
+# of every migration, and for ~70 of them it is the ONLY surviving copy of their
+# source (§4.7.2/§4.7.3). A1.0 rewrites that table. This is our own source code,
+# not a data dump, and it contains no user data.
+# The pg_dump outputs in the same directory stay ignored — they regenerate in
+# seconds from the live database; ledger_statements/ does not, once A1.0 has run.
+!/backups/a1_0_pre_baseline_20260823/
+/backups/a1_0_pre_baseline_20260823/*
+!/backups/a1_0_pre_baseline_20260823/ledger_statements/
+!/backups/a1_0_pre_baseline_20260823/ledger_statements_index.tsv
+!/backups/a1_0_pre_baseline_20260823/MANIFEST.md
 
 # supabase CLI local cache
 /supabase/.temp/
