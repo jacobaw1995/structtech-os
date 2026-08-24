@@ -68,9 +68,17 @@ export const getWorkspaceContext = cache(
     // Capability gate layered on top of role/entitlement visibility (Phase A
     // assistant role, Interaction 2 — resolved design: capabilities OVERRIDE
     // role screen-defaults, never merely add to them). Only estimating has a
-    // capability gate today; has_capability() short-circuits true for every
-    // manager-tier role, so this is a no-op RPC for every user except a
-    // member-tier caller with view_estimates explicitly set false.
+    // capability gate today.
+    //
+    // A2.0 (2026-08-24) — the second half of this comment used to read "so
+    // this is a no-op RPC for every user except a member-tier caller with
+    // view_estimates explicitly set FALSE." That is no longer true and the
+    // inversion matters: has_capability() now has a CLOSED default, so a
+    // member-tier caller needs view_estimates explicitly set TRUE. Absence
+    // no longer grants. The manager-tier short-circuit (is_org_manager ->
+    // owner/admin/agency_admin) is unchanged, so it remains a no-op RPC for
+    // every manager. The `!== true` test below was already correct under
+    // both defaults and did not change.
     if (visibleModules.includes("estimating")) {
       const { data: canViewEstimates } = await supabase.rpc("has_capability", {
         p_org_id: orgId,

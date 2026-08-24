@@ -18,6 +18,15 @@ type ProductionPacket = Database["public"]["Tables"]["production_packets"]["Row"
 // RESTRICTIVE policy, so a crew cannot reach a price through this RPC, through
 // a direct table read, or through an edit to the JSX below.
 //
+// A2.0 (2026-08-24) — can_view_financials() is now a THIN WRAPPER over
+// has_capability(org, 'view_financials') rather than a second implementation
+// of the same idea. Everything above still holds; what changed is that it can
+// no longer disagree with has_capability(), which it did for a crew-tier
+// member until today (can_view_financials false, has_capability true). Both
+// now answer from one closed-default body. Constraint 7 is enforced by the
+// crew's SEEDED permissions row (view_financials false), not by a role test
+// buried in the read path.
+//
 // A crew landing on a MASTER's URL: fetch_work_order() applies the same crew
 // gate as the RLS policy, so it returns zero rows and the guard below redirects
 // to /field. A clean redirect, not a stack trace and not an empty shell.

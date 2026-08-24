@@ -39,8 +39,14 @@ export async function GET(
   // all before this check — org membership alone let anyone with the URL
   // pull a PDF, bypassing the view_estimates gate every estimating page
   // enforces via requireModuleAccess. has_capability() short-circuits true
-  // for every manager-tier role, so this is a no-op for every caller except
-  // a member-tier one with view_estimates explicitly set false.
+  // for every manager-tier role, so this is a no-op for every manager.
+  //
+  // A2.0 (2026-08-24) — a member-tier caller now needs view_estimates
+  // explicitly TRUE, not merely "not explicitly false": has_capability()'s
+  // fallback array (which used to grant view_estimates to any member with
+  // no permissions row) is gone. This route is the one place that gate is
+  // the ONLY thing between a URL and a priced document, so the direction of
+  // the default is load-bearing here rather than incidental.
   const { data: canViewEstimates } = await supabase.rpc("has_capability", {
     p_org_id: params.orgId,
     p_capability: "view_estimates",
