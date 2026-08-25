@@ -1,0 +1,36 @@
+-- A2.1b — CORRECTS A CLAIM 20260825125737 MADE ABOUT ITSELF, found by re-running
+-- the advisors instead of trusting the migration's own comment.
+--
+-- THE FALSE CLAIM, quoted from that migration so it is not softened:
+--   "anon holds no grant on this table and no permissive policy, so it
+--    reaches nothing either way."
+-- The second half is true. THE FIRST HALF IS FALSE. Measured after applying:
+--   products relacl = postgres=arwdDxtm/postgres | anon=arwdDxtm/postgres
+--                   | authenticated=arwdDxtm/postgres | service_role=arwdDxtm/postgres
+-- `anon` came out with FULL table privileges — SELECT, INSERT, UPDATE, DELETE —
+-- on a table whose migration granted only to `authenticated`.
+--
+-- MECHANISM, and it is the one A1.0's axis 5 already established for FUNCTIONS,
+-- now shown to apply to TABLES as well: the schema's default privileges grant
+-- anon/authenticated/service_role on every new object, so a new table is
+-- anon-reachable from birth. `grant ... to authenticated` does not narrow
+-- anything; it only re-states a grant that already exists. The standing rule
+-- "every new function carries an explicit revoke" has a table-shaped sibling
+-- that nobody had written down, because A2.1 is the first new table this build
+-- has created since the rule was learned.
+--
+-- WAS IT EXPLOITABLE? No, and that is stated precisely rather than
+-- reassuringly. RLS is enabled and every permissive policy on `products` is
+-- scoped `TO authenticated`, so `anon` matches no permissive policy and reads
+-- zero rows. The exposure was REACHABILITY, not data: the table surfaced in the
+-- GraphQL schema for `anon` (advisor pg_graphql_anon_table_exposed, 67 -> 68 on
+-- this table's account) and an anonymous request got an empty result instead of
+-- being refused outright.
+--
+-- Every pre-existing table in this database is in the same state (estimates,
+-- deals — both `anon SELECT = true`). Those are NOT touched here: they are
+-- shared-backend surface, several belong to Material Matrix, and A1.5's anon
+-- sweep is the cautionary tale about revoking broadly on a shared database
+-- without knowing every caller. This migration closes the table THIS task
+-- created and nothing else. The class is filed to the backlog.
+revoke all on table public.products from anon;

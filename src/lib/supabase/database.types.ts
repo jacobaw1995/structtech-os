@@ -805,6 +805,12 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "estimate_line_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },          {
             foreignKeyName: "estimate_line_items_estimate_id_fkey"
             columns: ["estimate_id"]
             isOneToOne: false
@@ -1712,6 +1718,59 @@ export type Database = {
             columns: ["work_order_id"]
             isOneToOne: true
             referencedRelation: "work_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      products: {
+        Row: {
+          active: boolean
+          category: string | null
+          cost: number | null
+          created_at: string
+          created_by: string | null
+          id: string
+          markup: number | null
+          name: string
+          org_id: string
+          sell: number | null
+          unit: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          category?: string | null
+          cost?: number | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          markup?: number | null
+          name: string
+          org_id: string
+          sell?: number | null
+          unit?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          category?: string | null
+          cost?: number | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          markup?: number | null
+          name?: string
+          org_id?: string
+          sell?: number | null
+          unit?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "products_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -2922,6 +2981,69 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      default_permissions_for_role: { Args: { p_role: string }; Returns: Json }
+      create_product: {
+        Args: {
+          p_category?: string
+          p_cost?: number
+          p_name: string
+          p_org_id: string
+          p_sell?: number
+          p_unit?: string
+        }
+        Returns: string
+      }
+      delete_product: { Args: { p_product_id: string }; Returns: undefined }
+      fetch_product: {
+        Args: { p_product_id: string }
+        Returns: {
+          active: boolean
+          category: string | null
+          cost: number | null
+          created_at: string
+          created_by: string | null
+          id: string
+          markup: number | null
+          name: string
+          org_id: string
+          sell: number | null
+          unit: string | null
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "products"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      list_products: {
+        Args: { p_include_inactive?: boolean; p_org_id: string }
+        Returns: {
+          active: boolean
+          category: string | null
+          cost: number | null
+          created_at: string
+          created_by: string | null
+          id: string
+          markup: number | null
+          name: string
+          org_id: string
+          sell: number | null
+          unit: string | null
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "products"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      update_product: {
+        Args: { p_patch: Json; p_product_id: string }
+        Returns: undefined
       }
       fetch_deal: {
         Args: { p_deal_id: string }

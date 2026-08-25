@@ -29,9 +29,20 @@ export default async function EstimatingPage({
 
   return (
     <div className="flex h-full flex-col gap-4">
-      <div>
-        <h1 className="text-2xl font-semibold text-text">Estimating</h1>
-        <p className="text-sm text-muted">{ctx.active.org_name}</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold text-text">Estimating</h1>
+          <p className="text-sm text-muted">{ctx.active.org_name}</p>
+        </div>
+        {/* A2.1 — the catalog is reached from here rather than from the
+            sidebar, because it is not its own module: it shares estimating's
+            entitlement x role x view_estimates gate. */}
+        <Link
+          href={`/w/${params.orgId}/estimating/catalog`}
+          className="text-sm text-accent-strong hover:underline"
+        >
+          Product catalog
+        </Link>
       </div>
 
       {estimateList.length === 0 ? (
