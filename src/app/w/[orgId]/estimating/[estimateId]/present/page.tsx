@@ -63,6 +63,12 @@ export default async function EstimatePresentPage({
     orgRows?.[0]?.name ?? "Estimate"
   );
 
+  // A2.1c — PRESENT MODE GETS NO PICKER, and that is a decision rather than a
+  // compiler-satisfying empty array. Present Mode is the customer facing the
+  // tablet: opening a price list in front of the homeowner is the single worst
+  // place that control could appear. The document is already locked here so the
+  // picker would not render anyway — passing an empty catalog means it cannot
+  // render even if that ever changes.
   return (
     <div className="min-h-dvh bg-bg px-4 py-6 sm:px-8">
       <EstimateOutdoorShell>
@@ -70,6 +76,8 @@ export default async function EstimatePresentPage({
           orgId={params.orgId}
           estimate={estimate}
           lineItems={lineItems}
+          catalog={[]}
+          canViewFinancials={false}
           signature={signature}
           branding={branding}
           presentationMode

@@ -9,6 +9,7 @@ import type { Database } from "@/lib/supabase/database.types";
 type Estimate = Database["public"]["Tables"]["estimates"]["Row"];
 type LineItem = Database["public"]["Tables"]["estimate_line_items"]["Row"];
 type Signature = Database["public"]["Tables"]["signatures"]["Row"];
+type Product = Database["public"]["Tables"]["products"]["Row"];
 
 // Chunk 5 cutover — this IS the document now (was the 4-step wizard
 // through Chunk 4; the document lived at the /document suffix through
@@ -34,8 +35,14 @@ export default async function EstimatePage({
     redirect(`/w/${params.orgId}/estimating`);
   }
 
-  const [{ data: lineItemsData }, { data: signaturesData }, { data: moduleRow }, { data: orgRows }] =
-    await Promise.all([
+  const [
+    { data: lineItemsData },
+    { data: signaturesData },
+    { data: moduleRow },
+    { data: orgRows },
+    { data: catalogRows },
+    { data: financials },
+  ] = await Promise.all([
       supabase
         .from("estimate_line_items")
         .select("*")
@@ -53,9 +60,18 @@ export default async function EstimatePage({
         .eq("org_id", params.orgId)
         .eq("module_key", "estimating"),
       supabase.rpc("fetch_organization", { p_org_id: params.orgId }),
+      // A2.1c — the catalog behind the "From catalog" picker. Active items only:
+      // an archived item is one the tenant has decided not to sell any more, so
+      // offering it on a new quote would be the archive doing nothing.
+      // list_products() already nulls cost/sell/markup for a caller without
+      // financials, so this is safe to hand to a client component as-is.
+      supabase.rpc("list_products", { p_org_id: params.orgId }),
+      supabase.rpc("can_view_financials", { p_org_id: params.orgId }),
     ]);
 
   const lineItems = (lineItemsData ?? []) as LineItem[];
+  const catalog = (catalogRows ?? []) as Product[];
+  const canViewFinancials = financials === true;
   const signature = (signaturesData?.[0] ?? null) as Signature | null;
   const branding = parseEstimateBranding(
     moduleRow?.[0]?.config ?? null,
@@ -72,6 +88,8 @@ export default async function EstimatePage({
           orgId={params.orgId}
           estimate={estimate}
           lineItems={lineItems}
+          catalog={catalog}
+          canViewFinancials={canViewFinancials}
           signature={signature}
           branding={branding}
           errorMessage={searchParams.error}

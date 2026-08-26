@@ -40,6 +40,8 @@ export function EstimateDocument({
   orgId,
   estimate,
   lineItems,
+  catalog,
+  canViewFinancials,
   signature,
   branding,
   errorMessage,
@@ -50,6 +52,8 @@ export function EstimateDocument({
   orgId: string;
   estimate: Estimate;
   lineItems: LineItem[];
+  catalog: Database["public"]["Tables"]["products"]["Row"][];
+  canViewFinancials: boolean;
   signature: Signature | null;
   branding: EstimateBranding;
   errorMessage?: string;
@@ -286,6 +290,8 @@ export function EstimateDocument({
         orgId={orgId}
         estimateId={estimate.id}
         lineItems={lineItems}
+        catalog={catalog}
+        canViewFinancials={canViewFinancials}
         locked={effectivelyLocked}
       />
 

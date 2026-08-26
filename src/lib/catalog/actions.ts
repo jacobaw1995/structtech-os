@@ -46,6 +46,11 @@ export async function createProduct(formData: FormData) {
   } = await supabase.auth.getSession();
   if (!session) redirect("/login");
 
+  // A2.1c — cost plus EITHER sell OR markup; the RPC derives the other.
+  // No "which did you type" flag is sent, and that is deliberate: the rule is
+  // unambiguous without one (markup alone -> derive sell; sell alone -> derive
+  // markup; both -> they must agree within a cent or the write is REFUSED).
+  // A flag would be a parameter the server never actually needs to consult.
   const { error } = await supabase.rpc("create_product", {
     p_org_id: orgId,
     p_name: requireString(formData, "name"),
@@ -53,6 +58,7 @@ export async function createProduct(formData: FormData) {
     p_unit: optionalString(formData, "unit"),
     p_cost: optionalNumber(formData, "cost"),
     p_sell: optionalNumber(formData, "sell"),
+    p_markup: optionalNumber(formData, "markup"),
   });
 
   if (error) {
@@ -75,7 +81,7 @@ export async function updateProduct(formData: FormData) {
     const v = formData.get(key);
     if (typeof v === "string") patch[key] = v.length > 0 ? v : null;
   }
-  for (const key of ["cost", "sell"] as const) {
+  for (const key of ["cost", "sell", "markup"] as const) {
     const v = formData.get(key);
     if (typeof v === "string") {
       if (v.length === 0) {
@@ -86,6 +92,8 @@ export async function updateProduct(formData: FormData) {
       }
     }
   }
+  // markup alone -> update_product derives sell; sell alone -> derives markup;
+  // both -> refused unless they agree within a cent.
   if (formData.get("active") !== null) {
     patch.active = formData.get("active") === "on";
   }

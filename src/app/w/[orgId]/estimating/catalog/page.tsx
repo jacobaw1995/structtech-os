@@ -8,6 +8,7 @@ import {
   setProductActive,
   deleteProduct,
 } from "@/lib/catalog/actions";
+import { PriceFields } from "@/components/catalog/PriceFields";
 
 type Product = Database["public"]["Tables"]["products"]["Row"];
 
@@ -39,7 +40,7 @@ export default async function CatalogPage({
 
   const showInactive = searchParams.inactive === "1";
 
-  const [{ data: productRows }, { data: financials }] = await Promise.all([
+  const [{ data: productRows }, { data: financials }, { data: canManage }] = await Promise.all([
     // Single security-definer RPC rather than a direct select, because the
     // money-nulling for a caller without financials lives in the RPC body —
     // the second of the two layers. The RESTRICTIVE policy is the first.
@@ -48,10 +49,16 @@ export default async function CatalogPage({
       p_include_inactive: showInactive,
     }),
     supabase.rpc("can_view_financials", { p_org_id: params.orgId }),
+    // A2.1c / Step 2 — Jacob's decision (2026-08-26): the person who builds
+    // estimates maintains the item list, so catalog writes moved off
+    // manager-tier onto the `manage_catalog` capability, which office roles
+    // now carry by default. Read access is unchanged and is NOT gated on it.
+    supabase.rpc("has_capability", { p_org_id: params.orgId, p_capability: "manage_catalog" }),
   ]);
 
   const products = (productRows ?? []) as Product[];
   const canViewFinancials = financials === true;
+  const canManageCatalog = canManage === true;
   const editing = searchParams.edit
     ? products.find((p) => p.id === searchParams.edit) ?? null
     : null;
@@ -78,7 +85,11 @@ export default async function CatalogPage({
       )}
 
       {/* Create. Never disabled and never gated on the list being empty
-          (SCOPE §2.8 — guidance is advisory, the software does not block). */}
+          (SCOPE §2.8 — guidance is advisory, the software does not block).
+          It IS hidden from a caller without `manage_catalog`, which is a
+          different thing: §2.8 forbids blocking an action the user is
+          permitted to take, not hiding one they are not. */}
+      {canManageCatalog && (
       <form
         action={createProduct}
         className="rounded-lg border border-border bg-surface p-4"
@@ -88,12 +99,7 @@ export default async function CatalogPage({
           <Field label="Name" name="name" required className="min-w-[14rem] flex-1" />
           <Field label="Category" name="category" list="catalog-categories" />
           <Field label="Unit" name="unit" list="catalog-units" />
-          {canViewFinancials && (
-            <>
-              <Field label="Cost" name="cost" type="number" step="0.01" />
-              <Field label="Sell" name="sell" type="number" step="0.01" />
-            </>
-          )}
+          {canViewFinancials && <PriceFields />}
           <button
             type="submit"
             className="h-10 rounded-md bg-accent-strong px-4 text-sm font-medium text-white"
@@ -122,6 +128,7 @@ export default async function CatalogPage({
           ))}
         </datalist>
       </form>
+      )}
 
       <div className="flex items-center gap-3 text-sm">
         <Link
@@ -161,7 +168,7 @@ export default async function CatalogPage({
             </thead>
             <tbody>
               {products.map((product) =>
-                editing?.id === product.id ? (
+                editing?.id === product.id && canManageCatalog ? (
                   <tr key={product.id} className="border-b border-border last:border-0">
                     <td colSpan={canViewFinancials ? 7 : 4} className="px-4 py-3">
                       <form action={updateProduct} className="flex flex-wrap items-end gap-3">
@@ -171,10 +178,11 @@ export default async function CatalogPage({
                         <Field label="Category" name="category" defaultValue={product.category ?? ""} />
                         <Field label="Unit" name="unit" defaultValue={product.unit ?? ""} />
                         {canViewFinancials && (
-                          <>
-                            <Field label="Cost" name="cost" type="number" step="0.01" defaultValue={product.cost ?? ""} />
-                            <Field label="Sell" name="sell" type="number" step="0.01" defaultValue={product.sell ?? ""} />
-                          </>
+                          <PriceFields
+                            defaultCost={product.cost}
+                            defaultSell={product.sell}
+                            defaultMarkup={product.markup}
+                          />
                         )}
                         <button type="submit" className="h-10 rounded-md bg-accent-strong px-4 text-sm font-medium text-white">
                           Save
@@ -211,6 +219,8 @@ export default async function CatalogPage({
                     )}
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-2">
+                        {!canManageCatalog && <span className="text-xs text-muted">View only</span>}
+                        {canManageCatalog && (<>
                         <Link
                           href={`/w/${params.orgId}/estimating/catalog?edit=${product.id}${showInactive ? "&inactive=1" : ""}`}
                           className="text-xs text-accent-strong hover:underline"
@@ -232,6 +242,7 @@ export default async function CatalogPage({
                             Delete
                           </button>
                         </form>
+                        </>)}
                       </div>
                     </td>
                   </tr>

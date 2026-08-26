@@ -13,6 +13,7 @@ import {
 import type { Database } from "@/lib/supabase/database.types";
 
 type LineItem = Database["public"]["Tables"]["estimate_line_items"]["Row"];
+type Product = Database["public"]["Tables"]["products"]["Row"];
 
 // Chunk 3 of the estimate builder rebuild — line items are the one part of
 // the document that's more than scalar-field edits: add/delete/reorder are
@@ -26,17 +27,47 @@ type LineItem = Database["public"]["Tables"]["estimate_line_items"]["Row"];
 // resyncs it from props whenever the server round-trips fresh data (a
 // save, a delete, a reorder commit), so nothing can drift permanently out
 // of sync with the DB.
+// A2.1c — PLACEMENT DECISION, recorded because the controller asked for it and
+// because a picker is exactly where a document-as-editor degrades into a form.
+//
+// CHOSEN: an inline "From catalog" affordance sitting BESIDE the existing
+// "+ Add line item", expanding in place into a compact list and collapsing the
+// moment an item is chosen. What it produces is an ORDINARY ROW — same cells,
+// same EditableFields, same drag handle. The catalog is a way to fill a row in,
+// not a different kind of row.
+//
+// REJECTED, with reasons rather than taste:
+//   1. A MODAL / DRAWER catalog browser. The estimate is a document edited in
+//      place and presented on a tablet in someone's driveway; a modal is a form
+//      stacked on top of a document, and it is worst precisely where this
+//      screen matters most. This is the "do not let the picker degrade the
+//      document into a form" failure, in its most literal form.
+//   2. REPLACING "+ Add line item" with a catalog-only path. SCOPE §2.8 — an
+//      item the tenant has never catalogued must stay addable with zero
+//      friction. Both paths stay, side by side, neither privileged.
+//   3. A <datalist> autocomplete on the description cell. This was the most
+//      document-native option and my first instinct. It is rejected on a
+//      concrete fact, not a preference: `products` deliberately carries NO
+//      unique constraint on (org_id, name) — two suppliers, one product name —
+//      so a typed string cannot resolve back to one product_id, unit and price.
+//      Resolving by name would either pick arbitrarily or need a disambiguation
+//      step, which is rejection 1 again by another route.
 export function LineItemsEditor({
   orgId,
   estimateId,
   lineItems,
+  catalog,
+  canViewFinancials,
   locked,
 }: {
   orgId: string;
   estimateId: string;
   lineItems: LineItem[];
+  catalog: Product[];
+  canViewFinancials: boolean;
   locked: boolean;
 }) {
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [order, setOrder] = useState<string[]>(lineItems.map((li) => li.id));
   const [dragId, setDragId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -87,6 +118,25 @@ export function LineItemsEditor({
     formData.set("quantity", "1");
     formData.set("unit_price", "0");
     formData.set("sort_order", String(order.length));
+    startTransition(() => {
+      addEstimateDocumentLineItem(formData);
+    });
+  }
+
+  // A catalog pick sends the product's id ALONGSIDE the values read off it.
+  // The values are what the line stores; the id is provenance only. Nothing
+  // downstream re-reads a price through it — see addEstimateDocumentLineItem.
+  function handleAddFromCatalog(product: Product) {
+    const formData = new FormData();
+    formData.set("orgId", orgId);
+    formData.set("estimateId", estimateId);
+    formData.set("description", product.name);
+    formData.set("quantity", "1");
+    formData.set("unit_price", String(product.sell ?? 0));
+    formData.set("product_id", product.id);
+    if (product.unit) formData.set("unit", product.unit);
+    formData.set("sort_order", String(order.length));
+    setPickerOpen(false);
     startTransition(() => {
       addEstimateDocumentLineItem(formData);
     });
@@ -339,14 +389,58 @@ export function LineItemsEditor({
       )}
 
       {!locked && (
-        <button
-          type="button"
-          disabled={isPending}
-          onClick={handleAdd}
-          className="self-start text-sm text-accent-strong hover:underline disabled:opacity-60"
-        >
-          + Add line item
-        </button>
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={handleAdd}
+              className="text-sm text-accent-strong hover:underline disabled:opacity-60"
+            >
+              + Add line item
+            </button>
+            {/* Offered only when there is a catalog to offer. An empty
+                catalog gets no dead control — and no nagging either: the
+                blank-row path above is untouched and always available. */}
+            {catalog.length > 0 && (
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={() => setPickerOpen((v) => !v)}
+                className="text-sm text-muted hover:text-accent-strong hover:underline disabled:opacity-60"
+              >
+                {pickerOpen ? "Close catalog" : "From catalog"}
+              </button>
+            )}
+          </div>
+
+          {pickerOpen && (
+            <div className="max-h-64 overflow-y-auto rounded-lg border border-border bg-surface">
+              {catalog.map((product) => (
+                <button
+                  key={product.id}
+                  type="button"
+                  disabled={isPending}
+                  onClick={() => handleAddFromCatalog(product)}
+                  className="flex w-full items-center justify-between gap-4 border-b border-border px-3 py-2 text-left last:border-0 hover:bg-surface2 disabled:opacity-60"
+                >
+                  <span className="flex flex-col">
+                    <span className="text-sm text-text">{product.name}</span>
+                    <span className="text-xs text-muted">
+                      {[product.category, product.unit].filter(Boolean).join(" · ") || "—"}
+                    </span>
+                  </span>
+                  {/* Prices are absent, not blanked, for a caller without
+                      financials — list_products() already nulled them, and the
+                      picker simply has nothing to show. */}
+                  {canViewFinancials && (
+                    <span className="font-mono text-sm text-text">{formatMoney(product.sell)}</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

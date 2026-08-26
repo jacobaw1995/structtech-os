@@ -1,0 +1,14 @@
+-- A2.1c Step 1a — surface trim, for consistency with the rule A2.0a set.
+--
+-- derive_catalog_price() is called ONLY from inside create_product() and
+-- update_product(), both SECURITY DEFINER and therefore executing as postgres.
+-- `authenticated` never needs to call it, but it inherited an EXECUTE grant
+-- from the schema's default privileges on creation and was therefore published
+-- at /rest/v1/rpc/derive_catalog_price.
+--
+-- Harmless in itself — it is pure arithmetic over three numerics and touches no
+-- table — so this is hygiene, not a hole, and it is labelled as such rather
+-- than dressed up. It is applied because A2.0a withdrew
+-- default_permissions_for_role() from `authenticated` for exactly this reason,
+-- and a rule that is followed selectively is not a rule.
+revoke execute on function public.derive_catalog_price(numeric,numeric,numeric) from authenticated;

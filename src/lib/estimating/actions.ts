@@ -259,11 +259,23 @@ export async function addEstimateDocumentLineItem(formData: FormData) {
   } = await supabase.auth.getSession();
   if (!session) redirect("/login");
 
+  // A2.1c — the same action serves both add paths. A blank row sends no
+  // product_id; a catalog pick sends one PLUS the description, unit and price
+  // it read off the catalog at that moment.
+  //
+  // THE PRICE IS A SNAPSHOT, AND THAT IS STRUCTURAL RATHER THAN PROMISED.
+  // unit_price is written onto the line here and never read back through
+  // product_id — no read path joins `products` for money. product_id is
+  // PROVENANCE ("this line came from that item"), not a price source, which is
+  // why a later catalog price change cannot move a quote already given to a
+  // homeowner. update_estimate_line_item has no product_id parameter, so
+  // overriding the price on a line cannot disturb the provenance either.
   const { error } = await supabase.rpc("add_estimate_line_item", {
     p_estimate_id: estimateId,
     p_description: description,
     p_quantity: optionalNumber(formData, "quantity"),
     p_unit_price: optionalNumber(formData, "unit_price"),
+    p_product_id: optionalString(formData, "product_id"),
     p_sort_order: optionalNumber(formData, "sort_order"),
     p_unit: optionalString(formData, "unit"),
   });

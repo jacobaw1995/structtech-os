@@ -2987,6 +2987,7 @@ export type Database = {
         Args: {
           p_category?: string
           p_cost?: number
+          p_markup?: number
           p_name: string
           p_org_id: string
           p_sell?: number
@@ -3044,6 +3045,13 @@ export type Database = {
       update_product: {
         Args: { p_patch: Json; p_product_id: string }
         Returns: undefined
+      }
+      derive_catalog_price: {
+        Args: { p_cost: number; p_markup: number; p_sell: number }
+        Returns: {
+          out_markup: number
+          out_sell: number
+        }[]
       }
       fetch_deal: {
         Args: { p_deal_id: string }
