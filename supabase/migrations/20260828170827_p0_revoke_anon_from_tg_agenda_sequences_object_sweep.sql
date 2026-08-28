@@ -1,0 +1,42 @@
+-- P0 INCIDENT — 2026-08-28. THE OBJECT SWEEP, AND WHAT IT FOUND IN OUR OWN OBJECTS.
+--
+-- MATERIAL MATRIX'S RULE, ADOPTED THE HOUR THEY SENT IT: SWEEP OBJECTS, NOT
+-- TABLES. THE CONTAINER IS NOT THE PROPERTY. They scoped a revoke to "all 22 wh_
+-- tables" and two objects survived it — a VIEW, and a SEQUENCE where `anon` held
+-- `w`, which is enough to setval() their order numbering and collide every future
+-- order number.
+--
+-- Applying that rule to `public` here enumerated every non-table object anon holds
+-- anything on. Four exist. TWO OF THEM ARE OURS, AND THEY ARE THE EXACT CLASS MM
+-- DESCRIBED:
+--
+--   tg_agenda_card_id_seq     anon=rwU   <-- ours
+--   tg_agenda_contact_id_seq  anon=rwU   <-- ours
+--   wh_order_number_seq       anon=r     <-- Material Matrix's, already narrowed
+--   wh_current_prices (VIEW)  anon=r     <-- Material Matrix's, storefront prices
+--
+-- `w` on a sequence is setval(). An attacker with the shipped anon key could wind
+-- either sequence back and make every subsequent insert by the bot collide on its
+-- primary key. Denial of service on the agenda bot, not disclosure — but it is a
+-- WRITE reachable by an anonymous caller, and there is no reason for it to exist.
+--
+-- REVOKING IS PROVABLY SAFE HERE, and the proof is that anon has no path that
+-- could ever need these sequences:
+--   · `tg_agenda_card` and `tg_agenda_contact` carry `{postgres, service_role}`
+--     ONLY — anon holds NO privilege on either table.
+--   · Both have RLS enabled with NO policies at all.
+-- So anon cannot insert, therefore never calls nextval(), therefore needs neither
+-- USAGE nor UPDATE. The grant is pure surplus — it came from the schema's default
+-- privileges, exactly as §7.1 rule 8 describes for tables, and the same default
+-- reaches sequences.
+revoke all on sequence public.tg_agenda_card_id_seq    from anon;
+revoke all on sequence public.tg_agenda_contact_id_seq from anon;
+
+-- NOT TOUCHED, DELIBERATELY: `wh_order_number_seq` and `wh_current_prices` are
+-- Material Matrix's objects on a shared backend. §7.1 rule 9 as amended on
+-- 2026-08-27 — a delta you did not cause gets REPORTED to the other side, not
+-- investigated, because the alternative is reasoning about code you cannot read
+-- and a live surface you cannot test. 2026-08-20 is the precedent: our migration,
+-- their outage. Both are reported to MM rather than changed here, and both look
+-- deliberate from the outside (a public storefront price list, and a sequence they
+-- already narrowed from `rwU` to `r` today).
