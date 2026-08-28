@@ -3219,6 +3219,23 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      fetch_roadmap_by_token: {
+        Args: { p_token: string }
+        Returns: {
+          client_name: string
+          company: string
+          created_at: string
+          crew_size: number
+          id: string
+          levels: Json
+          revenue_leak_monthly: number
+          risk_level: string
+          score: number
+          status: string
+          trade: string
+          updated_at: string
+        }[]
+      }
       fetch_tracker_item: {
         Args: { p_item_id: string }
         Returns: {
