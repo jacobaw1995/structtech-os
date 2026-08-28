@@ -10,6 +10,8 @@ import { ScheduleBlockRow } from "@/components/coordination/ScheduleBlockRow";
 import { AddScheduleBlockForm } from "@/components/coordination/AddScheduleBlockForm";
 import { WorkOrderDangerZone } from "@/components/coordination/WorkOrderDangerZone";
 import { AddTradeWorkOrderForm } from "@/components/coordination/AddTradeWorkOrderForm";
+import { TakeOffPanel, type TakeOffLine } from "@/components/coordination/TakeOffPanel";
+import { MasterTakeOffCard } from "@/components/coordination/MasterTakeOffCard";
 import type { Database } from "@/lib/supabase/database.types";
 
 type WorkOrder = Database["public"]["Tables"]["work_orders"]["Row"];
@@ -50,7 +52,7 @@ export default async function WorkOrderPage({
   searchParams,
 }: {
   params: { orgId: string; workOrderId: string };
-  searchParams: { error?: string };
+  searchParams: { error?: string; notice?: string };
 }) {
   const ctx = await requireModuleAccess(params.orgId, "coordination");
   const supabase = ctx.supabase;
@@ -75,7 +77,7 @@ export default async function WorkOrderPage({
   // above is unchanged and still returns the row itself: its `setof
   // work_orders` shape is what the deployed page reads, and narrowing it would
   // have broken production between the migration and the deploy (rule 5b).
-  const [{ data: fetchedEstimate }, { data: materialsData }, { data: scheduleData }, { data: activityData }, { data: memberRows }, { data: treeData }, { data: tradeNameData }] =
+  const [{ data: fetchedEstimate }, { data: materialsData }, { data: scheduleData }, { data: activityData }, { data: memberRows }, { data: treeData }, { data: tradeNameData }, { data: lineItemData }, { data: canViewFinancials }] =
     await Promise.all([
       supabase.rpc("fetch_estimate", { p_estimate_id: workOrder.estimate_id }),
       supabase
@@ -103,6 +105,17 @@ export default async function WorkOrderPage({
         .select("trade")
         .eq("org_id", params.orgId)
         .eq("kind", "trade"),
+      // A2.2 — the take-off's source rows. List query, so direct (rule 5), and
+      // the crew gate is the table's own RESTRICTIVE can_view_financials()
+      // policy: a field member gets zero rows here without this page doing
+      // anything. What this page must NOT do is read that zero as "the
+      // estimate has no lines" — see the canViewFinancials branch below.
+      supabase
+        .from("estimate_line_items")
+        .select("id, description, quantity, unit")
+        .eq("estimate_id", workOrder.estimate_id)
+        .order("sort_order", { ascending: true }),
+      supabase.rpc("can_view_financials", { p_org_id: params.orgId }),
     ]);
 
   const estimate = fetchedEstimate?.[0] as Estimate | undefined;
@@ -169,6 +182,36 @@ export default async function WorkOrderPage({
   const nextMaterialSortOrder =
     materials.length === 0 ? 0 : Math.max(...materials.map((m) => m.sort_order)) + 1;
 
+  // A2.2 — provenance drives the panel. material_items.estimate_line_item_id is
+  // the column added with this task, and it is what lets the page distinguish
+  // "not taken off yet" from "already on this trade" without guessing by name.
+  const takenOffLineIds = new Set(
+    materials
+      .map((m) => m.estimate_line_item_id)
+      .filter((id): id is string => id !== null)
+  );
+  const takeOffLines: TakeOffLine[] = (
+    (lineItemData ?? []) as {
+      id: string;
+      description: string;
+      quantity: number;
+      unit: string | null;
+    }[]
+  ).map((l) => ({
+    id: l.id,
+    description: l.description,
+    quantity: l.quantity,
+    unit: l.unit,
+    alreadyTakenOff: takenOffLineIds.has(l.id),
+  }));
+
+  // §7.1 — NEVER INFER "DOES NOT EXIST" FROM "CANNOT SEE". estimate_line_items
+  // carries a RESTRICTIVE can_view_financials() policy, so a crew member's read
+  // above returns zero rows on an estimate that has twenty. Branching on the
+  // capability (which is knowable) rather than on the empty array (which is
+  // ambiguous) is what keeps the empty state from lying.
+  const canSeeEstimateLines = canViewFinancials === true;
+
   return (
     <div className="flex h-full flex-col gap-4">
       <div>
@@ -223,6 +266,12 @@ export default async function WorkOrderPage({
       {searchParams.error && (
         <p className="rounded-md bg-warn-soft px-3 py-2 text-sm text-text">
           {searchParams.error}
+        </p>
+      )}
+
+      {searchParams.notice && (
+        <p className="rounded-md bg-accent-soft px-3 py-2 text-sm text-text">
+          {searchParams.notice}
         </p>
       )}
 
@@ -284,6 +333,16 @@ export default async function WorkOrderPage({
         </div>
       )}
 
+      {/* A2.2 clause (b) lives here — see MasterTakeOffCard for why the button
+          is offered on a level that can never be a valid destination. */}
+      {isMaster && (
+        <MasterTakeOffCard
+          orgId={params.orgId}
+          masterWorkOrderId={workOrder.id}
+          liveTradeCount={liveTrades.length}
+        />
+      )}
+
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <div className="flex flex-col gap-4">
           {/* Sign-off is recorded once on the master (A1.3b) — a trade page does
@@ -317,6 +376,29 @@ export default async function WorkOrderPage({
               workOrderId={workOrder.id}
               nextSortOrder={nextMaterialSortOrder}
             />
+
+            {/* A2.2. Three distinct states, and the third is the point: an
+                empty list because the estimate has none, versus an empty list
+                because this viewer is not allowed to see them, are different
+                facts (§7.1). The crew case says "restricted", never "none". */}
+            {canSeeEstimateLines ? (
+              takeOffLines.length > 0 ? (
+                <TakeOffPanel
+                  orgId={params.orgId}
+                  workOrderId={workOrder.id}
+                  lines={takeOffLines}
+                />
+              ) : (
+                <p className="border-t border-border pt-2 text-xs text-muted">
+                  The estimate has no line items to take off.
+                </p>
+              )
+            ) : (
+              <p className="border-t border-border pt-2 text-xs text-muted">
+                Estimate line items are restricted for your role, so the
+                take-off is not available here.
+              </p>
+            )}
           </div>
           )}
         </div>

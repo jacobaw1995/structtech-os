@@ -1313,43 +1313,66 @@ export type Database = {
       material_items: {
         Row: {
           created_at: string
+          estimate_line_item_id: string | null
           id: string
           name: string
           org_id: string
+          product_id: string | null
           quantity: number
           ready_by: string | null
           sort_order: number
+          unit: string | null
           updated_at: string
           work_order_id: string
         }
         Insert: {
           created_at?: string
+          estimate_line_item_id?: string | null
           id?: string
           name: string
           org_id: string
+          product_id?: string | null
           quantity?: number
           ready_by?: string | null
           sort_order?: number
+          unit?: string | null
           updated_at?: string
           work_order_id: string
         }
         Update: {
           created_at?: string
+          estimate_line_item_id?: string | null
           id?: string
           name?: string
           org_id?: string
+          product_id?: string | null
           quantity?: number
           ready_by?: string | null
           sort_order?: number
+          unit?: string | null
           updated_at?: string
           work_order_id?: string
         }
         Relationships: [
           {
+            foreignKeyName: "material_items_estimate_line_item_id_fkey"
+            columns: ["estimate_line_item_id"]
+            isOneToOne: false
+            referencedRelation: "estimate_line_items"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "material_items_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "material_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
             referencedColumns: ["id"]
           },
           {
@@ -3279,6 +3302,10 @@ export type Database = {
       generate_roadmap_for_lead: {
         Args: { p_lead_id: string }
         Returns: string
+      }
+      generate_take_off: {
+        Args: { p_estimate_line_item_ids: string[]; p_work_order_id: string }
+        Returns: Json
       }
       get_or_create_production_packet: {
         Args: { p_work_order_id: string }

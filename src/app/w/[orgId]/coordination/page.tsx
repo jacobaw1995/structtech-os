@@ -50,7 +50,7 @@ export default async function CoordinationPage({
   // count and the master's id come back with the job instead of costing a
   // round trip per row — and, structurally, a work order can only ever
   // appear nested inside its job, never as a sibling of one.
-  const [{ data: jobs }, { data: signedEstimates }] = await Promise.all([
+  const [{ data: jobs }, { data: signedEstimates }, { data: canViewMaster }] = await Promise.all([
     supabase
       .from("jobs")
       .select(
@@ -64,9 +64,16 @@ export default async function CoordinationPage({
       .eq("org_id", params.orgId)
       .eq("status", "signed")
       .order("signed_at", { ascending: false }),
+    // §7.1 — NEVER INFER "DOES NOT EXIST" FROM "CANNOT SEE". work_orders
+    // carries a RESTRICTIVE "crew cannot reach master work orders" policy, so
+    // for a role without view_master_work_order the embed above returns the
+    // job's trades and NOT its master — on a job that has one. The capability
+    // is knowable here, so the branch is on the capability, not on the absence.
+    supabase.rpc("can_view_master_work_order", { p_org_id: params.orgId }),
   ]);
 
   const jobList = (jobs ?? []) as JobRow[];
+  const canSeeMaster = canViewMaster === true;
 
   // A1.6 — the strip's condition changed from "signed estimate with no WORK
   // ORDER" to "signed estimate with no JOB". They are not the same set: an
@@ -135,7 +142,12 @@ export default async function CoordinationPage({
         ) : (
           <div className="flex flex-col gap-2">
             {jobList.map((job) => (
-              <JobRowCard key={job.id} job={job} orgId={params.orgId} />
+              <JobRowCard
+                key={job.id}
+                job={job}
+                orgId={params.orgId}
+                canSeeMaster={canSeeMaster}
+              />
             ))}
           </div>
         )}
@@ -144,7 +156,15 @@ export default async function CoordinationPage({
   );
 }
 
-function JobRowCard({ job, orgId }: { job: JobRow; orgId: string }) {
+function JobRowCard({
+  job,
+  orgId,
+  canSeeMaster,
+}: {
+  job: JobRow;
+  orgId: string;
+  canSeeMaster: boolean;
+}) {
   const workOrders = job.work_orders ?? [];
   const master = workOrders.find((w) => w.kind === "master") ?? null;
   const trades = workOrders.filter((w) => w.kind === "trade");
@@ -185,11 +205,19 @@ function JobRowCard({ job, orgId }: { job: JobRow; orgId: string }) {
   // A job with no master is reachable only through the deletion gap in §1's
   // carried debt; it renders as a non-link rather than as a dead link, and
   // says why, because SCOPE §2.8 forbids a control that silently does nothing.
+  //
+  // 2026-08-28 — the two reasons a master can be missing from `master` are now
+  // told apart, and the capability decides which. An RLS-filtered absence and a
+  // real absence are DIFFERENT FACTS (§7.1): before this, a role without
+  // view_master_work_order was told "No master work order" about a job that has
+  // one, and the job became unopenable with a reason that was simply untrue.
   if (!master) {
     return (
       <div className="flex items-center justify-between gap-4 rounded-lg border border-border border-dashed bg-surface px-4 py-3">
         {body}
-        <span className="shrink-0 text-xs text-warn">No master work order</span>
+        <span className="shrink-0 text-xs text-warn">
+          {canSeeMaster ? "No master work order" : "Master work order restricted"}
+        </span>
       </div>
     );
   }

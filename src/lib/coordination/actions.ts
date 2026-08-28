@@ -31,6 +31,14 @@ function workOrderHref(orgId: string, workOrderId: string, error?: string) {
   return `/w/${orgId}/coordination/${workOrderId}${qs}`;
 }
 
+// A2.2 — the success channel. Every other action here is silent on success
+// because the page it returns to shows the new row; a take-off is different,
+// because clause (a) of its Done when requires the resulting trade count to be
+// REPORTED, and a count is not visible in the material list it produced.
+function workOrderNoticeHref(orgId: string, workOrderId: string, notice: string) {
+  return `/w/${orgId}/coordination/${workOrderId}?notice=${encodeURIComponent(notice)}`;
+}
+
 // Next's client-side Router Cache treats redirect(x) back to the route the
 // form was already on as a no-op — this busts that cache entry first.
 function revalidateWorkOrder(orgId: string, workOrderId: string) {
@@ -176,6 +184,68 @@ export async function addMaterialItem(formData: FormData) {
 
   revalidateWorkOrder(orgId, workOrderId);
   redirect(workOrderHref(orgId, workOrderId));
+}
+
+// A2.2 — take-off. Runs FROM a trade, never from the job (controller decision
+// 2026-08-28): nothing on estimate_line_items names a trade, and A2.2 forbids
+// inferring one from line-item categories, so "the correct trade" is the one
+// the PM is standing in. The RPC therefore takes this work order plus the
+// explicit set of line ids the PM ticked.
+//
+// The master's copy of this form submits the MASTER's id on purpose. That is
+// the clause (b) path: generate_take_off answers a master by naming the job's
+// live trade count and saying what to do, rather than by silently doing
+// nothing (SCOPE §2.8) or by hiding the control until other data exists.
+export async function generateTakeOff(formData: FormData) {
+  const orgId = requireString(formData, "orgId");
+  const workOrderId = requireString(formData, "workOrderId");
+
+  const supabase = createClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) redirect("/login");
+
+  // getAll, not get: the field is one checkbox per line item and get() would
+  // silently take only the first, turning a 12-line take-off into a 1-line one
+  // with no error anywhere.
+  const lineItemIds = formData
+    .getAll("lineItemId")
+    .filter((v): v is string => typeof v === "string" && v.length > 0);
+
+  const { data, error } = await supabase.rpc("generate_take_off", {
+    p_work_order_id: workOrderId,
+    p_estimate_line_item_ids: lineItemIds,
+  });
+
+  if (error) {
+    redirect(workOrderHref(orgId, workOrderId, error.message));
+  }
+
+  const result = (data ?? null) as {
+    created?: number;
+    skipped_existing?: number;
+    trades_with_take_off?: number;
+    live_trade_count?: number;
+  } | null;
+
+  const created = result?.created ?? 0;
+  const skipped = result?.skipped_existing ?? 0;
+  const withTakeOff = result?.trades_with_take_off ?? 0;
+  const liveTrades = result?.live_trade_count ?? 0;
+
+  // Clause (a)'s reported figure, in the controller's amended wording: trades
+  // that have received a take-off, out of the job's live trade count. The
+  // skipped count is what makes a re-run legible — a second identical run
+  // reads "0 added, 12 already present" rather than looking like it failed.
+  const notice =
+    `Take-off complete — ${created} material${created === 1 ? "" : "s"} added` +
+    `, ${skipped} already present. ` +
+    `${withTakeOff} of ${liveTrades} live trade${liveTrades === 1 ? "" : "s"} on this job ` +
+    `${withTakeOff === 1 ? "has" : "have"} a take-off.`;
+
+  revalidateWorkOrder(orgId, workOrderId);
+  redirect(workOrderNoticeHref(orgId, workOrderId, notice));
 }
 
 export async function updateMaterialItem(formData: FormData) {
