@@ -198,6 +198,24 @@ Do **not** build these now, but do **not** make choices that block them (full de
     **The second half — the BOUNDARY, and it is not a softening of the rule.** Do **not** pin audit fields the replay cannot honestly assert: `created_at`, `updated_at`, and anything else that records *when*, not *what*. Forcing a production timestamp into a clean restore asserts a history that restore does not have. **Pin identity and payload; let time be time.**
     **A DIVERGENCE YOU DOCUMENT IS A FACT; A DIVERGENCE YOU LEAVE UNDOCUMENTED TRAINS PEOPLE TO IGNORE DIFFERENCES** (MM's reasoning, adopted). So the deliberate divergence gets a comment line in the file itself. Someone diffing a restore against production in three months either burns a day on it or learns that differences on this row are normal — and the second is the advisor problem (rule 9) wearing different clothes.
 
+11. **THE THREE REFUSAL FORMS — GRADE AN `anon` PROBE ON THE MESSAGE, NOT ON THE CODE.** *(Added 8/29. We mislabelled this in BOTH directions inside one session, and caught ourselves both times — which is the reason it is written down rather than assumed.)*
+    A probe that "failed" proves nothing until you read *which* failure it was. There are three, and two of them are the same SQLSTATE:
+    1. **`permission denied for table X`** → the table grant is gone. **PASS.**
+    2. **EMPTY RESULT, NO ERROR** → RLS refused the rows and **THE GRANT SURVIVED**. The privilege layer was never reached. **NOT A PASS** — this is a closed door with the lock still unset.
+    3. **`permission denied for function Y`** → **depends entirely on what Y is, and this is the discriminator:** if `Y` is the **TARGET** of the call (you invoked `Y` and were refused), **PASS**. If `Y` is a **HELPER a policy tried to evaluate** (`my_org_ids`, `is_staff`, `has_capability`, …), then the *target's* grant is **INTACT** and you were stopped by an unrelated EXECUTE bit. **NOT A PASS.**
+    **Forms 1 and 3 are both `42501` and are indistinguishable to any code-based grader.** A harness that asserts `error.code === '42501'` reports a pass for the one case that is not one. Read the message text, name which of the three forms it is, and record that name in the evidence — not the code, and not "denied."
+    **Worked example, 8/29 `audit_leads`:** `INSERT … RETURNING` as `anon` returned `permission denied for function my_org_ids`. That is Form 3, helper variant. `anon` still held `SELECT, INSERT, UPDATE, DELETE` on the table; the only thing standing in the way was an EXECUTE bit on a function the table does not own. Graded as a pass, it would have certified a wide-open table as closed.
+
+    *(There is no rule 12 here. 13 keeps Material Matrix's own number so that "rule 13" means the same thing in both projects' write-ups. Do not renumber it to close the gap — the gap is the cross-reference.)*
+
+13. **CLOSED BY ACCIDENT IS NOT CLOSED. NAME THE THING THAT WOULD HAVE TO CHANGE FOR THIS TO OPEN.** *(Material Matrix's, adopted whole 8/29. Recorded because they applied it to their OWN remediation and found it wanting — which is the only reason we have it.)*
+    For every object you are about to call closed, write down the single change that would reopen it. If the answer is **"somebody adds a policy"** or **"somebody grants EXECUTE on an unrelated helper,"** it is **NOT CLOSED.** Both are **absences standing in for controls**, and an absence has no owner, no review and no alarm.
+    The two forms, both live in this database on 8/29:
+    · **Closed by a missing EXECUTE.** 49 StructTech tables held the full `arwdDxtm` anon grant and were closed only because their policy predicates call definer helpers `anon` cannot execute. **One `grant execute on function my_org_ids() to anon` would have opened all 49 at once** — and that grant is one line in an unrelated migration written by someone fixing something else.
+    · **Closed by a missing policy.** Seven of those 49 had RLS on and **zero** policies, the five `migration_bmr_*` raw PII tables among them. Adding any permissive policy — the ordinary way to make a table usable — would have opened a table nobody remembered was ungranted.
+    **The remedy is to make the control the thing you can point at.** Revoke the grant, so closure survives a change to the helper. Then Rule 13's answer becomes "somebody grants `anon` this table," which is a statement about the table itself, reviewable in the diff that makes it.
+    **This rule is why `audit_leads` was not fixed first on 8/29.** Fixing the one known instance would have told us nothing about whether it was one of one or one of five. **GET THE DENOMINATOR BEFORE YOU ENUMERATE:** 198 policies, 109 scoped `{public}`, 64 anon-granted objects. `audit_leads` was one of **49**.
+
 ---
 
 ## CURRENT PHASE — DEPTH PASS (set 7/20, after Isaac's first real demo)
