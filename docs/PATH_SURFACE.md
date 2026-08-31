@@ -1,8 +1,16 @@
 # PATH SURFACE — what RLS does **not** mediate
 
-**Task:** A-PATH.0 · **Date:** 2026-08-30 (America/New_York) · **Project:** `structtech` (`ejlhrykcdfcyeooooodx`)
-**Classification:** READ-ONLY enumeration. No migration, no grant, no revoke, no exercise test.
-**Server:** PostgreSQL 17.6.
+**Tasks:** A-PATH.0 (2026-08-30, enumeration) · **A-PATH.1 (2026-08-31, the revoke + behavioural proof)**
+**Project:** `structtech` (`ejlhrykcdfcyeooooodx`) · **Server:** PostgreSQL 17.6.
+
+> ### WHAT THIS FILE DOES NOT COVER — read this before citing it
+> It covers **`public` only**, for **`anon` and `authenticated` only**, as of the date on each row.
+> It does **not** cover: the other five reachable schemas (`auth`, `graphql`, `graphql_public`,
+> `realtime`, `storage` — §1.1), the `service_role` / `postgres` roles (both `rolbypassrls`),
+> application logic inside a correctly-granted definer RPC (§5.3), PostgREST project settings (§5.5),
+> or **cross-tenant identity** — whether a caller with a valid JWT for org A can act on org B.
+> That last one is the largest uncovered surface and is a separate audit, not a gap in this one.
+> Full list in §5.
 
 ---
 
@@ -24,9 +32,41 @@ exercisability** (see §5).
 
 ## 1 · DENOMINATORS
 
-Counted over the three non-Supabase-managed schemas — `public`, `archive`, `supabase_migrations` — unless a
-row says otherwise. `anon` and `authenticated` hold **no USAGE on `archive` or `supabase_migrations`**, so in
-practice the reachable surface is `public`.
+### 1.1 · SCHEMA DENOMINATOR — measured 2026-08-31, `has_schema_privilege()`. **THERE ARE 11.**
+
+**A-PATH.0's scope statement was wrong: it named three schemas and reasoned about eleven.** This table is
+the correction. Independently reproduced against Material Matrix's own count of the same catalog.
+
+| Schema | Owner | anon USAGE | anon CREATE | auth USAGE | auth CREATE |
+|---|---|---|---|---|---|
+| `auth` | supabase_admin | ✅ | ❌ | ✅ | ❌ |
+| `graphql` | supabase_admin | ✅ | ❌ | ✅ | ❌ |
+| `graphql_public` | supabase_admin | ✅ | ❌ | ✅ | ❌ |
+| `public` | pg_database_owner | ✅ | ❌ | ✅ | ❌ |
+| `realtime` | supabase_admin | ✅ | ❌ | ✅ | ❌ |
+| `storage` | supabase_admin | ✅ | ❌ | ✅ | ❌ |
+| `archive` | postgres | ❌ | ❌ | ❌ | ❌ |
+| `extensions` | postgres | ❌ | ❌ | ❌ | ❌ |
+| `pgbouncer` | pgbouncer | ❌ | ❌ | ❌ | ❌ |
+| `supabase_migrations` | postgres | ❌ | ❌ | ❌ | ❌ |
+| `vault` | supabase_admin | ❌ | ❌ | ❌ | ❌ |
+
+**6 reachable, 5 not, CREATE nowhere for either role.**
+
+> **THE SCOPE STATEMENT, IN ONE LINE.** This file covers **`public`**. It does **not** cover the other five
+> reachable schemas — `auth`, `graphql`, `graphql_public`, `realtime`, `storage` — which are Supabase-managed,
+> owned by `supabase_admin`, and not ours to alter (see §5.4 and the storage row in §3.1). `archive`,
+> `extensions`, `pgbouncer`, `supabase_migrations` and `vault` are out of scope *because they are unreachable*,
+> which is a measurement (C10, C9) rather than an assumption.
+
+**CREATE-nowhere is load-bearing beyond schemas.** It is the reason `REFERENCES` turned out to be
+unexercisable (§3, C16): a role that cannot create a table has nowhere to put a foreign key.
+
+### 1.2 · OBJECT DENOMINATORS
+
+**`public` holds 80 tables, not 104.** 104 is the count across `public` + `archive` + `supabase_migrations`,
+and 24 of those 104 sit in schemas neither role can reach. Where a row below says "of 104" it is counting the
+three-schema total; the **reachable** table denominator is **80**.
 
 | | |
 |---|---|
@@ -49,12 +89,12 @@ practice the reachable surface is `public`.
 
 | PATH | RLS MEDIATES? | GRANTED TO ANON | GRANTED TO AUTHENTICATED | HOW WE WOULD DETECT A REGRESSION | SOURCE |
 |---|---|---|---|---|---|
-| **TRIGGER** — `CREATE TRIGGER` on a table you do not own | **no** | 0 of 104 | **71 of 104** tables + 1 of 1 view | `aclexplode` for `privilege_type='TRIGGER'`; and count `prorettype='trigger'` functions the role can EXECUTE | **CC-derived** |
-| **RLS on, zero policies, grant live** — closure is the *absence* of a policy | **no (vacuum)** | 0 of 16 | **7 of 16** hold full DML | `relrowsecurity AND NOT EXISTS(pg_policy) AND relacl→authenticated` | **CC-derived** |
-| **MAINTAIN** (PG17: VACUUM/ANALYZE/CLUSTER/REINDEX/REFRESH MATVIEW/LOCK) | **no** | 0 of 104 | **52 of 104** tables + 1 of 1 view | `privilege_type='MAINTAIN'` | §2 P4 |
-| **REFERENCES** — FK against a table you do not own | **no** | 0 of 104 | **52 of 104** tables + 1 of 1 view | `privilege_type='REFERENCES'` | §2 P3 |
-| **Sequence UPDATE** → `setval()`/`nextval()` | **no** | 0 of 3 | **3 of 3** | `relkind='S'` + `privilege_type IN ('UPDATE','USAGE')` | §2 P2 |
-| **Sequence SELECT** → `currval()` | **no** | 1 of 3 | 3 of 3 | as above | §2 P2 |
+| ~~**TRIGGER**~~ **CLOSED 8/31 (C13)** | **no** | 0 | **0 tables** (was 71: MM revoked their 19 on 8/30, we revoked our 52 on 8/31) · 1 of 1 view is MM's | `aclexplode` for `privilege_type='TRIGGER'`; and count `prorettype='trigger'` functions the role can EXECUTE | **CC-derived** |
+| ~~**RLS on, zero policies, grant live**~~ **CLOSED 8/31 (C15)** | **no (vacuum)** | 0 of 16 | **0 of 16** (was 7; DML revoked 8/31) | `relrowsecurity AND NOT EXISTS(pg_policy) AND relacl→authenticated` | **CC-derived** |
+| ~~**MAINTAIN**~~ **CLOSED 8/31 (C14)** | **no** | 0 | **0 tables** (was 52) · 1 of 1 view is MM's | `privilege_type='MAINTAIN'` | §2 P4 |
+| ~~**REFERENCES**~~ **CLOSED 8/31 (C16)** | **no** | 0 | **0 tables** (was 52) · 1 of 1 view is MM's | `privilege_type='REFERENCES'` | §2 P3 |
+| ~~**Sequence UPDATE**~~ **CLOSED 8/31 on our 2 (C17)** | **no** | 0 of 3 | **1 of 3** — `wh_order_number_seq`, **MM's** | `relkind='S'` + `privilege_type IN ('UPDATE','USAGE')` | §2 P2 |
+| **Sequence SELECT** → `currval()` | **no** | **1 of 3 — `wh_order_number_seq`, MM's. Reported, not actioned.** | 3 of 3 | as above | §2 P2 |
 | **EXECUTE on SECURITY DEFINER** — bypasses RLS by design | **no (by design)** | **2 of 129** | **126 of 129** | `prosecdef AND has_function_privilege(role,oid,'EXECUTE')` | §2 P6 |
 | **`pg_default_acl`** — what the *next* object is born holding | n/a (future) | **full DML + TRUNCATE + REFERENCES + TRIGGER + MAINTAIN** on new tables in `public`; SELECT/UPDATE/USAGE on new sequences | identical | `pg_default_acl` for `defaclnamespace='public'` | §2 P8 |
 | **TRUNCATE** | **no** | 0 of 104 tables · 0 of 1 view | **0 of 104 tables** · **1 of 1 view** | `privilege_type='TRUNCATE'`, **not filtered to `relkind='r'`** | §2 P1 |
@@ -127,6 +167,81 @@ applied: the named reopening change is a statement about a reviewable object, no
 | C11 | **SECURITY DEFINER `search_path` hijack** (chains with the live `TEMPORARY` grant) | **0 of 129** definer functions lack a pinned `search_path` | `select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.prosecdef and (p.proconfig is null or not exists (select 1 from unnest(p.proconfig) c where c like 'search_path=%'));` |
 | C12 | **`pg_parameter_acl` / type / language grants** | **0** rows for both roles | `select count(*) from pg_parameter_acl;` + `typacl`/`lanacl` sweeps |
 
+### 3.1 · CLOSED BY A-PATH.1, 2026-08-31 — **PROVED BY BEHAVIOUR, NOT BY DIFF**
+
+Migration `20260831184958`, repo file md5-identical to `supabase_migrations.statements`
+(`b2b504edc89425de6da077a71c024790`). Every row below was attempted **as `authenticated`** in a
+**rolled-back transaction**, with **positive controls in the same transaction** so a refusal cannot be an
+empty instrument: reading `deals` with a real BMR owner JWT returned **191 rows**, `estimates` **4**,
+`org_members` **2**. Each refusal is graded by **message**, per rule 11, and named.
+
+| # | Path | BEFORE (measured, not inferred) | AFTER | Rule 13: what would reopen it |
+|---|---|---|---|---|
+| C13 | **TRIGGER** on our 52 | `CREATE TRIGGER` on `public.products` **SUCCEEDED** — the capability was real, not merely catalog-present | `42501 permission denied for table deals` — **FORM 1 (target)** | somebody grants `authenticated` TRIGGER on the table. A statement about the table, visible in the diff. |
+| C14 | **MAINTAIN** on our 52 | `ANALYZE public.deals` **SUCCEEDED** | `REINDEX TABLE public.deals` → `42501 permission denied for table deals` — **FORM 1 (target)** | as C13, for MAINTAIN |
+| C15 | **The 7 N2 tables** (`estimate_number_counters`, `structtech_state`, 4 × `migration_bmr_*_raw`, `migration_bmr_id_map`) | read returned **0 rows, no error** — **FORM 2**, i.e. the grant was intact and RLS's *policy vacuum* was the only barrier | all 7 → `42501 permission denied for table <t>` — **FORM 1 (target)** | somebody grants `authenticated` the table — **no longer "somebody adds a policy"**, which was an absence with no owner |
+| C16 | **REFERENCES** on our 52 | **NOT EXERCISABLE EVEN BEFORE THE REVOKE.** A temp-table FK to `public.deals` returned `42P16 constraints on temporary tables may reference only temporary tables`, and CREATE is denied on all 11 schemas — so there was nowhere to put a foreign key | grant removed regardless | somebody grants CREATE on a schema **or** REFERENCES on the table. Revoking converts an accidental closure into a reviewable one. |
+| C17 | **Sequence UPDATE** on our 2 (`tg_agenda_card_id_seq`, `tg_agenda_contact_id_seq`) | — | `setval()` → `42501 permission denied for sequence` — **FORM 1**. **`nextval()` still returns a value (control: → 3): the insert path is intact.** | somebody grants UPDATE on the sequence |
+| C18 | **TRUNCATE** (8/29's fix, re-proved today rather than assumed) | — | `TRUNCATE public.deals` → `42501 permission denied for table deals` — **FORM 1** | somebody grants TRUNCATE |
+
+**What was deliberately left open, and why.** `SELECT/INSERT/UPDATE/DELETE` on the 52 are **load-bearing**;
+the barrier there is **deliberately RLS** (rule 11 amendment). The 191-row control above is that design
+working. Revoking them would break the product, not an attacker.
+
+### 3.2 · TWO INSTRUMENTS THAT LIE, BOTH CAUGHT TODAY
+
+Recorded because in both cases the *first* reading was wrong and was only caught by re-running with a control.
+
+1. **`ANALYZE` IS AN EMPTY INSTRUMENT FOR GRADING MAINTAIN.** After the revoke landed, `ANALYZE public.deals`
+   as `authenticated` **still returned success** — which read as "the revoke failed." It had not.
+   `has_table_privilege('authenticated','public.deals','MAINTAIN')` was already **false**.
+   **Proved on a disposable table:** with `revoke all` and *zero* privileges of any kind, `ANALYZE`
+   **still succeeded**, while `REINDEX` on the same table in the same transaction returned
+   `42501 permission denied`. PostgreSQL's `ANALYZE` **silently skips relations the caller cannot access**
+   and reports success. **This is rule 11 Form 2 wearing a success message instead of an empty result set.**
+   **Grade MAINTAIN with `REINDEX`, never with `ANALYZE` or `VACUUM`.**
+2. **A PROBE OBJECT IS BORN CONTAMINATED.** The first `setval` probe created a sequence, ran
+   `grant usage, select`, and concluded `setval` works without UPDATE. It does not. The probe sequence was
+   **born holding `authenticated=rwU` from `pg_default_acl`** — UPDATE was already there and had never been
+   withheld. **The instrument was contaminated by the exact mechanism this file documents in §2.** Re-run with
+   an explicit `revoke update`, `setval` returned `42501` and `nextval` still worked.
+   **Any probe on a freshly created object in `public` must explicitly revoke before it can test a denial.**
+
+### 3.3 · MONITORED — REPORTED, NOT ACTIONED (storage; **not ours**)
+
+`storage.objects`, `storage.buckets` and `storage.buckets_analytics` are owned by `supabase_storage_admin`.
+`anon` holds **TRUNCATE** on `storage.objects` and `storage.buckets`; `authenticated` holds
+INSERT/UPDATE/DELETE/TRUNCATE/TRIGGER on those and on `buckets_analytics`. **RLS is not in the TRUNCATE path.**
+**We are not touching these** — a revoke risks the Storage API for both builds. Filed as a vendor report to
+Supabase. The standing proving query, to be re-run and compared rather than reasoned about:
+
+```sql
+-- expect: the storage rows below are UNCHANGED. Any new row, or any row leaving, is the signal.
+select c.relname, pg_get_userbyid(a.grantee) as grantee, a.privilege_type
+from pg_class c join pg_namespace n on n.oid=c.relnamespace, lateral aclexplode(c.relacl) a
+where n.nspname='storage'
+  and pg_get_userbyid(a.grantee) in ('anon','authenticated')
+  and a.privilege_type in ('TRUNCATE','TRIGGER','REFERENCES','MAINTAIN')
+order by 1,2,3;
+```
+
+```sql
+-- pg_default_acl: THREE grantors, only `postgres` is ours to alter. Wednesday's task; watch, do not change.
+select defaclrole::regrole::text as grantor, defaclnamespace::regnamespace::text as sch,
+       defaclobjtype, defaclacl::text
+from pg_default_acl order by 1,2,3;
+```
+
+```sql
+-- OUR standing check: these four must stay at zero for objects that are not `wh_%`.
+select a.privilege_type, count(*) filter (where c.relname not like 'wh\_%') as ours_must_be_zero
+from pg_class c join pg_namespace n on n.oid=c.relnamespace, lateral aclexplode(c.relacl) a
+where n.nspname='public' and c.relkind in ('r','v','S')
+  and pg_get_userbyid(a.grantee) in ('anon','authenticated')
+  and a.privilege_type in ('TRUNCATE','REFERENCES','TRIGGER','MAINTAIN')
+group by 1 order by 1;
+```
+
 **C11 is a chain, and it is the reason `TEMPORARY` is a table row rather than a closed row.** Both roles can
 `CREATE TEMP TABLE` (via PUBLIC's database grant). A temp object plus a definer function with an *unpinned*
 `search_path` is a classic definer hijack. The second ingredient measures **0**, so the chain is broken today —
@@ -137,7 +252,19 @@ without `set search_path`." That is exactly what CLAUDE.md rule 7 already requir
 
 ## 4 · PATHS THAT CANNOT BE CHARACTERISED READ-ONLY
 
-Per §5 of the directive, none of these were exercised. Each names what Monday must do.
+> **STATUS 2026-08-31 — FIVE OF SIX ROWS BELOW ARE NOW ANSWERED; SEE §3.1.**
+> TRIGGER, the N2 tables, sequence `setval`, MAINTAIN and REFERENCES were all exercised as `authenticated`
+> in rolled-back transactions and are closed. **Three of the five answers contradicted the guess in the row**:
+> MAINTAIN could not be graded with `ANALYZE` at all (§3.2), REFERENCES turned out to be **unexercisable
+> even before the revoke** (C16), and TRIGGER **actually succeeded** rather than merely appearing granted.
+> **The one row still open is the last one, and one more that the exercise created:**
+>
+> | Still open | Why it is still open |
+> |---|---|
+> | **The 2 `anon` definer functions** (`create_wh_order`, `get_wh_order`) | Material Matrix's. Reported, not investigated (rule 9 refinement). |
+> | **CROSS-TENANT IDENTITY** — *newly sharpened, not newly created* | All **8** `authenticated`-EXECUTEable SECURITY DEFINER trigger functions were read on 8/31. **None checks the caller's org identity inside its body**; every one derives org from the ROW, and `auto_create_deal` hardcodes it to the first `internal` org. Closing TRIGGER removes the *attach* step, but says nothing about whether a valid JWT for org A can act on org B through the RPCs. **That is a separate audit with real identities on both sides of the boundary.** |
+
+The rows below are kept as written, as the record of what was and was not known on 2026-08-30.
 
 | Path | What the grant read cannot tell us | What Monday must do |
 |---|---|---|
@@ -202,6 +329,33 @@ Four of the paths in §2 are invisible to it by construction.
 ---
 
 ## 7 · CORRECTIONS TO THE RECORD
+
+### 7.1 · Corrections made 2026-08-31 (A-PATH.1)
+
+- **"104 tables in `public`" is WRONG.** `public` holds **80** tables, 1 view, 3 sequences. 104 is the
+  three-schema total, and 24 of the 104 are in `archive`/`supabase_migrations`, which **neither role can
+  reach**. The directive for this task repeated the error; the measurement wins.
+- **"`pg_default_acl` has two grantors" is WRONG — there are THREE:** `postgres` (ours, on `public` **and
+  `storage`**), `supabase_admin` (on `public`, `extensions`, `graphql`, `graphql_public`, `realtime`) and
+  **`supabase_auth_admin`** (on `auth`). Only `postgres` is ours to alter. Note our `postgres` grantor also
+  carries a default ACL for the **`storage`** schema, not just `public`.
+- **A-PATH.0's §2.1 and this task's directive both said "the five `migration_bmr_*_raw` tables."** Four are
+  `_raw` (`activity`, `leads`, `notes`, `users`); the fifth is **`migration_bmr_id_map`**. The count of 5 is
+  right, the name pattern is not.
+- **The 71 TRIGGER grants split 19 / 52, and the 19 are gone.** Verified independently rather than taken on
+  report: **zero** `wh_%` tables now carry TRIGGER (MM's `20260830165728`), and the 52 that remained were all
+  ours. After `20260831184958`, ours is zero too.
+- **The one object holding TRUNCATE is `public.wh_current_prices`, a Material Matrix VIEW** — so §4.5 of the
+  directive resolved to *report and leave*. Likewise **`wh_order_number_seq`**, the only sequence carrying an
+  `anon` grant, is MM's and is read by their SECURITY DEFINER `create_wh_order()`. Both reported, neither
+  touched.
+- **Rule 11 has a fourth message worth naming, on the WRITE side.** `insert into public.structtech_state`
+  as `authenticated` returned `42501 new row violates row-level security policy for table "structtech_state"`
+  — same SQLSTATE as Form 1, but it is **RLS refusing, not the grant**. Unlike reads (where RLS refusal is a
+  silent empty set), **write-side RLS refusal is an error with a distinguishable message.** So write probes
+  are gradeable by message where read probes are not.
+
+### 7.2 · Corrections carried from A-PATH.0
 
 - **`btree_gist` "adds operator classes only — there is no callable surface to revoke"** (directive §1,
   2026-08-21) is **wrong as written**. It contributes **188 anon-EXECUTEable functions** in `public` — 188 of the
