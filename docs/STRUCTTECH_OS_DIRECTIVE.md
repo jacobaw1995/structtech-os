@@ -1006,6 +1006,12 @@ A table's policies are OR-ed together and evaluated per command. Narrowing the o
 **Same family as Material Matrix's null-embed class (§6.9) — theirs CRASHED, ours MISINFORMS, and the quiet one is worse**, because a crash gets reported and a confident wrong sentence gets believed. **Generalised: wherever a filtered read can return empty, the empty state must be derived from something that is not the filtered read itself.** This proved to be a discipline and not just a UI rule the same day it was written: the first A2.2 crew probe captured its own "owner baseline" *after* switching to the crew identity, so it reported "0 of the owner's 0" — the same confusion, in the evidence rather than the interface. **A probe that reads a restricted count and labels it a baseline is not a comparison.** It was re-run with the baseline taken before the identity switch, giving the real figures (0 of 9, 0 of 1).
 
 
+**RULE 6 — TABLES ARE CREATED BY MIGRATIONS. NOT BY THE SUPABASE TABLE EDITOR.** *(Controller decision, Jacob, 2026-09-01, recorded as a rule rather than as a line in a report.)*
+**Sketching a table is fine. Sketch it inside a transaction that is ROLLED BACK** — no file, no ledger row, no grants, no residue. A table that survives the sketch was created by a migration or it should not exist.
+**THE REASONING, because the rule is weaker than its reasons.** A Table-Editor table has **no migration file and no ledger row** — it is precisely the orphan class A1.0 spent a week bounding (§4.7), and §7.1 RULE 3 is the record of what an unfileable migration does to house style once it exists. Worse for what is in front of us: it **may be created by a role whose `pg_default_acl` we do not control**, so the pending Wednesday `ALTER DEFAULT PRIVILEGES` on the `postgres → public` entry **would miss it and report success** — a closure that is invisible in the very instrument built to prove it. That is CLAUDE.md rule 9's failure mode (a number that does not move proving nothing) reached by a different road.
+**UNRESOLVED, AND NOT TODAY'S WORK, BUT RECORDED HERE SO IT IS NOT LOST:** `structtech_state`, `audits`, `proposals` and `prospects` have a `CREATE TABLE` in **neither the repo nor the ledger**. Closing this door stops the count growing; it does **not** reconcile those four. **`structtech_state` is one of the seven N2 tables revoked on 8/31**, so it is not dormant.
+
+
 ---
 
 # 8 · RISKS

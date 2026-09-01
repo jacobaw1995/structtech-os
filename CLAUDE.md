@@ -220,6 +220,10 @@ Do **not** build these now, but do **not** make choices that block them (full de
     **The remedy is to make the control the thing you can point at.** Revoke the grant, so closure survives a change to the helper. Then Rule 13's answer becomes "somebody grants `anon` this table," which is a statement about the table itself, reviewable in the diff that makes it.
     **This rule is why `audit_leads` was not fixed first on 8/29.** Fixing the one known instance would have told us nothing about whether it was one of one or one of five. **GET THE DENOMINATOR BEFORE YOU ENUMERATE:** 198 policies, 109 scoped `{public}`, 64 anon-granted objects. `audit_leads` was one of **49**.
 
+14. **TABLES ARE CREATED BY MIGRATIONS. NOT BY THE SUPABASE TABLE EDITOR.** *(Controller decision, Jacob, 2026-09-01.)* Sketching a table is fine — **sketch it inside a transaction you ROLL BACK.** No file, no ledger row, no grants, no residue. A table that survives the sketch was created by a migration or it should not exist.
+    **The reasoning, which is stronger than the rule.** A Table-Editor table has **no migration file and no ledger row** — the orphan class A1.0 spent a week bounding — and rule 8 above cannot be applied to a migration that does not exist. And it **may be created by a role whose `pg_default_acl` we do not control**, so an `ALTER DEFAULT PRIVILEGES` on the `postgres → public` entry **would miss it and report success**. That is rule 9's failure mode — an instrument that does not move proving nothing — reached by a different road.
+    **The same rule covers probe fixtures, and there it is rule 8's problem in miniature:** any object you create in `public` to test a privilege is **born holding whatever `pg_default_acl` grants** (proved 8/31 — a probe sequence born `authenticated=rwU` reported that `setval` needs no UPDATE). Create it, **revoke explicitly**, then test the denial, then roll back.
+
 ---
 
 ## CURRENT PHASE — DEPTH PASS (set 7/20, after Isaac's first real demo)
