@@ -172,25 +172,31 @@ export function WorkspaceShell({
             type="search"
             placeholder="Search…"
             disabled
-            title="Coming in Week 2+"
+            title="Not built yet"
             className="w-full rounded-full border border-border bg-bg px-3 py-1.5 text-sm text-muted placeholder:text-muted disabled:opacity-60"
           />
         </div>
 
+        {/* The two placeholders below are not built yet and do nothing when
+            tapped. Below sm they are dropped entirely rather than shrunk:
+            at 320px they were consuming the ~60px that pushed the account
+            button — the only route to Sign out — off the right edge of the
+            header, so a non-functional control was displacing the one
+            control a user cannot do without. They stay on desktop, where
+            there is room and they mark where the feature will land. */}
         <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-3">
           <button
             disabled
-            title="Coming in Week 2+"
-            className="rounded-md bg-accent-strong px-2 py-1.5 text-sm font-medium text-white disabled:opacity-60 sm:px-3"
+            title="Not built yet"
+            className="hidden rounded-md bg-accent-strong px-2 py-1.5 text-sm font-medium text-white disabled:opacity-60 sm:inline-block sm:px-3"
           >
-            <span className="sm:hidden">+</span>
-            <span className="hidden sm:inline">+ Add</span>
+            + Add
           </button>
           <button
             disabled
-            title="Coming in Week 2+"
+            title="Not built yet"
             aria-label="Notifications"
-            className="text-muted disabled:opacity-60"
+            className="hidden text-muted disabled:opacity-60 sm:inline-block"
           >
             🔔
           </button>
