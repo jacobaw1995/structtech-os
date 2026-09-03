@@ -110,15 +110,17 @@ export function WorkspaceShell({
           S
         </Link>
 
-        {/* min-w-[64px] is a floor, not a target — flex-1+truncate would
-            happily shrink this to 0 and swallow the org name entirely
-            (confirmed live: at 375px, the viewing-as pill + icon cluster
-            claim enough space to do exactly that without a floor). The
-            pill is the thing that shrinks instead — see below. */}
-        <div className="relative min-w-[64px] flex-1 sm:flex-initial sm:min-w-0">
+        {/* DESKTOP ONLY from 2026-09-03. Below sm the switcher moved out of
+            this bar entirely and onto its own full-width row underneath —
+            see the <div className="sm:hidden"> immediately after </header>.
+            Controller decision 1.2: the tenant you are operating INSIDE is
+            the most safety-critical label on this bar, and at 375px in
+            agency-admin mode it was truncating to "Broth…". A floor plus
+            `truncate` still elides; a row of its own cannot. */}
+        <div className="relative hidden sm:block sm:min-w-0">
           <button
             onClick={() => setSwitcherOpen((v) => !v)}
-            className={`flex w-full items-center gap-1.5 rounded-md border px-1.5 py-1.5 text-sm font-medium sm:w-auto sm:px-3 ${
+            className={`flex w-auto items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium ${
               isAgencyOperating
                 ? "border-accent text-accent-strong"
                 : "border-border text-text"
@@ -127,37 +129,15 @@ export function WorkspaceShell({
             <span className="shrink-0">▾</span>
             <span className="min-w-0 truncate">{active.org_name}</span>
             {/* "↩ back to X" is a convenience shortcut, not the only way
-                home — StructTech is always listed in the dropdown below.
-                Dropped on mobile rather than truncated: at that width it
-                left no room for the org name itself. */}
+                home — StructTech is always listed in the dropdown below. */}
             {isAgencyOperating && homeOrg && (
-              <span className="hidden shrink-0 whitespace-nowrap text-xs font-normal text-muted sm:inline">
+              <span className="shrink-0 whitespace-nowrap text-xs font-normal text-muted">
                 ↩ back to {homeOrg.org_name}
               </span>
             )}
           </button>
 
-          {switcherOpen && (
-            <div className="absolute left-0 top-full z-20 mt-1 w-64 max-w-[85vw] rounded-md border border-border bg-surface py-1 shadow-lg">
-              {orgs.map((org) => (
-                <Link
-                  key={org.org_id}
-                  href={`/w/${org.org_id}`}
-                  onClick={() => setSwitcherOpen(false)}
-                  className={`flex min-h-14 flex-col justify-center px-3 py-2 text-sm hover:bg-surface2 sm:min-h-0 ${
-                    org.org_id === orgId ? "bg-accent-soft" : ""
-                  }`}
-                >
-                  <span className="font-medium text-text">
-                    {org.org_name}
-                  </span>
-                  <span className="text-xs text-muted">
-                    {org.tenant_type} · {org.role}
-                  </span>
-                </Link>
-              ))}
-            </div>
-          )}
+          {switcherOpen && <SwitcherMenu orgs={orgs} orgId={orgId} onPick={() => setSwitcherOpen(false)} />}
         </div>
 
         {isAgencyOperating && (
@@ -225,6 +205,40 @@ export function WorkspaceShell({
         </div>
       </header>
 
+      {/* MOBILE TENANT ROW — controller decision 1.2 (2026-09-03).
+          Full width, its own row, no `truncate` anywhere on the path to the
+          name: it wraps to a second line before it elides. `text-left` and
+          `break-words` matter — a long tenant name must be readable, not
+          tidy. min-h-14 keeps it a 56dp target (§2.4) since it is also the
+          switcher. Carries the agency tint so it reads as part of the bar
+          above rather than as page content. */}
+      <div
+        className={`relative border-b border-border px-3 pb-2 sm:hidden ${
+          isAgencyOperating ? "bg-accent-soft" : "bg-surface"
+        }`}
+      >
+        <button
+          onClick={() => setSwitcherOpen((v) => !v)}
+          className={`flex min-h-14 w-full items-center gap-2 rounded-md border px-3 py-2 text-left text-sm font-medium ${
+            isAgencyOperating
+              ? "border-accent text-accent-strong"
+              : "border-border text-text"
+          }`}
+        >
+          <span className="shrink-0">▾</span>
+          <span className="min-w-0 break-words">{active.org_name}</span>
+        </button>
+        {isAgencyOperating && homeOrg && (
+          <Link
+            href={`/w/${homeOrg.org_id}`}
+            className="mt-1 inline-flex min-h-11 items-center text-xs text-muted"
+          >
+            ↩ back to {homeOrg.org_name}
+          </Link>
+        )}
+        {switcherOpen && <SwitcherMenu orgs={orgs} orgId={orgId} onPick={() => setSwitcherOpen(false)} />}
+      </div>
+
       <div className="flex flex-1 min-h-0">
         {/* Backdrop — mobile only, dismisses the drawer on tap. Doesn't
             exist in the tree at all when closed rather than being
@@ -290,6 +304,41 @@ export function WorkspaceShell({
             full-width there with no extra rule needed. */}
         <main className="min-w-0 flex-1 overflow-y-auto p-4 sm:p-6">{children}</main>
       </div>
+    </div>
+  );
+}
+
+// One menu, two anchors. The switcher renders twice — once in the top bar for
+// sm and up, once on the mobile tenant row — and both read the same
+// `switcherOpen` state. Only one of the two is ever visible (the other is
+// display:none), so factoring the list out is what keeps the two from drifting
+// apart the way the "↩ back to X" affordance already had.
+function SwitcherMenu({
+  orgs,
+  orgId,
+  onPick,
+}: {
+  orgs: ActiveMembership[];
+  orgId: string;
+  onPick: () => void;
+}) {
+  return (
+    <div className="absolute left-3 right-3 top-full z-20 mt-1 rounded-md border border-border bg-surface py-1 shadow-lg sm:left-0 sm:right-auto sm:w-64 sm:max-w-[85vw]">
+      {orgs.map((org) => (
+        <Link
+          key={org.org_id}
+          href={`/w/${org.org_id}`}
+          onClick={onPick}
+          className={`flex min-h-14 flex-col justify-center px-3 py-2 text-sm hover:bg-surface2 sm:min-h-0 ${
+            org.org_id === orgId ? "bg-accent-soft" : ""
+          }`}
+        >
+          <span className="font-medium text-text">{org.org_name}</span>
+          <span className="text-xs text-muted">
+            {org.tenant_type} · {org.role}
+          </span>
+        </Link>
+      ))}
     </div>
   );
 }

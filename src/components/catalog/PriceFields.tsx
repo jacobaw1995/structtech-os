@@ -116,11 +116,18 @@ function Num({
       <input
         type="number"
         step="0.01"
+        // inputMode decimal so a phone offers the numeric pad rather than the
+        // full keyboard — you type these standing on a driveway (SCOPE §2.4).
+        inputMode="decimal"
         name={name}
         value={value}
         disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
-        className={`h-10 rounded-md border px-3 text-sm ${
+        // min-h-14 = 56dp below sm (§2.4); text-base because iOS Safari zooms
+        // the viewport on focus for anything under 16px. tabular-nums so the
+        // three boxes read as a column of figures — controller decision 1.1
+        // moved money off mono, and this is the property mono provided.
+        className={`min-h-14 rounded-md border px-3 text-base tabular-nums sm:min-h-0 sm:h-10 sm:text-sm ${
           derived ? "border-border bg-surface2 text-muted" : "border-border bg-surface text-text"
         }`}
       />

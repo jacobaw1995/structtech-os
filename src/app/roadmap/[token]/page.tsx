@@ -123,6 +123,12 @@ export default async function RoadmapPage({
 }) {
   const outcome = await loadRoadmap(decodeURIComponent(params.token));
 
+  // CONTROLLER DECISION 1.3 (2026-09-03) — the copy below no longer says "get
+  // in touch" or "ask StructTech". This page has no contact affordance and
+  // cannot have one until contact fields come through the RPC (Track S, W2),
+  // so pointing at a channel that is not on the page was a promise the page
+  // could not keep. It now points at the channel the reader demonstrably has:
+  // whoever sent them the link. No contact details are invented here.
   switch (outcome.kind) {
     case "ok":
       return <RoadmapView roadmap={outcome.roadmap} />;
@@ -131,7 +137,7 @@ export default async function RoadmapPage({
       return (
         <Message
           title="This roadmap link isn’t valid."
-          body="The link may have been mistyped, or it may have been replaced with a newer one. Ask StructTech for a current link and it will open right here."
+          body="The link may have been mistyped, or it may have been replaced with a newer one. Whoever sent you this link can send a current one, and it will open right here."
         />
       );
 
@@ -141,7 +147,7 @@ export default async function RoadmapPage({
       return (
         <Message
           title="This roadmap can’t be opened right now."
-          body="The link is being held by StructTech and is not readable from here yet. Nothing has been lost — get in touch and StructTech will open it up."
+          body="The link is being held by StructTech and is not readable from here yet. Nothing has been lost — reply to whoever sent you this link and it can be opened up."
           detail={outcome.detail}
         />
       );
@@ -150,7 +156,7 @@ export default async function RoadmapPage({
       return (
         <Message
           title="Something went wrong loading this roadmap."
-          body="This is a problem on our end, not with your link. Try again in a moment, and let StructTech know if it keeps happening."
+          body="This is a problem on our end, not with your link. Try again in a moment; if it keeps happening, reply to whoever sent you this link."
           detail={outcome.detail}
         />
       );

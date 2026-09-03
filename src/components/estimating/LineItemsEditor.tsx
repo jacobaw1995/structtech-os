@@ -3,6 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { formatMoney } from "@/lib/crm/stages";
 import { formatQty } from "@/lib/estimating/format";
+import { formatUnitPrice } from "@/lib/catalog/format";
 import { EditableField } from "@/components/estimating/EditableField";
 import {
   addEstimateDocumentLineItem,
@@ -68,8 +69,21 @@ export function LineItemsEditor({
   locked: boolean;
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
+  // U-W1.2 — the picker had no filter. At BMR's current catalog size that is
+  // survivable; at the 60-200 items a real catalog reaches it is a scroll-hunt
+  // inside a 16rem-tall box, on a tablet, in front of a homeowner.
+  const [pickerQuery, setPickerQuery] = useState("");
   const [order, setOrder] = useState<string[]>(lineItems.map((li) => li.id));
   const [dragId, setDragId] = useState<string | null>(null);
+
+  const pickerNeedle = pickerQuery.trim().toLowerCase();
+  const pickerResults = pickerNeedle
+    ? catalog.filter((p) =>
+        [p.name, p.category, p.unit]
+          .filter((v): v is string => Boolean(v))
+          .some((v) => v.toLowerCase().includes(pickerNeedle))
+      )
+    : catalog;
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
@@ -390,12 +404,18 @@ export function LineItemsEditor({
 
       {!locked && (
         <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-4">
+          {/* U-W1.2 — both of these were bare text links with no height. They
+              are the two most-tapped controls in the estimate builder and they
+              are tapped on a driveway tablet, so they are 56dp targets below
+              sm now (SCOPE §2.4). Neither is ever disabled by the other's
+              state (§2.8); `isPending` only guards a request already in
+              flight. */}
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               disabled={isPending}
               onClick={handleAdd}
-              className="text-sm text-accent-strong hover:underline disabled:opacity-60"
+              className="min-h-14 flex-1 rounded-md border border-accent px-4 text-sm font-medium text-accent-strong disabled:opacity-60 sm:min-h-0 sm:h-10 sm:flex-initial"
             >
               + Add line item
             </button>
@@ -407,7 +427,7 @@ export function LineItemsEditor({
                 type="button"
                 disabled={isPending}
                 onClick={() => setPickerOpen((v) => !v)}
-                className="text-sm text-muted hover:text-accent-strong hover:underline disabled:opacity-60"
+                className="min-h-14 flex-1 rounded-md border border-border px-4 text-sm text-text disabled:opacity-60 sm:min-h-0 sm:h-10 sm:flex-initial"
               >
                 {pickerOpen ? "Close catalog" : "From catalog"}
               </button>
@@ -415,29 +435,55 @@ export function LineItemsEditor({
           </div>
 
           {pickerOpen && (
-            <div className="max-h-64 overflow-y-auto rounded-lg border border-border bg-surface">
-              {catalog.map((product) => (
-                <button
-                  key={product.id}
-                  type="button"
-                  disabled={isPending}
-                  onClick={() => handleAddFromCatalog(product)}
-                  className="flex w-full items-center justify-between gap-4 border-b border-border px-3 py-2 text-left last:border-0 hover:bg-surface2 disabled:opacity-60"
-                >
-                  <span className="flex flex-col">
-                    <span className="text-sm text-text">{product.name}</span>
-                    <span className="text-xs text-muted">
-                      {[product.category, product.unit].filter(Boolean).join(" · ") || "—"}
-                    </span>
-                  </span>
-                  {/* Prices are absent, not blanked, for a caller without
-                      financials — list_products() already nulled them, and the
-                      picker simply has nothing to show. */}
-                  {canViewFinancials && (
-                    <span className="font-mono text-sm text-text">{formatMoney(product.sell)}</span>
-                  )}
-                </button>
-              ))}
+            <div className="rounded-lg border border-border bg-surface">
+              <div className="border-b border-border p-2">
+                <input
+                  type="search"
+                  value={pickerQuery}
+                  onChange={(e) => setPickerQuery(e.target.value)}
+                  placeholder="Filter catalog…"
+                  aria-label="Filter catalog items"
+                  autoFocus
+                  className="min-h-14 w-full rounded-md border border-border bg-bg px-3 text-base text-text outline-none placeholder:text-muted focus:border-accent sm:min-h-0 sm:h-9 sm:text-sm"
+                />
+              </div>
+              <div className="max-h-72 overflow-y-auto">
+                {pickerResults.length === 0 ? (
+                  <p className="px-3 py-4 text-sm text-muted">
+                    No catalog item matches “{pickerQuery}”. You can still add a blank
+                    line and type it in.
+                  </p>
+                ) : (
+                  pickerResults.map((product) => (
+                    <button
+                      key={product.id}
+                      type="button"
+                      disabled={isPending}
+                      onClick={() => handleAddFromCatalog(product)}
+                      className="flex min-h-14 w-full items-center justify-between gap-4 border-b border-border px-3 py-2 text-left last:border-0 hover:bg-surface2 disabled:opacity-60"
+                    >
+                      <span className="flex min-w-0 flex-col">
+                        <span className="truncate text-sm text-text">{product.name}</span>
+                        <span className="text-xs text-muted">
+                          {[product.category, product.unit].filter(Boolean).join(" · ") || "—"}
+                        </span>
+                      </span>
+                      {/* Prices are absent, not blanked, for a caller without
+                          financials — list_products() already nulled them, and the
+                          picker simply has nothing to show. formatUnitPrice, not
+                          formatMoney: this is the SAME number the catalog page
+                          shows, and formatMoney rounds a $19.20/lf item to $19.
+                          The two surfaces disagreeing about one product's price
+                          is worse than either being wrong alone. */}
+                      {canViewFinancials && (
+                        <span className="shrink-0 tabular-nums text-sm text-text">
+                          {formatUnitPrice(product.sell) ?? "—"}
+                        </span>
+                      )}
+                    </button>
+                  ))
+                )}
+              </div>
             </div>
           )}
         </div>

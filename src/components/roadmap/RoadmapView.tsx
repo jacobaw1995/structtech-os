@@ -257,8 +257,18 @@ export function RoadmapView({ roadmap }: { roadmap: RoadmapRow }) {
     Number.isFinite(roadmap.crew_size) ? `Crew of ${roadmap.crew_size}` : null,
   ].filter((v): v is string => v !== null);
 
-  const leak = formatMoney(roadmap.revenue_leak_monthly);
-  const leakAnnual = formatMoney(roadmap.revenue_leak_monthly * 12);
+  // formatMoney(null) returns the string "—", which is TRUTHY. Testing the
+  // formatted string meant `leak ? … : "Not estimated"` always took the first
+  // branch, so an unestimated roadmap rendered "—/mo" with a note reading
+  // "$0 a year if nothing changes" — `null * 12` is 0, not null. The
+  // "Not estimated" branch below had never once run. Test the NUMBER.
+  const leakMonthly =
+    typeof roadmap.revenue_leak_monthly === "number" &&
+    Number.isFinite(roadmap.revenue_leak_monthly)
+      ? roadmap.revenue_leak_monthly
+      : null;
+  const leak = leakMonthly === null ? null : formatMoney(leakMonthly);
+  const leakAnnual = leakMonthly === null ? null : formatMoney(leakMonthly * 12);
   const score = Number.isFinite(roadmap.score) ? roadmap.score : null;
   const scorePct = score === null ? 0 : Math.max(0, Math.min(100, score));
   const updated = formatDate(roadmap.updated_at);
@@ -341,11 +351,20 @@ export function RoadmapView({ roadmap }: { roadmap: RoadmapRow }) {
             }
           >
             {leak ? (
+              /* MONEY IS SANS — controller decision 1.1, 2026-09-03, which
+                 overrides the "mono for money" line in CLAUDE.md's design
+                 system. IBM Plex Mono gives the thousands comma a full
+                 monospace advance, so at 3xl "$3,100" rendered as "$3 , 100"
+                 and read as a typo in the client's own number. tabular-nums
+                 keeps the digits column-aligned, which is the only property
+                 mono was actually being used for here. Mono stays for IDs,
+                 tokens, dates, counts and versions — the score beside this
+                 is a count and keeps it. */
               <div className="flex items-baseline gap-1">
-                <span className="font-mono text-3xl font-semibold leading-none tracking-[-0.05em] text-[var(--warn-strong)]">
+                <span className="text-3xl font-semibold leading-none tracking-[-0.02em] tabular-nums text-[var(--warn-strong)]">
                   {leak}
                 </span>
-                <span className="font-mono text-sm text-muted">/mo</span>
+                <span className="text-sm text-muted">/mo</span>
               </div>
             ) : (
               <span className="text-sm text-muted">Not estimated</span>
