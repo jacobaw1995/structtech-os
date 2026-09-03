@@ -1,5 +1,5 @@
 -- A2.3 clause (3) — the ready-by gate becomes a POLICY LAYER OVER A FACT.
--- StructTech OS · 2026-09-03 · authored on Track S, NOT YET APPLIED.
+-- StructTech OS · 2026-09-03 · Track S. Applied via MCP apply_migration.
 --
 -- WHAT THIS IS NOT: it is not the purchase-order work. A2.3 clause (1) is
 -- blocked on a §5 gap (no PO object model) and is being designed separately as
@@ -61,6 +61,11 @@ comment on column public.schedule_blocks.ready_by_conflict_reason is
 --
 -- One row per tenant means the key CANNOT come to disagree with itself, which
 -- is the property tenant_modules.config could not offer (one row per module).
+-- DISCLOSURE, not a question: `organizations` is the SHARED TENANCY ROOT and
+-- Material Matrix has a row in it (the joint row of 2026-08-27). This change is
+-- additive with a default, so their row receives `{}` and nothing about it
+-- moves — but it is a schema change to a table they occupy, and D6/D7 say they
+-- are told rather than left to discover it. Sent by the controller 2026-09-03.
 alter table public.organizations
   add column if not exists policy jsonb not null default '{}'::jsonb;
 
