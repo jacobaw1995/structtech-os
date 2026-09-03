@@ -458,12 +458,151 @@ which is precisely what `PATH_SURFACE.md` §5.3 said no catalog query would find
 
 ## 8 · FILED, NOT FIXED — ORDERED
 
-| # | Finding | Where | Rule 13: what would have to change for this to open? |
-|---|---|---|---|
-| **1** | `generate_roadmap_for_lead` → `fetch_roadmap_by_token` returns full lead PII to any authenticated caller holding a lead UUID; also an unauthorised write into `client_roadmaps` | §5.3 | already open — gated only by a UUID nobody treats as a secret |
-| **2** | 5 definer config readers accept any `p_org_id` and return that tenant's configuration | §5.2 | already open |
-| **3** | Any user can self-promote `profiles.role` to `manager` | §4.4 | **somebody writes a policy or RPC that trusts `profiles.role`** — an absence, therefore NOT CLOSED |
-| **4** | `20260823143943_baseline.sql` re-grants `anon` ALL on 71 tables if replayed | §1.2 | somebody restores from the baseline |
-| **5** | `default_permissions_for_role`'s `else` branch is permissive, so a future 8th role gets financials by default | §2.3 | somebody adds a value to `org_members_role_check` |
-| **6** | 19 of 52 tables carry no `org_id`; the `leads`/`lead_*` family is scoped on role vocabulary B, not on org | §4.5 | already the case — bounded today only because those tables are empty or unreferenced |
-| **7** | `structtech_state`, `audits`, `proposals`, `prospects` have `CREATE TABLE` in neither repo nor ledger | directive §7.1 RULE 6 | — carried, unresolved |
+> **STATUS UPDATED 2026-09-02 BY TASK S-W1.1.** Findings 1, 2 and 3 are **CLOSED**, in two migrations
+> (`20260902220001`, `20260902220225`), both applied via MCP with repo files **md5-verified against
+> `supabase_migrations.statements`**. Finding 4 is **BOUNDED, NOT CLOSED**. Findings 5, 6 and 7 are
+> untouched and remain open. Proof for each is in §8.1 below; nothing here was closed by reasoning.
+
+| # | Finding | Where | Status | Rule 13: what would have to change for this to open? |
+|---|---|---|---|---|
+| **1** | `generate_roadmap_for_lead` → `fetch_roadmap_by_token` returns full lead PII to any authenticated caller holding a lead UUID; also an unauthorised write into `client_roadmaps` | §5.2 | ✅ **CLOSED 9/02** | somebody widens `audit_leads`' read policies without widening `generate_roadmap_for_lead`'s predicate to match — a **deliberate, documented coupling**, because a definer function owned by a `rolbypassrls` role cannot get an RLS-evaluated read |
+| **2** | 5 definer config readers accept any `p_org_id` and return that tenant's configuration | §5.2 | ✅ **CLOSED 9/02** | somebody removes the `my_org_ids()` guard from an entry point, **or grants `authenticated` EXECUTE on one of the three new `_internal` cores** — both edits visible in the diff that makes them |
+| **3** | Any user can self-promote `profiles.role` to `manager` | §4.4 | ✅ **CLOSED 9/02** | somebody drops the `WITH CHECK` on `pipeline_profiles_update_own`, or opens another write path to `profiles.role` |
+| **4** | `20260823143943_baseline.sql` re-grants `anon` ALL on 71 tables if replayed | §1.2 | 🟡 **BOUNDED 9/02, NOT CLOSED** | somebody restores from the baseline **and the corrective block appended 9/02 is removed or is not reached** — and, unchanged, **Material Matrix's 20 tables / 1 sequence / 2 functions are deliberately still re-opened by a replay**, reported to them rather than revoked by us |
+| **5** | `default_permissions_for_role`'s `else` branch is permissive, so a future 8th role gets financials by default | §2.3 | 🔴 OPEN | somebody adds a value to `org_members_role_check` |
+| **6** | 19 of 52 tables carry no `org_id`; the `leads`/`lead_*` family is scoped on role vocabulary B, not on org | §4.5 | 🔴 OPEN | already the case — bounded today only because those tables are empty or unreferenced |
+| **7** | `structtech_state`, `audits`, `proposals`, `prospects` have `CREATE TABLE` in neither repo nor ledger | directive §7.1 RULE 6 | 🔴 OPEN | — carried, unresolved |
+
+---
+
+## 8.1 · PROOF OF CLOSURE — S-W1.1, 2026-09-02
+
+Every probe below ran in a **rolled-back transaction**, as the **same real second-org identity used on
+2026-09-01** — Material Matrix `member` `c62adbfc-…`, holding **no StructTech and no BMR membership**, its
+starting state re-asserted by measurement (`auth.uid()` = `c62adbfc-…`, `my_org_ids()` = `{1084baa8-…}`
+and nothing else). Both controls ran **in the same transaction as every probe**:
+`select count(*) from deals` = **0** and `select count(*) from audit_leads` = **0**.
+
+### The five config readers — before and after
+
+| Call, as the OUTSIDER | BEFORE (9/02, pre-migration) | AFTER (9/02, post-migration) |
+|---|---|---|
+| `crm_stage_config(BMR)` | **LEAKED** BMR's full stage array | `P0001 not a member of organization 9d32b5a9-…` |
+| `crm_stage_entry(BMR,'new_lead')` | **LEAKED** `{"key":"new_lead",…}` | `P0001 not a member of organization 9d32b5a9-…` |
+| `crm_follow_up_cadence_days(BMR)` | **LEAKED** `{2,5}` | `P0001 not a member of organization 9d32b5a9-…` |
+| `tracker_status_config(StructTech)` | **LEAKED** StructTech's status set | `P0001 not a member of organization 034db6f4-…` |
+| `tracker_type_config(StructTech)` | **LEAKED** StructTech's type set | `P0001 not a member of organization 034db6f4-…` |
+| `crm_stage_config_internal(BMR)` — the new core, called directly | n/a (did not exist) | `42501 permission denied for function crm_stage_config_internal` |
+
+**Refusal form (rule 11), named rather than coded.** The five entry points return **`P0001`, a
+target-function refusal raised by the function itself** — the loudest available form, and the same message
+18 of our 23 org-parameterised definers already raise. The three `_internal` cores return **rule 11 FORM 1
+on the TARGET** (`permission denied for function <the function called>`, not a helper) — the privilege
+layer, stronger than the guard.
+
+**POSITIVE CONTROLS, same transaction.** The BMR owner (`d63871d2-…`, Isaac) sees **`deals` = 191** — the
+same figure as 8/31 and 9/01 — and `crm_stage_config(BMR)`, `crm_stage_entry(BMR)` and
+`crm_follow_up_cadence_days(BMR)` all **return normally**. `tracker_status_config` / `tracker_type_config`
+return normally for a StructTech member. The refusals are about the caller, not about the functions.
+
+### The roadmap chain — before and after
+
+| | BEFORE | AFTER |
+|---|---|---|
+| `generate_roadmap_for_lead(<real lead id>)` as the outsider | **SUCCEEDED**, minted a 32-char token | `P0001 lead not found or not accessible: e7b6fb64-…` |
+| `fetch_roadmap_by_token(<that token>)` | **RETURNED THE LEAD RECORD** (`Trigger Test \| Test Plumbing Co \| leak=7400`) | not reachable — no token is minted |
+
+**POSITIVE CONTROL:** a **StructTech member** (`09a25143-…`) calling `generate_roadmap_for_lead` on the same
+lead **still succeeds** (token length 32) and `fetch_roadmap_by_token` **still returns** the record. The
+function works; it now asks who is calling.
+
+**`fetch_roadmap_by_token` IS UNCHANGED, and that was verified rather than asserted:** same `sql` body, same
+`STABLE`, same pinned `search_path`, same `proacl` `{postgres=X, authenticated=X, service_role=X}` —
+**`anon` is still NOT granted EXECUTE**, and today's task deliberately did not grant it.
+
+### `profiles` self-promotion — before and after
+
+| Step, as the outsider | BEFORE | AFTER |
+|---|---|---|
+| `role` before | `salesman` | `salesman` |
+| `is_pipeline_manager()` before | `false` | `false` |
+| `update profiles set role='manager' where id = auth.uid()` | `ROWS=1` | `42501 new row violates row-level security policy for table "profiles"` |
+| `is_pipeline_manager()` after | **`true`** | `false` |
+| **POSITIVE CONTROL** — edit own non-role column | `ROWS=1` | **`ROWS=1`** |
+
+**The positive control is the whole point of this row.** The first attempted fix — a plain subselect on
+`profiles` inside the policy's `WITH CHECK` — *also* refused the self-promotion, and would have read as a
+pass. It raised `42P17 infinite recursion detected in policy for relation "profiles"` on **every** profile
+update, controls included: it was an outage wearing a fix's clothes. The shipped version uses a
+SECURITY DEFINER helper, `my_pipeline_role()`, for the same reason `my_org_ids()` is one.
+
+### THE HAZARD THIS TASK FOUND, AND THE CONTROL THAT PROVED IT
+
+The directive's fix shape — put the membership guard in the five config readers — **would have taken the
+public lead form down**, and that is measured, not predicted. `auto_create_deal` is `AFTER INSERT ON
+audit_leads`, `audit_leads` carries an **`Allow anon insert`** policy, and the trigger calls
+`crm_follow_up_cadence_days`. As `anon`, `auth.uid()` is NULL and `my_org_ids()` is empty.
+
+| Control, one rolled-back transaction | Result |
+|---|---|
+| `auto_create_deal` pointed at the **GUARDED** name → anonymous lead-form insert | **FAILED — `P0001 not a member of organization 034db6f4-…`** |
+| `auto_create_deal` pointed at the **`_internal` core** → anonymous lead-form insert | **SUCCEEDED** — 1 deal auto-created, 2 follow-ups scheduled, 3 days apart, i.e. StructTech's real configured `[2, 5]` |
+
+Re-verified on the **shipped** code after applying: the anonymous insert succeeds, 1 deal, 2 follow-ups,
+3 days apart.
+
+**One instrument failure is recorded rather than hidden.** The first version of that probe used
+`INSERT … RETURNING id`, which returned `42501 permission denied for table audit_leads` — `anon` holds
+`INSERT` but not `SELECT`, and `RETURNING` needs `SELECT`. That is **CLAUDE.md rule 11's own worked
+example**, walked into again. Re-probed without `RETURNING`.
+
+### Finding 4 — the baseline, measured (task §3)
+
+- **(a) Is it a row in `supabase_migrations.schema_migrations`? NO — zero rows.** It is the single
+  permanent REPO-ONLY file, already recorded as such in `supabase/_KNOWN_DIVERGENCE.md`.
+- **(b) Is anything verifying its md5 against `statements`? NO, and it cannot be** — there is no
+  `statements` to verify against. The append was therefore safe and the controller's conditional applied.
+- **(c) The count, reconciled.** "71" is **confirmed** as *table* grants to `anon` — all 71 name a
+  `public.*` object, out of **76 tables the dump creates in `public`**. But only **67** are `GRANT ALL`;
+  the other 4 (`wh_drivers`, `wh_order_line_items`, `wh_orders`, `wh_spec_files`) grant everything except
+  SELECT. **And the directive's 71 undercounts the anon surface: there are 11 more anon grants it did not
+  name — 7 on FUNCTIONS** (including `build_roadmap_levels`, `roadmap_playbook`, `protect_roadmap_columns`,
+  `bmr_ticket_touch`, `touch_leads_updated_at` — exactly the five that `20260829142810` revoked),
+  **3 on SEQUENCES** (two of them the `tg_agenda_*` pair revoked by `20260828170827`), and **`GRANT USAGE
+  ON SCHEMA public TO anon`**. The dump also grants `ALL` on the same 71 tables to **`authenticated`**, so a
+  replay undoes the 8/29 TRUNCATE revoke and all of A-PATH.1 as well. **A replay would undo five
+  migrations, not three.**
+- **What was done:** a **corrective block APPENDED** to the end of the file — nothing above it edited or
+  deleted, proved by md5 over the original 485,928 bytes (`280426ee66d6bc29a2e30c5524975bc8`, unchanged).
+  It covers **our 51** of the 71 tables (the 52nd, `products`, postdates the dump), our 2 sequences and our
+  5 functions, and restores the posture as **measured from the live catalog**, not reconstructed from the
+  migration texts. **Verified by execution:** running the block's statements against production in a
+  rolled-back transaction changed **0 of 413 objects' ACLs** once ACL members are sorted — the same
+  array-ordering artefact A1.0's axis 5 documented.
+- **Deliberately NOT done:** Material Matrix's 20 tables, 1 sequence and 2 functions are left as the dump
+  has them. Several of their anon grants serve a live storefront, and the 8/20 precedent is our migration
+  causing their outage. **Reported, not revoked.** A replay still re-opens their objects.
+
+---
+
+## 9 · ADVISORS AFTER S-W1.1 — RECORD ONLY (R9)
+
+**229 lints / 7 rules** (was **228 / 7** on 9/01).
+
+| Lint | 9/01 | 9/02 | Δ | Accounted for |
+|---|---|---|---|---|
+| `authenticated_security_definer_function_executable` | 127 | **128** | **+1** | **Ours** — `my_pipeline_role`. Its `authenticated` EXECUTE is **load-bearing**: the policy is scoped `TO authenticated` and is evaluated as that role |
+| `pg_graphql_authenticated_table_exposed` | 65 | 65 | 0 | — |
+| `rls_enabled_no_policy` (INFO) | 16 | 16 | 0 | — |
+| `pg_graphql_anon_table_exposed` | 16 | 16 | 0 | all Material Matrix's |
+| `anon_security_definer_function_executable` | 2 | **2** | 0 | both Material Matrix's; **ours is zero** |
+| `extension_in_public` · `auth_leaked_password_protection` | 1 · 1 | 1 · 1 | 0 | — |
+
+**The three `_internal` cores do NOT appear in the +1**, which is an independent confirmation that the
+`authenticated` revoke on them landed: four functions were created today and only one is listed.
+
+**R9 restated, and it is the same restatement as yesterday because nothing changed.** The advisor
+**registered nothing** about any of the six cross-tenant findings closed today, and would have registered
+nothing had they stayed open. They are application logic inside correctly-granted objects, which a
+seven-rule reachability lint cannot see by construction. The only delta it reports is a new function's
+reachability — a fact about the catalog, not about the tenant boundary. **Watch the delta, not the number.**

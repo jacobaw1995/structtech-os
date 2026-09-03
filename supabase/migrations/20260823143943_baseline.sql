@@ -13739,3 +13739,180 @@ ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON T
 
 \unrestrict v65cSZxwHh7NPmbCQZP8bi13kGeUWfazdJdYsLdQFKqPobjBam6dSRfCeYx85Ia
 
+
+
+--
+-- =========================================================================
+-- CORRECTIVE BLOCK -- APPENDED 2026-09-02 BY TASK S-W1.1.
+-- NOT PART OF THE 2026-08-23 pg_dump ABOVE.
+-- =========================================================================
+--
+-- WHY THIS EXISTS. Everything above this line is a faithful
+-- `pg_dump --schema-only ... WITH privileges` of production as it stood on
+-- 2026-08-23, and it is left byte-for-byte intact (directive Rule 1: a
+-- reconciled file reproduces what ran). Nothing above has been edited or
+-- deleted, and this block is appended rather than substituted so that both
+-- halves stay visible -- the same reasoning as the deliberate `created_at`
+-- divergence comment on the joint organizations row.
+--
+-- But the dump hard-codes `GRANT ALL ON TABLE public.<t> TO anon;` for 71
+-- tables and the same for `authenticated`, plus 7 anon GRANTs on functions,
+-- 3 on sequences and USAGE on the schema. Those are EXPLICIT grants in a
+-- file, so they are immune to `ALTER DEFAULT PRIVILEGES`, and replaying this
+-- file as-is would silently undo every privilege closure made since:
+--
+--   20260828170827  revoke anon on the two tg_agenda_* sequences
+--   20260829142743  the 49-table anon sweep (and the deliberate anon INSERT on audit_leads)
+--   20260829142810  revoke PUBLIC/anon EXECUTE on five unrevoked functions
+--   20260829145248  revoke TRUNCATE from authenticated on our tables
+--   20260831184958  revoke TRIGGER / MAINTAIN / REFERENCES from authenticated;
+--                   full DML off the 7 RLS-on/zero-policy tables; setval off our 2 sequences
+--
+-- The statements below restore the posture those five migrations produced, as
+-- MEASURED from the live catalog on 2026-09-02 -- not reconstructed from the
+-- migration texts.
+--
+-- SCOPE, STATED BECAUSE IT IS DELIBERATELY NARROW. This block touches only
+-- StructTech OS objects: 51 of the dump's 71 anon-granted tables, our 2
+-- sequences, our 5 functions. The other 20 tables, 1 sequence
+-- (wh_order_number_seq) and 2 functions (create_wh_order, get_wh_order) are
+-- MATERIAL MATRIX's; several of their anon grants are deliberate and serve a
+-- live storefront. They are REPORTED to that project, not revoked here --
+-- the 2026-08-20 precedent is our migration causing their outage.
+-- MM's objects therefore REMAIN OPEN on a replay of this file.
+--
+-- (Our 52nd table, public.products, was created 2026-08-25 and does not appear
+-- in this dump, so it needs no correction here.)
+--
+-- The baseline has NO row in supabase_migrations.schema_migrations -- it is the
+-- single permanent REPO-ONLY file recorded in supabase/_KNOWN_DIVERGENCE.md --
+-- so no md5-against-`statements` check is broken by this append. That was
+-- verified before writing (task S-W1.1 clauses (a) and (b)).
+--
+
+REVOKE ALL ON TABLE
+    public.audit_leads,
+    public.audits,
+    public.check_ins,
+    public.client_roadmaps,
+    public.deal_activity,
+    public.deal_notes,
+    public.deals,
+    public.engagement_checkins,
+    public.engagement_levels,
+    public.engagement_milestones,
+    public.engagements,
+    public.estimate_line_items,
+    public.estimate_number_counters,
+    public.estimates,
+    public.follow_ups,
+    public.jobs,
+    public.lead_activity,
+    public.lead_appointments,
+    public.lead_notes,
+    public.leads,
+    public.material_items,
+    public.migration_bmr_activity_raw,
+    public.migration_bmr_id_map,
+    public.migration_bmr_leads_raw,
+    public.migration_bmr_notes_raw,
+    public.migration_bmr_users_raw,
+    public.org_invites,
+    public.org_invoices,
+    public.org_members,
+    public.org_systems,
+    public.organizations,
+    public.pipeline_invites,
+    public.production_packets,
+    public.profiles,
+    public.proposals,
+    public.prospects,
+    public.roadmap_items,
+    public.roadmap_projects,
+    public.schedule_blocks,
+    public.signatures,
+    public.staff_invites,
+    public.staff_users,
+    public.structtech_state,
+    public.tenant_modules,
+    public.ticket_messages,
+    public.tickets,
+    public.tracker_items,
+    public.tracker_projects,
+    public.work_order_activity,
+    public.work_order_agreements,
+    public.work_orders
+  FROM anon, authenticated;
+
+-- 44 of our 51 carry ordinary DML for authenticated; RLS is the mediator there.
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE
+    public.audit_leads,
+    public.audits,
+    public.check_ins,
+    public.client_roadmaps,
+    public.deal_activity,
+    public.deal_notes,
+    public.deals,
+    public.engagement_checkins,
+    public.engagement_levels,
+    public.engagement_milestones,
+    public.engagements,
+    public.estimate_line_items,
+    public.estimates,
+    public.follow_ups,
+    public.jobs,
+    public.lead_activity,
+    public.lead_appointments,
+    public.lead_notes,
+    public.leads,
+    public.material_items,
+    public.org_invites,
+    public.org_invoices,
+    public.org_members,
+    public.org_systems,
+    public.organizations,
+    public.pipeline_invites,
+    public.production_packets,
+    public.profiles,
+    public.proposals,
+    public.prospects,
+    public.roadmap_items,
+    public.roadmap_projects,
+    public.schedule_blocks,
+    public.signatures,
+    public.staff_invites,
+    public.staff_users,
+    public.tenant_modules,
+    public.ticket_messages,
+    public.tickets,
+    public.tracker_items,
+    public.tracker_projects,
+    public.work_order_activity,
+    public.work_order_agreements,
+    public.work_orders
+  TO authenticated;
+
+-- The other 7 keep NOTHING for either role. They have RLS on and ZERO policies,
+-- so on those tables the GRANT is the control, not RLS (20260831184958):
+--   estimate_number_counters, structtech_state, and the five migration_bmr_*.
+
+-- The one deliberate anon grant that is kept: the public lead form posts here.
+GRANT INSERT ON TABLE public.audit_leads TO anon;
+
+-- Our 2 sequences: anon removed entirely; authenticated keeps SELECT + USAGE
+-- but NOT UPDATE, which is what closes setval().
+REVOKE ALL ON SEQUENCE public.tg_agenda_card_id_seq, public.tg_agenda_contact_id_seq
+  FROM anon, authenticated;
+GRANT SELECT, USAGE ON SEQUENCE public.tg_agenda_card_id_seq, public.tg_agenda_contact_id_seq
+  TO authenticated;
+
+-- Our 5 functions that the dump grants to anon. CLAUDE.md rule 7: the grant
+-- that actually matters is the one on PUBLIC (the leading `=X` in proacl), so
+-- `public` must be named -- revoking `anon` alone is a no-op.
+REVOKE EXECUTE ON FUNCTION public.bmr_ticket_touch() FROM public, anon;
+REVOKE EXECUTE ON FUNCTION public.build_roadmap_levels(p_answers jsonb, p_crew integer) FROM public, anon;
+REVOKE EXECUTE ON FUNCTION public.protect_roadmap_columns() FROM public, anon;
+REVOKE EXECUTE ON FUNCTION public.roadmap_playbook(q text) FROM public, anon;
+REVOKE EXECUTE ON FUNCTION public.touch_leads_updated_at() FROM public, anon;
+
+-- END CORRECTIVE BLOCK
