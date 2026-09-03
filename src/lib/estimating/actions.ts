@@ -395,7 +395,10 @@ async function runScopeGeneration(
     supabase.from("tenant_modules").select("config").eq("org_id", orgId).eq("module_key", "estimating"),
   ]);
 
-  const lccConfig = parseLeadControlCenterConfig(crmModuleRows?.[0]?.config ?? null);
+  // No tenant policy passed deliberately: this path uses the config's FIELDS
+  // and CHECKLISTS to build scope line items and never reads enforceStageGating.
+  // Fetching a policy here would imply a dependency that does not exist.
+  const lccConfig = parseLeadControlCenterConfig(crmModuleRows?.[0]?.config ?? null, null);
   const scopeConfig = parseScopeLineItemsConfig(estimatingModuleRows?.[0]?.config ?? null);
 
   const { items, unmapped, unparseable } = generateScopeLineItems(deal, lccConfig, scopeConfig);
