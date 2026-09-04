@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import type { Database } from "@/lib/supabase/database.types";
+import { clientInfoHeaders } from "@/lib/supabase/client-info";
 
 /**
  * Server-side Supabase client. Use in Server Components, Server Actions, and
@@ -15,6 +16,9 @@ export function createClient() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      // Tags every request so our rows are separable from the other tenant's
+      // in the shared project's edge log — see client-info.ts.
+      global: clientInfoHeaders("server"),
       cookies: {
         getAll() {
           return cookieStore.getAll();
