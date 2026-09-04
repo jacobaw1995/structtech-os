@@ -466,6 +466,11 @@ UNATTRIBUTED.**
 > establishes. The second is a claim about the world that a client-controlled field cannot support,
 > and it is the same error shape as rule 11 form 2 — reading a silence as a fact.
 
+### 8.5 · Carried forward, 2026-09-04
+
+- **The `product-photos` reciprocal:** MM's 35 objects there are fully visible to a BMR-authenticated caller and that is very likely deliberate for a public storefront — **but the day StructTech writes a customer file into that bucket it is readable cross-tenant with no policy change and no advisor movement**, and that is the decision to take before it happens rather than after.
+- **A branch moved under this session mid-read:** `track-u` gained `8e4aca8` at **14:18:18 EDT**, 34 seconds after the diff was taken, and the tell was a **merge-base that contradicted the diff** — an observation surface has a *time* axis as well as a permission axis, and a reading is only true as of its instant.
+
 ### 8.4 · What this section does NOT cover
 
 - **The dashboard itself.** Every row above was probed through SQL. The console exposes Auth users,
