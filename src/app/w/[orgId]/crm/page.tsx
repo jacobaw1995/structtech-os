@@ -68,7 +68,15 @@ export default async function CrmPage({
 
   const rawConfig = moduleRow?.[0]?.config ?? null;
   const stages = parseCrmStages(rawConfig);
-  const lccConfig = parseLeadControlCenterConfig(rawConfig);
+  // enforce_stage_gating is a TENANT policy, not a CRM module setting (A2.3).
+  // Read from `organizations.policy`; a missing row or column means OFF, which
+  // is SCOPE §2.8's required default and the value every tenant carries today.
+  const { data: orgPolicyRow } = await supabase
+    .from("organizations")
+    .select("policy")
+    .eq("id", params.orgId)
+    .maybeSingle();
+  const lccConfig = parseLeadControlCenterConfig(rawConfig, orgPolicyRow?.policy ?? null);
   const members = memberRows ?? [];
   const canViewFinancials = viewFinancials === true;
   const dealList = ((deals ?? []) as Deal[]).map((deal) =>

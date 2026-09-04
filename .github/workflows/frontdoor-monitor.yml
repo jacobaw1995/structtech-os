@@ -1,0 +1,119 @@
+# StructTech OS — front-door monitor.  Track X, X-W1.1, 2026-09-02.
+#
+# HOST CHOICE, and why it is GitHub Actions rather than Vercel Cron:
+#   · Free and unmetered on a public repo.
+#   · INDEPENDENT OF VERCEL.  os.structtek.com is a Vercel deployment; a
+#     monitor hosted on Vercel dies with the thing it watches and reports
+#     nothing at the exact moment it is needed.
+#   · It already has an alert channel that costs no new account: GitHub emails
+#     the repository owner when a scheduled workflow fails.
+#   · Known blind spot, stated rather than hidden: audit.structtek.com is
+#     GitHub Pages, so a GitHub-wide incident can take out that door and this
+#     monitor together.  No free host is independent of both.  Closing it
+#     needs an external dead-man's switch — see track-x/ACCOUNT_INVENTORY.
+#
+# WHEN THE MONITOR ITSELF DIES:
+#   A red run emails the owner.  SILENCE DOES NOT.  GitHub's own dead-man
+#   behaviours (it disables schedules on a repo with 60 days of no activity,
+#   and emails the owner when it does) are the only free backstop, and
+#   scheduled runs are best-effort — GitHub drops them under load.  So
+#   "no failure email" is NOT evidence the doors are up.  The heartbeat
+#   account in the inventory is what turns that from a hope into a control.
+
+name: front-door monitor
+
+on:
+  schedule:
+    # Every 15 minutes.  GitHub runs `schedule` on the DEFAULT BRANCH only, so
+    # this does nothing until this file is on `main`.
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+  push:
+    # Present so the monitor and its failure-path proof can be exercised in
+    # the real runner from a branch, before anything is trusted on main.
+    paths:
+      - 'scripts/monitor/**'
+      - '.github/workflows/frontdoor-monitor.yml'
+
+concurrency:
+  group: front-door-monitor
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  monitor:
+    name: check the front doors
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # The Material Matrix guard failed because `cmp` and `diff` were not in
+      # the build image and `command not found` was reported as a finding.
+      # This step makes the equivalent impossible to introduce silently: the
+      # monitor is asserted to use no external binary at all.
+      - name: assert the monitor needs no external binaries
+        run: |
+          if grep -nE "child_process|execSync|spawnSync" scripts/monitor/frontdoor-monitor.mjs; then
+            echo "::error::the monitor shells out — it can now fail on a missing binary (the MM failure mode)"
+            exit 1
+          fi
+          node --check scripts/monitor/frontdoor-monitor.mjs
+          echo "node $(node -v); no shell-outs; no npm install"
+
+      - name: run the monitor
+        run: node scripts/monitor/frontdoor-monitor.mjs
+
+  failure-path-proof:
+    # Not on the schedule — this is the guard on the guard.  It runs whenever
+    # the monitor changes, and goes red the moment the monitor loses its
+    # ability to tell "the door is broken" from "I could not tell".
+    name: prove the failure paths in the real runner
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: classifier self-test (the branches production must never reach)
+        run: MONITOR_SELFTEST=1 node scripts/monitor/frontdoor-monitor.mjs
+
+      - name: fault injection — each mode must produce its OWN verdict
+        run: |
+          set -u
+          fails=0
+          expect () {          # expect <mode> <exit-code> <why>
+            mode="$1"; want="$2"; why="$3"
+            echo "::group::MONITOR_FAULT=$mode  (expect exit $want — $why)"
+            set +e
+            MONITOR_FAULT="$mode" MONITOR_TIMEOUT_MS="${4:-15000}" node scripts/monitor/frontdoor-monitor.mjs
+            got=$?
+            set -e
+            echo "--> exit $got (wanted $want)"
+            echo "::endgroup::"
+            if [ "$got" != "$want" ]; then
+              echo "::error::fault mode '$mode' exited $got, wanted $want — $why"
+              fails=$((fails+1))
+            fi
+          }
+
+          # 0 = healthy · 1 = FAIL (outage claim) · 2 = ERROR (undetermined)
+          expect ""         0 "the real doors are up"
+          expect content    1 "real hosts, real 200s, required content absent — this MUST read as an outage"
+          expect network    2 "unresolvable host — the monitor is blind, the doors may be fine. MUST NOT read as an outage"
+          expect timeout    2 "the monitor was too slow — MUST NOT read as an outage" 1
+          expect noconfig   2 "no target configured — 'I was never told where to look' is not 'it is down'"
+
+          if [ "$fails" -ne 0 ]; then
+            echo "::error::$fails fault mode(s) misgraded. The monitor cannot tell an outage from its own breakage; do not trust it."
+            exit 1
+          fi
+          echo "All fault modes graded correctly in the real runner."

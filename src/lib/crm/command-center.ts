@@ -250,17 +250,39 @@ function parseLeadTypeOptions(raw: unknown): LeadTypeOption[] {
  * empty, safe config — every downstream function in this file treats that
  * as "0 stages, 0 checklists, 0 fields" rather than throwing.
  */
-export function parseLeadControlCenterConfig(config: Json | null | undefined): LeadControlCenterConfig {
-  if (!isRecord(config)) return EMPTY_CONFIG;
+export function parseLeadControlCenterConfig(
+  config: Json | null | undefined,
+  tenantPolicy?: Json | null
+): LeadControlCenterConfig {
+  // `enforce_stage_gating` is read from the TENANT, not from this module's
+  // config. It answers "does this tenant enforce process", which is true or
+  // false for the whole tenant — coordination's ready-by gate reads the same
+  // switch (A2.3). It lived under `lead_control_center` only because the CRM
+  // needed it first; a second consumer is what exposed that as accidental.
+  // Sourced here rather than in each consumer so there is exactly one reader
+  // and the two modules cannot come to disagree — A2.0's lesson.
+  const enforceStageGating = parseEnforceStageGating(tenantPolicy);
+  if (!isRecord(config)) return { ...EMPTY_CONFIG, enforceStageGating };
   const lcc = (config as Record<string, unknown>).lead_control_center;
-  if (!isRecord(lcc)) return EMPTY_CONFIG;
+  if (!isRecord(lcc)) return { ...EMPTY_CONFIG, enforceStageGating };
   return {
     leadTypeOptions: parseLeadTypeOptions(lcc.lead_type_options),
     commandStages: parseCommandStages(lcc.command_stages),
     checklists: parseChecklists(lcc.checklists),
     fields: parseFields(lcc.fields),
-    enforceStageGating: asBoolean(lcc.enforce_stage_gating, false),
+    enforceStageGating,
   };
+}
+
+/**
+ * Parses `organizations.policy -> enforce_stage_gating`. Defensive in the same
+ * way as every other parser in this file: a missing column, a null policy, a
+ * malformed object or a non-boolean value all mean OFF. SCOPE §2.8 requires
+ * this default, so it is expressed as the fallback rather than assumed.
+ */
+export function parseEnforceStageGating(policy: Json | null | undefined): boolean {
+  if (!isRecord(policy)) return false;
+  return asBoolean((policy as Record<string, unknown>).enforce_stage_gating, false);
 }
 
 // ============================================================================
