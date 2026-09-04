@@ -29,8 +29,8 @@ type FieldJob = {
   crew_name: string | null;
   start_date: string;
   end_date: string;
-  blocked: boolean;
-  blocked_reason: string | null;
+  ready_by_conflict: boolean;
+  ready_by_conflict_reason: string | null;
   job_title: string | null;
   site_address: string | null;
   squares: number | null;
@@ -84,7 +84,7 @@ export default async function FieldTodayPage({
           {jobs.map((job) => {
             const jobTitle = job.job_title || "Untitled job";
             const status = scheduleBlockStatus(job.start_date, job.end_date, todayIso);
-            const active = status.state === "active" && !job.blocked;
+            const active = status.state === "active" && !job.ready_by_conflict;
 
             return (
               <Link
@@ -110,9 +110,9 @@ export default async function FieldTodayPage({
                   </p>
                 </div>
 
-                {job.blocked && (
+                {job.ready_by_conflict && (
                   <p className="rounded-md bg-warn-soft px-2 py-1 text-xs text-text">
-                    {job.blocked_reason ?? "blocked on materials"}
+                    {job.ready_by_conflict_reason ?? "materials are not ready yet"}
                   </p>
                 )}
 

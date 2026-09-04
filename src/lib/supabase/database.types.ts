@@ -1641,6 +1641,7 @@ export type Database = {
           deal_id: string | null
           id: string
           name: string
+          policy: Json
           tenant_type: string
           trade: string | null
         }
@@ -1649,6 +1650,7 @@ export type Database = {
           deal_id?: string | null
           id?: string
           name: string
+          policy?: Json
           tenant_type?: string
           trade?: string | null
         }
@@ -1657,6 +1659,7 @@ export type Database = {
           deal_id?: string | null
           id?: string
           name?: string
+          policy?: Json
           tenant_type?: string
           trade?: string | null
         }
@@ -2046,8 +2049,8 @@ export type Database = {
       }
       schedule_blocks: {
         Row: {
-          blocked: boolean
-          blocked_reason: string | null
+          ready_by_conflict: boolean
+          ready_by_conflict_reason: string | null
           created_at: string
           crew_name: string
           end_date: string
@@ -2058,8 +2061,8 @@ export type Database = {
           work_order_id: string
         }
         Insert: {
-          blocked?: boolean
-          blocked_reason?: string | null
+          ready_by_conflict?: boolean
+          ready_by_conflict_reason?: string | null
           created_at?: string
           crew_name: string
           end_date: string
@@ -2070,8 +2073,8 @@ export type Database = {
           work_order_id: string
         }
         Update: {
-          blocked?: boolean
-          blocked_reason?: string | null
+          ready_by_conflict?: boolean
+          ready_by_conflict_reason?: string | null
           created_at?: string
           crew_name?: string
           end_date?: string

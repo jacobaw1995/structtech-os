@@ -9,8 +9,11 @@ type ScheduleBlock = Database["public"]["Tables"]["schedule_blocks"]["Row"];
 
 // List view, not the wireframe's day-position grid — a materials-gated
 // schedule a crew can actually read on a phone mattered more than
-// replicating the desktop week-grid this week. blocked/blocked_reason (the
-// grid's hatch + caption) carry over as a plain warning row instead. Same
+// replicating the desktop week-grid this week. ready_by_conflict/
+// ready_by_conflict_reason (the grid's hatch + caption) carry over as a plain
+// warning row instead — the column names the FACT (materials are not ready by
+// this start date); whether that warns here or is refused at the RPC is the
+// tenant's enforce_stage_gating policy, not this component's business. Same
 // auto-submit-on-blur editing pattern as MaterialItemRow.
 export function ScheduleBlockRow({
   orgId,
@@ -87,12 +90,12 @@ export function ScheduleBlockRow({
           </button>
         </form>
       </div>
-      {block.blocked && (
+      {block.ready_by_conflict && (
         <p className="rounded-md bg-warn-soft px-2 py-1 text-xs text-text">
-          {block.blocked_reason ?? `blocked — start date before materials are ready`}
+          {block.ready_by_conflict_reason ?? `materials are not ready by this start date`}
         </p>
       )}
-      {!block.blocked && (
+      {!block.ready_by_conflict && (
         <p className="text-xs text-muted">
           {formatDateOnly(block.start_date)} – {formatDateOnly(block.end_date)}
         </p>
