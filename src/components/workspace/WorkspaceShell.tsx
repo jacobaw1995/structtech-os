@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "@/lib/auth/actions";
+import { isManagerRole } from "@/lib/permissions/model";
 import {
   moduleLabel,
   type ActiveMembership,
@@ -293,6 +294,30 @@ export function WorkspaceShell({
               </Link>
             );
           })}
+
+          {/* G3 — org administration, below the modules and separated from
+              them, because it is not one. Manager-tier only: this mirrors
+              is_org_manager()'s role list and is a VISIBILITY gate, not the
+              security boundary (the page reads through RLS and has no write
+              path at all). Not §2.8 blocking — §2.8 is about refusing data
+              entry the user is entitled to make, not about showing everyone
+              an administration screen. */}
+          {isManagerRole(active.role) && (
+            <>
+              <div className="mt-2 border-t border-border pt-2" />
+              <Link
+                href={`/w/${orgId}/settings/permissions`}
+                onClick={() => setDrawerOpen(false)}
+                className={`flex min-h-14 items-center rounded-md px-3 text-sm sm:min-h-0 sm:py-2 ${
+                  pathname === `/w/${orgId}/settings/permissions`
+                    ? "bg-accent-soft font-medium text-accent-strong"
+                    : "text-muted hover:bg-surface2 hover:text-text"
+                }`}
+              >
+                Roles &amp; permissions
+              </Link>
+            </>
+          )}
         </nav>
 
         {/* min-w-0 is load-bearing: a flex item defaults to min-width:auto,
