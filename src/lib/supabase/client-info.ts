@@ -59,16 +59,30 @@ export function clientInfoHeaders(
 }
 
 // ---------------------------------------------------------------------------
-// THE CANONICAL QUERY. Verified end to end 2026-09-04 14:27 EDT: a request
-// carrying `x-client-info: structtech-os/server` was sent, and came back out of
-// the edge log under exactly this filter. The tag is not a proposal.
+// THE CANONICAL QUERY.
+//
+// THE FILTER IS UNANCHORED, AND THAT IS THE WHOLE POINT. `@supabase/ssr` does
+// not REPLACE x-client-info with the value passed in `global.headers` — it
+// APPENDS ours to its own. The real header on the deployed roadmap route,
+// read out of the edge log 2026-09-05 10:22 EDT, is:
+//
+//     "supabase-ssr/0.12.0 createServerClient, structtech-os/server"
+//
+// An anchored `like 'structtech-os/%'` does not match that. This file shipped
+// on 2026-09-04 with the anchored form, and it "passed" because it was proved
+// with a raw curl that set the header directly and had no library prefix in
+// front of it. Measured over the 24 h to 2026-09-05 14:30Z, against a
+// denominator of 124 edge rows: the anchored filter matched 1 row — the curl
+// proof itself — and the unanchored filter matched 2, the second being the
+// only real application traffic there was. THE ANCHORED FILTER MISSED EXACTLY
+// THE TRAFFIC IT EXISTS TO FIND, and it did so while reporting a pass.
 //
 //   select
 //     count(*)                                                as denominator,
 //     countIf(log_attributes['request.headers.x_client_info']
-//               like 'structtech-os/%')                       as ours,
+//               like '%structtech-os/%')                      as ours,
 //     countIf(log_attributes['request.headers.x_client_info']
-//               not like 'structtech-os/%')                   as not_ours
+//               not like '%structtech-os/%')                  as not_ours
 //   from logs
 //   where source = 'edge_logs'
 //     and log_attributes['request.path'] like '/rest/v1/rpc/fetch_roadmap%'

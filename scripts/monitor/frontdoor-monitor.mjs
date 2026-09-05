@@ -259,6 +259,64 @@ async function run() {
     return pass(`${Math.min(assets.length, 8)} of ${assets.length} referenced build assets resolve with a non-empty body`);
   });
 
+  // 1.3 THE ROADMAP ROUTE, AND THE REASON IT NEEDS ITS OWN ASSERTION.
+  //     /roadmap/<token> is the only PUBLIC, UNAUTHENTICATED page this build
+  //     serves. D1.1 and D1.2 both probe `/`, which is the login shell — they
+  //     would stay green with this route 500ing or deleted, because nothing
+  //     they look at touches it.
+  //
+  //     IT ASSERTS THE ROUTE RENDERS ONE OF ITS DESIGNED BRANCHES, NOT ONE
+  //     PARTICULAR BRANCH. With a token that cannot exist, exactly two of the
+  //     four outcomes in the route are correct: `restricted` (today — anon
+  //     holds no EXECUTE on fetch_roadmap_by_token, so the call is refused
+  //     42501) and `not_found` (after that grant lands, since the token is
+  //     still nonsense). Pinning the assertion to today's branch would turn
+  //     the grant — a change we intend to make — into a red monitor, and a
+  //     monitor that goes red for correct changes is one people learn to
+  //     ignore. The branch actually taken is printed either way, so the
+  //     transition is legible in the run log when it happens.
+  //
+  //     KNOWN GAP, STATED RATHER THAN PAPERED OVER: the route maps PGRST202
+  //     into `restricted` too, and PGRST202 is what PostgREST returns when the
+  //     function is ABSENT from its schema cache. So a DROPPED
+  //     fetch_roadmap_by_token renders identically to a missing grant and this
+  //     probe stays green. It cannot separate them from outside; only the
+  //     printed detail string distinguishes them, and only to a reader. This
+  //     check covers "the route is serving", not "the function still exists".
+  await check('D1.3', 'os.structtek.com', 'public roadmap route', async () => {
+    // A token that cannot collide with a real one, so this never opens a
+    // client's roadmap and never needs a real token to run.
+    const res = await probe(`${cfg.osBase}/roadmap/frontdoor-monitor-nonexistent-token`, {}, cfg.timeoutMs);
+
+    if (res.status !== 200) {
+      return fail(`HTTP ${res.status} from the public roadmap route — the only unauthenticated page in the build is not serving. Body: ${res.body.slice(0, 200)}`);
+    }
+
+    // Chrome first: proves this is OUR page and not an edge/CDN error document
+    // that happens to contain prose.
+    const chrome = classifyContains(res, ['Operations Roadmap', 'StructTech']);
+    if (chrome.status !== 'PASS') return chrome;
+
+    // Copy chosen to avoid the typographic apostrophes in the headings — the
+    // headings render U+2019 raw, and matching on it is a byte-level
+    // dependency on a character nobody would think to preserve in an edit.
+    const RESTRICTED = 'The link is being held by StructTech and is not readable from here yet.';
+    const NOT_FOUND  = 'The link may have been mistyped';
+    const ERRORED    = 'This is a problem on our end, not with your link.';
+
+    if (res.body.includes(ERRORED)) {
+      return fail('the roadmap route rendered its ERROR branch — the RPC failed with something other than a permissions/absence code, which is a backend fault, not a closed door');
+    }
+    if (res.body.includes(RESTRICTED)) {
+      const code = res.body.match(/(42501|PGRST202|PGRST301)/)?.[1] ?? 'code not printed';
+      return pass(`HTTP 200, designed branch = restricted (${code}) — the route is serving and refusing correctly`);
+    }
+    if (res.body.includes(NOT_FOUND)) {
+      return pass('HTTP 200, designed branch = not_found — the RPC was reachable and matched nothing, so anon EXECUTE has landed');
+    }
+    return fail('HTTP 200 with our chrome but NONE of the route\'s designed branch copy — the page rendered something it has no code path to render');
+  });
+
   // === DOOR 2 · audit.structtek.com — the live lead-capture revenue path ===
 
   await check('D2.1', 'audit.structtek.com', 'shell/chrome', async () => {

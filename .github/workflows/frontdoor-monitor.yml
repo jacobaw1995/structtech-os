@@ -100,6 +100,47 @@ jobs:
           SCHEDULE_MAX_GAP_MINUTES: '360'
         run: node scripts/monitor/schedule-drift.mjs
 
+      # DEAD-MAN'S PING — the only control that can catch the schedule DYING
+      # rather than merely degrading. The drift check above runs INSIDE a
+      # scheduled run, so if the schedule stops entirely it never executes and
+      # says nothing; GitHub emails on a RED run and never on an ABSENT one.
+      # An external service that alerts when a ping FAILS TO ARRIVE closes
+      # that, and nothing hosted here can.
+      #
+      # BUILT INERT ON PURPOSE. `DEADMAN_PING_URL` does not exist yet. The
+      # step's `if` reads the secret through an env var (secrets are not
+      # available in step-level `if` expressions directly) and SKIPS with a
+      # visible notice when it is absent, so this never fails a run while the
+      # account does not exist and works the moment it does — no second edit.
+      #
+      # It runs on `success()` only. Pinging after a FAILED door check would
+      # tell the dead-man's service "alive" at the exact moment the monitor is
+      # reporting an outage, which is the one time the two signals must not be
+      # merged. A red run emails; this is for silence.
+      - name: dead-man's ping (skips until DEADMAN_PING_URL exists)
+        if: success() && github.event_name == 'schedule'
+        env:
+          DEADMAN_PING_URL: ${{ secrets.DEADMAN_PING_URL }}
+        run: |
+          # Explicit rather than inherited. GitHub's default `run` shell is
+          # `bash -e`, so a failing curl would abort anyway — but exercising
+          # this block locally under a plain `bash -c` printed "ping
+          # delivered" after curl had failed to resolve the host, exit 0.
+          # A dead-man's ping that reports delivery it did not achieve is
+          # worse than no ping: the external service alerts, and the run log
+          # says everything was fine. Do not depend on the harness default.
+          set -euo pipefail
+          if [ -z "${DEADMAN_PING_URL:-}" ]; then
+            echo "::notice title=dead-man's ping not configured::DEADMAN_PING_URL is not set, so nothing is watching for this workflow's SILENCE. The drift check catches degradation; only this catches death. See scripts/monitor/README-deadman.md."
+            exit 0
+          fi
+          # --fail so an HTTP error is a real failure; -sS to stay quiet but
+          # still print the error. The URL is a secret and is never echoed.
+          curl --fail --silent --show-error --max-time 20 \
+               --retry 3 --retry-delay 5 --retry-all-errors \
+               -o /dev/null "$DEADMAN_PING_URL"
+          echo "dead-man's ping delivered."
+
   failure-path-proof:
     # Not on the schedule — this is the guard on the guard.  It runs whenever
     # the monitor changes, and goes red the moment the monitor loses its
