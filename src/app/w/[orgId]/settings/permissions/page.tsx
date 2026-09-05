@@ -1,12 +1,15 @@
 import Link from "next/link";
 import { getWorkspaceContext } from "@/lib/workspace/context";
 import { CapabilityGrid, GridLegend } from "@/components/permissions/CapabilityGrid";
+import { RoleReference } from "@/components/permissions/RoleReference";
 import {
   buildGrid,
   isManagerRole,
   CAPABILITIES,
   ENFORCEMENT,
   NO_WRITE_PATH_REASON,
+  driftFromRoleDefault,
+  grantedCountForRole,
   type OrgMemberRow,
 } from "@/lib/permissions/model";
 
@@ -160,6 +163,7 @@ export default async function PermissionsPage({
 
           <CapabilityGrid cells={cells} />
           <GridLegend />
+          <RoleReference />
 
           <section className="rounded-lg border border-border bg-surface">
             <h2 className="border-b border-border px-4 py-2 text-xs uppercase tracking-wide text-muted">
@@ -174,6 +178,12 @@ export default async function PermissionsPage({
               {members.map((m) => {
                 const keys = Object.keys((m.permissions ?? {}) as Record<string, unknown>);
                 const manager = isManagerRole(m.role);
+                // Does this row match what its own role would grant TODAY? A row
+                // written by hand never went through accept_invite() or
+                // add_org_member() and so was never seeded — it looks like a
+                // normal member row until somebody tries to do their job. This
+                // is the one place that difference becomes visible.
+                const drift = driftFromRoleDefault(m.role, m.permissions);
                 return (
                   <li
                     key={m.user_id}
@@ -185,12 +195,34 @@ export default async function PermissionsPage({
                       </span>
                       <span className="ml-2 text-xs text-muted">{m.role}</span>
                     </div>
-                    <span className="text-xs text-muted">
-                      {manager
-                        ? "manager tier — capabilities come from the role, not from these keys"
-                        : keys.length === 0
-                          ? "no permission keys — denied everything"
-                          : `${keys.length} permission key${keys.length === 1 ? "" : "s"} stored`}
+                    <span className="text-right text-xs">
+                      {manager ? (
+                        <span className="text-muted">
+                          manager tier — capabilities come from the role, not these keys
+                        </span>
+                      ) : drift.kind === "no-keys" ? (
+                        <span className="font-medium text-[var(--warn-strong)]">
+                          no permission keys — denied everything, where{" "}
+                          <code>{m.role}</code> would grant{" "}
+                          {grantedCountForRole(m.role) ?? "?"} of {CAPABILITIES.length}
+                        </span>
+                      ) : drift.kind === "differs" ? (
+                        <span className="text-[var(--warn-strong)]">
+                          does not match the <code>{m.role}</code> default —{" "}
+                          {[
+                            drift.missing.length ? `${drift.missing.length} key(s) absent` : null,
+                            drift.extraTrue.length ? `${drift.extraTrue.length} granted beyond it` : null,
+                            drift.extraFalse.length ? `${drift.extraFalse.length} withheld from it` : null,
+                          ]
+                            .filter(Boolean)
+                            .join(", ")}
+                        </span>
+                      ) : (
+                        <span className="text-muted">
+                          {keys.length} key{keys.length === 1 ? "" : "s"} · matches the{" "}
+                          <code>{m.role}</code> default
+                        </span>
+                      )}
                     </span>
                   </li>
                 );

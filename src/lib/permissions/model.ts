@@ -215,6 +215,179 @@ export const ENFORCEMENT: Record<Capability, Enforcement> = {
   },
 };
 
+// ---------------------------------------------------------------------------
+// MIRROR 4 — WHAT EACH ROLE GRANTS WHEN A HUMAN IS ADDED.
+//
+// Obtained 2026-09-05 by CALLING the live deriver for every role the CHECK
+// constraint allows, not by transcribing its body:
+//
+//   select r.role, public.default_permissions_for_role(r.role)
+//     from unnest(array['owner','admin','agency_admin','office','member',
+//                       'field','client_portal_viewer']) as r(role);
+//
+// WHY THIS MIRROR EXISTS WHEN FRIDAY DELIBERATELY REFUSED TO ADD IT.
+// Friday's refusal was narrower than it looked: it refused to fill an
+// UNOBSERVED GRID CELL with a default, because a cell that reads as an
+// observation must not silently become a guess. That still holds and the grid
+// still shows an empty dashed circle there. This is a different claim in a
+// different place — a reference table, labelled as the deriver's output, never
+// mixed into the observed grid.
+//
+// The trap it exists to close: `office` and `member` are IDENTICAL on eight of
+// the nine keys and differ on exactly `manage_catalog`. Nothing anywhere told
+// anyone that. An office hire invited as `member` loses the catalog and keeps
+// everything else, which is the least visible way for a permission to be wrong.
+//
+// STALENESS IS THE COST AND IT IS REAL. The app cannot execute
+// default_permissions_for_role() (EXECUTE revoked from `authenticated` by
+// A2.1c step 1a), so nothing here re-checks itself at runtime. If Track S adds
+// a capability or changes a branch, this table is wrong and silent. The fix is
+// a definer RPC returning the matrix — reported, not built.
+// ---------------------------------------------------------------------------
+export const ROLE_DEFAULTS: Record<OrgRole, Record<Capability, boolean>> = {
+  owner: {
+    view_financials: true, view_estimates: true, view_master_work_order: true,
+    manage_catalog: true, edit_leads: true, create_estimates: true,
+    add_notes: true, schedule: true, view_field: true,
+  },
+  admin: {
+    view_financials: true, view_estimates: true, view_master_work_order: true,
+    manage_catalog: true, edit_leads: true, create_estimates: true,
+    add_notes: true, schedule: true, view_field: true,
+  },
+  agency_admin: {
+    view_financials: true, view_estimates: true, view_master_work_order: true,
+    manage_catalog: true, edit_leads: true, create_estimates: true,
+    add_notes: true, schedule: true, view_field: true,
+  },
+  office: {
+    view_financials: true, view_estimates: true, view_master_work_order: true,
+    manage_catalog: true, edit_leads: false, create_estimates: false,
+    add_notes: true, schedule: true, view_field: true,
+  },
+  member: {
+    view_financials: true, view_estimates: true, view_master_work_order: true,
+    manage_catalog: false, edit_leads: false, create_estimates: false,
+    add_notes: true, schedule: true, view_field: true,
+  },
+  field: {
+    view_financials: false, view_estimates: false, view_master_work_order: false,
+    manage_catalog: false, edit_leads: false, create_estimates: false,
+    add_notes: true, schedule: true, view_field: true,
+  },
+  client_portal_viewer: {
+    view_financials: false, view_estimates: false, view_master_work_order: false,
+    manage_catalog: false, edit_leads: false, create_estimates: false,
+    add_notes: true, schedule: true, view_field: true,
+  },
+};
+
+/** The nine keys as a stable fingerprint, so identical roles can be grouped. */
+function fingerprint(role: OrgRole): string {
+  return CAPABILITIES.map((c) => (ROLE_DEFAULTS[role][c] ? "1" : "0")).join("");
+}
+
+/**
+ * Seven roles, four distinct answers. Grouping them is the single most useful
+ * thing this data can be turned into: it makes "these two roles are the same"
+ * and "these two differ by one key" readable at a glance instead of requiring
+ * someone to diff two rows of ticks by eye.
+ */
+export type RoleGroup = {
+  roles: OrgRole[];
+  grants: Capability[];
+  denies: Capability[];
+  /** What this rung drops relative to the one above it, or null for the widest. */
+  dropsFromAbove: { roles: OrgRole[]; lost: Capability[]; gained: Capability[] } | null;
+  /** False if this rung grants something the wider rung above it does not. */
+  nested: boolean;
+};
+
+export function roleGroups(): RoleGroup[] {
+  // Array of pairs rather than [...map.values()] — the tsconfig target here
+  // predates downlevelIteration, so spreading a Map iterator does not compile.
+  const groups: { print: string; roles: OrgRole[] }[] = [];
+  for (const r of ORG_ROLES) {
+    const print = fingerprint(r);
+    const existing = groups.find((g) => g.print === print);
+    if (existing) existing.roles.push(r);
+    else groups.push({ print, roles: [r] });
+  }
+  const shaped = groups.map(({ roles }) => {
+    const head: OrgRole = roles[0];
+    return {
+      roles,
+      grants: CAPABILITIES.filter((c) => ROLE_DEFAULTS[head][c]),
+      denies: CAPABILITIES.filter((c) => !ROLE_DEFAULTS[head][c]),
+    };
+  });
+
+  // Widest first. The four answers turn out to be STRICTLY NESTED — each one
+  // grants a subset of the one above it — so ordering them this way makes the
+  // set a ladder and lets each rung state what it drops. `nested` is COMPUTED
+  // rather than asserted: if Track S ever adds a role that grants something a
+  // wider role lacks, the ladder claim stops being made instead of becoming a
+  // quietly false sentence.
+  shaped.sort((a, b) => b.grants.length - a.grants.length);
+  return shaped.map((g, i) => {
+    if (i === 0) return { ...g, dropsFromAbove: null, nested: true };
+    const above = shaped[i - 1];
+    const lost = above.grants.filter((c) => !g.grants.includes(c));
+    const gained = g.grants.filter((c) => !above.grants.includes(c));
+    return {
+      ...g,
+      dropsFromAbove: { roles: above.roles, lost, gained },
+      nested: gained.length === 0,
+    };
+  });
+}
+
+/**
+ * Capabilities on which two roles' defaults disagree. Used to state the
+ * office/member trap as a measured difference rather than as a warning
+ * somebody remembered to write.
+ */
+export function defaultsDiff(a: OrgRole, b: OrgRole): Capability[] {
+  return CAPABILITIES.filter((c) => ROLE_DEFAULTS[a][c] !== ROLE_DEFAULTS[b][c]);
+}
+
+/**
+ * How a member's STORED row compares with what their role would grant today.
+ *
+ * This is the trap's fingerprint. A row written by hand — a direct INSERT, a
+ * dashboard edit — does not go through accept_invite() or add_org_member() and
+ * therefore never gets seeded. It then looks like a normal member row until
+ * somebody tries to do their job.
+ */
+export type DriftKind = "matches" | "no-keys" | "differs";
+export function driftFromRoleDefault(
+  role: string,
+  permissions: unknown
+): { kind: DriftKind; missing: Capability[]; extraTrue: Capability[]; extraFalse: Capability[] } {
+  const perms = (permissions ?? {}) as Record<string, unknown>;
+  const known = ORG_ROLES.includes(role as OrgRole) ? ROLE_DEFAULTS[role as OrgRole] : null;
+  const missing: Capability[] = [];
+  const extraTrue: Capability[] = [];
+  const extraFalse: Capability[] = [];
+
+  if (Object.keys(perms).length === 0) return { kind: "no-keys", missing: [...CAPABILITIES], extraTrue, extraFalse };
+  if (!known) return { kind: "matches", missing, extraTrue, extraFalse };
+
+  for (const c of CAPABILITIES) {
+    if (!(c in perms)) missing.push(c);
+    else if (perms[c] === true && !known[c]) extraTrue.push(c);
+    else if (perms[c] !== true && known[c]) extraFalse.push(c);
+  }
+  const differs = missing.length + extraTrue.length + extraFalse.length > 0;
+  return { kind: differs ? "differs" : "matches", missing, extraTrue, extraFalse };
+}
+
+/** How many of the nine a role would grant, if the row were seeded properly. */
+export function grantedCountForRole(role: string): number | null {
+  if (!ORG_ROLES.includes(role as OrgRole)) return null;
+  return CAPABILITIES.filter((c) => ROLE_DEFAULTS[role as OrgRole][c]).length;
+}
+
 export function isCapability(k: string): k is Capability {
   return (CAPABILITIES as readonly string[]).includes(k);
 }
