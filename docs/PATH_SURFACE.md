@@ -1,5 +1,11 @@
 # PATH SURFACE — what RLS does **not** mediate
 
+> **TWO CATEGORIES LIVE IN THIS FILE.** §1–§7 enumerate **PRIVILEGE** paths — who can *act*.
+> **§8 enumerates OBSERVATION paths — who can *see*** (added 2026-09-04). They fail differently:
+> a privilege path is closed by a `REVOKE` and its closure shows in `proacl`; an observation path
+> is usually closed by nothing, because the instrument doing the observing is a console both
+> tenants are entitled to open. **RLS is not in the log path either.**
+
 **Tasks:** A-PATH.0 (2026-08-30, enumeration) · **A-PATH.1 (2026-08-31, the revoke + behavioural proof)**
 **Project:** `structtech` (`ejlhrykcdfcyeooooodx`) · **Server:** PostgreSQL 17.6.
 
@@ -367,3 +373,109 @@ Four of the paths in §2 are invisible to it by construction.
   `public.wh_current_prices`, a **view**. `TRUNCATE` on a view is not executable, so this is hygiene rather than
   exposure — but it is the "sweep objects, not tables" lesson from the P0 addendum recurring in the very
   remediation that recorded it.
+
+---
+
+## 8 · OBSERVATION PATHS — who can **see**, as distinct from who can **act**
+
+*Added 2026-09-04 (Track S). Everything above this line enumerates **PRIVILEGE**: which role can
+perform which verb on which object. This section enumerates a second and previously unlisted
+category.*
+
+**THE PROPERTY, and it is the whole definition — every row below was derived from it, not from a
+list anyone handed over:**
+
+> **ANY SURFACE WHERE ONE TENANT'S OPERATORS CAN READ ANOTHER TENANT'S REQUEST DATA, OBJECT PATHS,
+> OR IDENTIFIERS.**
+
+**Why it is a category and not a footnote.** A privilege path is closed by a `REVOKE` and its
+closure is visible in `proacl`. An observation path is usually closed by nothing at all, because
+the thing doing the observing is a **console both parties are entitled to open**. Nobody exceeded
+a permission; the permission is shared. §0 says a policy audit only proves things about paths RLS
+mediates — **RLS is not in the log path either.**
+
+**The occasion.** Material Matrix demonstrated on 2026-09-02 that they can read our storage probes
+in this project's edge log. **The reciprocal is exact** and is measured below. This is a *shared
+instrument* finding in the same family as R9 (the advisor is a shared surface, so a number that
+does not move proves nothing) — here the shared surface reports on us to them, and on them to us.
+
+### 8.1 · Enumerated by probe, 2026-09-04
+
+Each row was measured, not assumed. Two of the first-pass results were **my own instrument lying**
+and are recorded as such rather than quietly dropped.
+
+| # | Surface | Reachable as `authenticated` (real BMR owner JWT) | What crosses |
+|---|---|---|---|
+| O1 | **`edge_logs` query strings** | YES — project console | **489 of 600 requests carry a UUID in `request.search`.** PostgREST filters are `?id=eq.<uuid>`, so row identifiers travel in the log |
+| O2 | **`edge_logs` request paths** | YES | 3 of 600 carry a UUID in `request.path`; the table name is in every one |
+| O3 | **`edge_logs` caller network data** | YES | **228 distinct `cf_connecting_ip`, 5 distinct `asOrganization`**, plus `cf.city` / `cf.postalCode` / `cf.timezone` — the other tenant's operators' approximate location |
+| O4 | **`storage.objects` rows** | YES — 35 of 50 visible | Object paths and filenames. See §8.2: `product-photos` is **fully** cross-visible |
+| O5 | **`pg_policies`** | YES — 197 policies | The other tenant's policy expressions verbatim |
+| O6 | **`pg_proc.prosrc`** | YES — 5 `wh_*` functions | The other tenant's business logic, table and column names |
+| O7 | **`pg_class.reltuples`** | YES — 22 `wh_*` tables | Approximate **row counts** of the other tenant's tables, i.e. business volume |
+| O8 | ~~`pg_stat_activity` query text~~ | **NO — CLOSED** | 13 of 13 rows read `<insufficient privilege>`. **My first probe counted these as visible because `<insufficient privilege>` is a non-empty string.** The instrument, not the surface |
+| O9 | **`supabase_migrations.schema_migrations`** | **NO — 42501** | Would have been the largest: `statements` holds both projects' full SQL |
+| O10 | **`auth.users`** | **NO — 42501** | Would have been every tenant's operator email addresses |
+
+**Seven open, three closed.** O9 and O10 are closed at the *database* layer and say nothing about
+the **console**, which is where MM read our probes from — a project member reads logs and Auth
+users through the dashboard, not through PostgREST. **O1–O3 are open to anyone with project
+access regardless of any grant in this file.**
+
+### 8.2 · The storage row, measured both ways in one pass
+
+`pdf-files/work-orders/` — 15 objects, **HIDDEN by RLS** from the BMR owner.
+`product-photos/` — **32 `catalog/` + 2 `systems/` + 1 `logos/`, ALL FULLY VISIBLE** to the BMR owner.
+Those prefixes are Material Matrix's. **A BMR-authenticated caller can list Material Matrix's
+product-photo paths and filenames.**
+
+**Stated as a question rather than a finding, because severity depends on intent we do not own:**
+MM runs a public storefront, so `product-photos` being world-listable is very likely deliberate.
+**The part that is ours is the reciprocal** — the day StructTech writes a customer file into
+`product-photos`, it is readable by the other tenant with no change to any policy and no advisor
+movement. That is the thing to decide before it happens, not after.
+
+> **CORRECTION TO THE TASK DIRECTIVE, 2026-09-04.** The directive states our storage object paths
+> are shaped `<org_uuid>/<filename>`. **Measured, none of them are.** All 50 objects across both
+> buckets are `<category>/<filename>` at depth 2 — `catalog/`, `work-orders/`, `systems/`,
+> `logos/` — and **zero** first path segments are a known `organizations.id`. So a path today
+> leaks a *category* and a *customer filename*, not a tenant id. The `<org_uuid>/` shape is worth
+> adopting deliberately (it makes prefix-scoped storage policies expressible) but it is **not the
+> current state** and no reasoning should rest on it.
+
+### 8.3 · ATTRIBUTION — what makes a log reading a measurement instead of a belief
+
+Two fields, and the exact keys, because the obvious names are wrong:
+**`log_attributes['request.headers.user_agent']`** and
+**`log_attributes['request.headers.cf_connecting_ip']`** — not `user_agent` / `cf_connecting_ip`,
+which return empty on every row and would silently report an empty instrument.
+
+**THE LIMIT, accepted by Material Matrix and restated here because it governs how the result may
+be written: `user_agent` is CLIENT-CONTROLLED.** Anything may send any string. So the absence of a
+browser UA proves only that **nothing CLAIMED to be a browser** — it does not prove no browser was
+present. A client that wished to look like Chrome would.
+
+**Therefore the evidence lives in the enumeration CLOSING, not in any single row:** *N requests,
+N attributed, zero left over.* An account that covers every request needs no assumption about
+honesty, because there is nothing outside it to hide in.
+
+**Measured 2026-09-04 over `edge_logs`: 600 requests · 600 attributed by user-agent · ZERO
+UNATTRIBUTED.**
+
+> **WRITE IT AS "ZERO UNATTRIBUTED", NEVER AS "ZERO BROWSER."** The first is what the enumeration
+> establishes. The second is a claim about the world that a client-controlled field cannot support,
+> and it is the same error shape as rule 11 form 2 — reading a silence as a fact.
+
+### 8.5 · Carried forward, 2026-09-04
+
+- **The `product-photos` reciprocal:** MM's 35 objects there are fully visible to a BMR-authenticated caller and that is very likely deliberate for a public storefront — **but the day StructTech writes a customer file into that bucket it is readable cross-tenant with no policy change and no advisor movement**, and that is the decision to take before it happens rather than after.
+- **A branch moved under this session mid-read:** `track-u` gained `8e4aca8` at **14:18:18 EDT**, 34 seconds after the diff was taken, and the tell was a **merge-base that contradicted the diff** — an observation surface has a *time* axis as well as a permission axis, and a reading is only true as of its instant.
+
+### 8.4 · What this section does NOT cover
+
+- **The dashboard itself.** Every row above was probed through SQL. The console exposes Auth users,
+  storage browsing and log explorers to any project member, and none of that is bounded by `proacl`.
+- **Retention.** How long `edge_logs` keeps the 489 identifier-carrying query strings is not
+  measured here.
+- **Whether MM's `product-photos` visibility is intended.** Asked, not answered (§8.2).
+- **`service_role` / `postgres`.** Both bypass RLS; out of scope here as everywhere in this file.

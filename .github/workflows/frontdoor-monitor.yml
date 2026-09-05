@@ -24,9 +24,22 @@ name: front-door monitor
 
 on:
   schedule:
-    # Every 15 minutes.  GitHub runs `schedule` on the DEFAULT BRANCH only, so
-    # this does nothing until this file is on `main`.
-    - cron: '*/15 * * * *'
+    # HOURLY, AT :23.  It was '*/15' from 2026-09-02 until 2026-09-04, and the
+    # platform delivered 7.9% of that: 6 runs in 19.01 hours, mean gap 228 min,
+    # worst gap 310 min, every one of them green.  Scheduled runs are
+    # best-effort and GitHub deprioritises high-frequency crons hardest; asking
+    # for 96 runs a day on a free public repo bought 6.  The quarter-hour and
+    # top-of-hour slots are also the most contended, hence :23 rather than :00.
+    #
+    # THIS NUMBER IS A HYPOTHESIS, NOT A FIX.  Whether a smaller ask is honoured
+    # more reliably is a claim about GitHub's queue that has not been measured
+    # HERE yet.  The drift check below is what makes the next reading exist; if
+    # hourly delivers no better, the answer is an external scheduler, not a
+    # smaller number.
+    #
+    # GitHub runs `schedule` on the DEFAULT BRANCH only — that is why nothing
+    # fired at all until this file reached `main` on 2026-09-03T20:59Z.
+    - cron: '23 * * * *'
   workflow_dispatch:
   push:
     # Present so the monitor and its failure-path proof can be exercised in
@@ -41,6 +54,9 @@ concurrency:
 
 permissions:
   contents: read
+  # Needed by the drift check, which reads this workflow's own run history.
+  # GITHUB_TOKEN only — no new credential, no new account.
+  actions: read
 
 jobs:
   monitor:
@@ -59,15 +75,30 @@ jobs:
       # monitor is asserted to use no external binary at all.
       - name: assert the monitor needs no external binaries
         run: |
-          if grep -nE "child_process|execSync|spawnSync" scripts/monitor/frontdoor-monitor.mjs; then
+          if grep -nE "child_process|execSync|spawnSync" scripts/monitor/*.mjs; then
             echo "::error::the monitor shells out — it can now fail on a missing binary (the MM failure mode)"
             exit 1
           fi
           node --check scripts/monitor/frontdoor-monitor.mjs
+          node --check scripts/monitor/schedule-drift.mjs
           echo "node $(node -v); no shell-outs; no npm install"
 
       - name: run the monitor
         run: node scripts/monitor/frontdoor-monitor.mjs
+
+      # AFTER the door check on purpose: a real outage must not be masked by a
+      # drift complaint, and the door verdict is the more important of the two.
+      # `always()` so drift is still reported on a run where the doors are red.
+      - name: schedule-drift — did the platform deliver the rate we asked for?
+        if: always() && github.event_name == 'schedule'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SCHEDULE_NOMINAL_MINUTES: '60'
+          # 6h. Deliberately loose: the point is to catch the schedule going
+          # from hourly to half-daily, not to page on ordinary queue delay.
+          # Tighten it once a delivered-rate baseline for '23 * * * *' exists.
+          SCHEDULE_MAX_GAP_MINUTES: '360'
+        run: node scripts/monitor/schedule-drift.mjs
 
   failure-path-proof:
     # Not on the schedule — this is the guard on the guard.  It runs whenever
