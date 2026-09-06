@@ -113,7 +113,7 @@ against one material item, each with its own promised date.
 create table public.purchase_orders (
   id               uuid primary key default gen_random_uuid(),
   org_id           uuid not null references public.organizations(id),
-  job_id           uuid not null references public.jobs(id) on delete cascade,
+  job_id           uuid null references public.jobs(id) on delete cascade,  -- RULING (b): NULLABLE
   supplier_name    text not null,
   supplier_org_id  uuid null references public.organizations(id),  -- catalog-linked; null = free text
   status           text not null default 'draft'
@@ -128,6 +128,19 @@ create table public.purchase_orders (
 create index purchase_orders_org_id_idx  on public.purchase_orders(org_id);
 create index purchase_orders_job_id_idx  on public.purchase_orders(job_id);
 
+-- RULING (b), 2026-09-05: `job_id` IS NULLABLE AT INSERT AND REQUIRED TO LEAVE `draft`.
+-- Drafting a PO off a supplier phone call, before anyone knows which job it lands on,
+-- is a real workflow. SCOPE §2.8 forbids blocking it: "I would rather not use the
+-- system at all than for it to have bugs and force me to input data before I can
+-- access other data points." So the requirement is ENFORCED AT THE TRANSITION, never
+-- at insert — a draft with no job saves, and `update_purchase_order` refuses to move
+-- status out of 'draft' while job_id is null, naming the field.
+-- Deliberately NOT a CHECK constraint: a CHECK cannot see the OLD row, so it could
+-- only express "not draft implies job_id present", which would also forbid an
+-- already-sent PO from having its job cleared — a different rule than the one ruled.
+comment on column public.purchase_orders.job_id is
+  'NULLABLE by ruling (b) 2026-09-05. Required to LEAVE draft, enforced in
+   update_purchase_order at the transition, never at insert (SCOPE §2.8).';
 comment on column public.purchase_orders.status is
   'draft | sent | confirmed | cancelled. NO `received` — A2.5 owes the terminal state; a received
    status without a receipt concept would assert an event this system cannot observe.';
@@ -186,40 +199,46 @@ alter table public.material_items
     check (ready_by_source in ('manual','purchase_order'));
 
 comment on column public.material_items.ready_by_source is
-  'Which writer last set ready_by. A2.0''s lesson as a column: two writers to one field is how two
-   answers to one question arise. This records WHICH, so the fact is inspectable instead of implied.';
+  'WHICH BRANCH FIRED, not which writer won. ready_by has ONE writer: max(promised_date) over
+   non-cancelled PO lines whenever the promise set is non-empty, and the manual value only when
+   it is empty. This column documents a decision already made and is never an input to making
+   one — a tiebreak column between two writers is the shape that produces closed-by-accident.';
 ```
 
 ---
 
-## 3 · THE HARD PART — `material_items.ready_by` NOW HAS TWO WRITERS
+## 3 · `material_items.ready_by` IS DERIVED — ONE WRITER, NOT TWO
 
-**This is the real design decision in A2.3 and I am flagging it rather than burying it.**
+**CONTROLLER RULING (a), 2026-09-05. This replaces the option-C shape proposed on 9/04.**
 
-`ready_by` is set today by hand, through `add_material_item(p_ready_by)` /
-`update_material_item(p_ready_by)`. A2.3 clause (1) says *"a PO's committed date sets
-`material_items.ready_by`"* — a second writer. **Two writers to one field is precisely the shape
-A2.0 spent a whole task deleting** (two capability functions answering one question differently).
+The 9/04 draft proposed two writers plus a `ready_by_source` column to record which
+one won. **That was rejected, and the reasoning is the part worth keeping: two writers
+with a tiebreak column is the shape that produces "closed by accident."** The tiebreak
+records the collision instead of removing it, and a record of a collision has no owner
+and no alarm — CLAUDE.md rule 13 applied to a data path rather than to a grant.
 
-Three options, and I am proposing the third:
+**THE RULE, and it is a single writer with a branch, not two writers with a referee:**
 
-| | Shape | Why not / why |
-|---|---|---|
-| A | PO promises become the sole source; retire hand entry | **Violates §2.6 and §2.8.** A user could not set a ready-by without first creating a PO. Isaac's sentence applies verbatim |
-| B | Both write it, last writer wins | **This is the A2.0 defect.** Two answers, no record of which, and no way to tell a stale manual date from a fresh promise |
-| **C** | **One stored fact plus `ready_by_source`; the PO path recomputes, the manual path stamps `'manual'`** | The field keeps one value; **the column records which writer produced it**, so the two can never silently disagree |
+- **The promise set is non-empty** → `ready_by` is **`max(promised_date)`** over all
+  lines for that item whose PO is not `cancelled`. **This is the ONLY writer whenever
+  it applies.** A manual value entered while promises exist does not compete with it
+  and does not survive it.
+- **The promise set is empty** (no lines, or every covering PO cancelled) → the
+  **manual** value applies. This is the only branch in which hand entry writes.
+- `ready_by_source` records **WHICH BRANCH FIRED** — `'purchase_order'` or `'manual'`.
+  **It is documentation of a decision already made, never an input to making it.**
+  Nothing reads it to resolve anything.
 
-**The rule, stated so it can be argued with:**
-- `add/update_material_item(p_ready_by => …)` sets `ready_by` and stamps `ready_by_source='manual'`.
-- Any PO-line write recomputes `ready_by` as **`max(promised_date)`** over all lines for that item
-  whose PO is **not `cancelled`**, and stamps `ready_by_source='purchase_order'`.
-- **RULING 2 IS SATISFIED BY `max()`, and it agrees with the layer above by construction:**
-  `add_schedule_block` already takes `max(ready_by)` across a trade's items. Latest-wins at the line
-  level and latest-wins at the trade level are the same operator, so the two cannot drift.
-- If every line for an item is deleted or cancelled, `ready_by` is left **as it stands** and the
-  source flips to `'manual'`. **It is not nulled.** Nulling would silently unblock a schedule.
+**Ruling 2 (latest wins) is the `max()`, and it agrees with the layer above by
+construction:** `add_schedule_block` already takes `max(ready_by)` across a trade's
+items. Same operator at line level and at trade level, so the two cannot drift.
 
----
+**The falling-back case is the one to get right.** When the last covering PO is
+cancelled or its lines deleted, the branch flips to manual and `ready_by` **keeps its
+last value** rather than being nulled — nulling would silently unblock a schedule, and
+a silent unblock is worse than a stale date a human can see. `ready_by_source` flips to
+`'manual'` in the same statement, so the fact that the derivation no longer governs is
+visible rather than implied.
 
 ## 4 · RLS — EVERY POLICY, WITH THE ROLE IT APPLIES TO
 
@@ -259,13 +278,19 @@ create policy "purchaser insert own po_line_promises" on public.purchase_order_l
   with check (org_id in (select my_org_ids()) and has_capability(org_id, 'manage_purchasing'));
 ```
 
-**NO RESTRICTIVE FINANCIAL POLICY, AND THE REASON IS THAT THERE IS NO MONEY HERE.**
+**NO MONEY IN A2.3 — CONTROLLER RULING (c), 2026-09-05, AND `A5.4` OWES IT.**
 §5.2 defines A2.3 as *"Supplier (free-text or catalog-linked), `committed_date`, promise-vs-actual
 history, status."* **No price, no cost, no total.** So no cost column is proposed — filling that
-gap in code is exactly what §0 of the directive forbids. **If the controller wants cost on a PO
-line, it is one column plus one RESTRICTIVE `can_view_financials(org_id)` policy copied from
-`products`, and it should be a stated decision rather than something I inferred from the word
-"purchasing".**
+gap in code is exactly what §0 of the directive forbids. **RULED: no price in A2.3.** §5.2 names none, and guessing collides with the A2.1c pricing
+invariant, where cost/sell/markup are held mutually consistent by a CHECK — a second,
+differently-shaped money model on a PO line would be a second opinion about price, which is
+the A2.0 defect in a new table. **`A5.4` OWES IT, and that debt is recorded in the migration
+comment beside ruling 4's terminal-state debt** so both are found at the object rather than
+in a document that can drift away from it. **Deferring is safe for a stated reason, not a
+hopeful one: adding `unit_cost numeric null` plus one RESTRICTIVE `can_view_financials(org_id)`
+policy copied from `products` is a nullable column add, not a table rewrite, and there are
+0 purchase orders today** — so the cost of being wrong about this is a migration, not a
+backfill.
 
 ### 4.1 · The capability key
 `manage_purchasing` is a **new** key — committing money to a supplier is not the same act as
@@ -290,7 +315,7 @@ rule 7's carve-out, answered per function, as `tenant_enforces_stage_gating` was
 | RPC | Notes |
 |---|---|
 | `create_purchase_order(p_job_id, p_supplier_name, p_supplier_org_id)` → uuid | status defaults `draft` |
-| `update_purchase_order(p_po_id, p_supplier_name, p_supplier_org_id, p_status)` | jsonb-free, coalesce-patch, as `update_schedule_block` does |
+| `update_purchase_order(p_po_id, p_supplier_name, p_supplier_org_id, p_status)` | coalesce-patch, as `update_schedule_block` does. **Carries ruling (b)'s transition guard: refuses to move `status` out of `draft` while `job_id` is null, naming the field. Insert is never blocked.** |
 | `delete_purchase_order(p_po_id)` | §2.6 |
 | `add_purchase_order_line(p_po_id, p_material_item_id, p_quantity_ordered, p_promised_date)` → uuid | inserts the first promise row; recomputes `ready_by` |
 | `update_purchase_order_line(p_line_id, p_quantity_ordered, p_promised_date)` | **appends a promise row only when the date actually changes**; recomputes |
@@ -325,10 +350,10 @@ literally every check below.
 
 | # | Probe | Passes when | **What would have made it fail** |
 |---|---|---|---|
-| P1 | One PO, lines against material items on **two different trades** of one job | both lines insert | A `job_id`-vs-`work_order_id` anchor error, or any unique constraint on `(po, item)`. **Fails today if the PO were anchored to a trade** — which is why P1 exists |
+| P1 | One PO, lines against material items on **two different trades** of one job · **plus ruling (b): insert a PO with `job_id` NULL, then attempt `status`→`sent`** | both lines insert; the null-job draft **saves**; the transition to `sent` is **refused naming `job_id`** | A `job_id`-vs-`work_order_id` anchor error, or any unique constraint on `(po, item)`. **Fails today if the PO were anchored to a trade.** For ruling (b): a NOT NULL on `job_id` (draft refused at insert — §2.8 violation), or no transition guard (a jobless PO reaching `sent`) |
 | P2 | **Two** POs, both with a line against the **same** material item | both insert; the item shows 2 lines | Any unique index on `material_item_id`. This is the P2 property and the check that a "tidy" constraint would break |
-| P3 | Two promises, `2026-10-01` and `2026-10-20` → `ready_by` | reads **2026-10-20** | `min()` instead of `max()`, or last-write-wins. Ruling 2 |
-| P4 | Cancel the PO holding the later promise | `ready_by` falls back to **2026-10-01** | Forgetting the `status <> 'cancelled'` filter in the recompute |
+| P3 | Two promises, `2026-10-01` and `2026-10-20` → `ready_by` · **then set a manual `ready_by` while promises exist** | reads **2026-10-20**, and the manual write **does not survive** — the derived branch is the only writer while the promise set is non-empty | `min()` instead of `max()`, or last-write-wins. **Ruling (a): if the manual value won, this is two writers with a tiebreak, which is the shape the ruling rejected** |
+| P4 | Cancel the PO holding the later promise, then **cancel the other one too** | `ready_by` falls back to **2026-10-01**; after the second cancel the promise set is empty, so `ready_by` **keeps 2026-10-01** and `ready_by_source` flips to `'manual'` | Forgetting the `status <> 'cancelled'` filter in the recompute. **For the empty-set branch: nulling `ready_by`, which would silently unblock a schedule** — the failure §3 exists to prevent |
 | P5 | Move a promise 3× via `update_purchase_order_line` | promises table holds **4** rows (initial + 3) | Updating in place instead of appending — the "moved it three times" signal is the deliverable |
 | P6 | Re-save a line with the **same** date | promise count **unchanged** | Appending unconditionally, which turns the history into noise and makes P5 meaningless |
 | P7 | `update`/`delete` a promise row as `authenticated` | **refused, no policy** | Adding an UPDATE policy "for completeness". Read the message: a **missing-policy** refusal, not a grant refusal |
@@ -346,23 +371,29 @@ ungraded, here is which"* — never 14/14.
 
 ---
 
-## 7 · THE THREE THINGS I AM LEAST SURE OF
+## 7 · WHAT THE RULINGS SETTLED, AND WHAT I AM STILL LEAST SURE OF
 
-1. **`material_items.ready_by` having two writers (§3).** Option C keeps one value and records the
-   writer, but it is still two code paths writing one field, and the `ready_by_source` column is a
-   *record* of the conflict rather than a *removal* of it. A cleaner design might derive `ready_by`
-   entirely and give manual entry its own column. I did not propose that because it changes a column
-   `add_schedule_block` already reads, and that is a controller call, not mine.
-2. **`job_id NOT NULL` on `purchase_orders`.** P1 says "on one job", so the anchor is derived. But it
-   means a PO cannot be drafted before a job is chosen, and §2.8 is unforgiving about exactly that
-   shape. If a PM wants to start a PO from a supplier phone call, this is wrong and the column should
-   be nullable.
-3. **Whether a PO carries money at all (§4).** §5.2 names no price, so I proposed none. If real POs
-   carry costs — and most do — then this schema is half a table short and the RESTRICTIVE financial
-   policy is missing with it. **I would rather be told than guess**, because adding a cost column
-   later is cheap while getting the money-visibility gate wrong is the A2.1 crew-clause failure.
+**All three of 9/04's uncertainties were ruled on 2026-09-05 and are now closed in this file:**
+`ready_by` is derived with one writer and a branch (§3) · `job_id` is nullable and enforced at
+the transition (§2.1) · no money in A2.3, `A5.4` owes it (§4). Nothing below re-opens them.
 
----
+**What I am least sure of now:**
+
+1. **The falling-back case in §3 keeps a stale date rather than nulling it.** I believe that is
+   right — a silent unblock is worse than a visible stale date — but it means `ready_by` can
+   outlive every promise that produced it, and `ready_by_source='manual'` is the only trace.
+   A PM who cancels a PO and does not revisit the date gets a schedule warning grounded in a
+   promise nobody is making any more.
+2. **`update_purchase_order` is now the only place ruling (b) lives.** A direct UPDATE that
+   bypasses the RPC can move a PO out of `draft` with a null `job_id`, because the rule needs
+   the OLD row and a CHECK cannot see it. Every other rule in this build that mattered got
+   both layers (A2.1c, and the `schedule` capability on 2026-09-05). This one has one, and the
+   honest options are a BEFORE UPDATE trigger or accepting the RPC as the only path — which is
+   a decision, not an oversight to be discovered later.
+3. **Whether `purchase_order_lines` needs its own org-scoped RESTRICTIVE policy.** It carries
+   no money now, but it does carry quantities, which are commercially meaningful. I proposed
+   org + capability and no RESTRICTIVE layer; `products` has one for money. If quantities are
+   considered sensitive to the crew role, that gap is mine and it is currently unstated.
 
 ## 8 · NOT IN THIS PROPOSAL, ON PURPOSE
 
