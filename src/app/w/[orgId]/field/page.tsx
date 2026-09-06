@@ -61,7 +61,7 @@ export default async function FieldTodayPage({
         <p className="text-2xl font-bold text-text group-data-[outdoor=true]/field:text-white">
           Today
         </p>
-        <p className="font-mono text-xs text-muted group-data-[outdoor=true]/field:text-white/60">
+        <p className="font-mono text-sm text-muted group-data-[outdoor=true]/field:text-white/80">
           {new Date(`${todayIso}T00:00:00`).toLocaleDateString("en-US", {
             weekday: "short",
             month: "short",
@@ -90,22 +90,36 @@ export default async function FieldTodayPage({
               <Link
                 key={job.schedule_block_id}
                 href={`/w/${params.orgId}/field/${job.work_order_id}?tab=check-in`}
+                // U-W1.4 — `opacity-70` removed from the inactive cards. Seen
+                // in outdoor mode at 375px, dimming the content is the one
+                // thing you must not do on a screen whose spec is "bright
+                // sun": it took the address and crew line of every upcoming
+                // job to a contrast a phone in daylight cannot hold. The
+                // active job is still unmistakable — 2px accent border versus
+                // 1.5px, plus the only Open job button on the screen — which
+                // is emphasis by weight rather than by making everything else
+                // harder to read.
                 className={
                   active
                     ? "flex flex-col gap-3 rounded-2xl border-2 border-accent p-4"
-                    : "flex flex-col gap-1 rounded-2xl border-[1.5px] border-border p-4 opacity-70 group-data-[outdoor=true]/field:border-white/30"
+                    : "flex flex-col gap-1 rounded-2xl border-[1.5px] border-border p-4 group-data-[outdoor=true]/field:border-white/40"
                 }
               >
                 <div>
                   <p className="text-base font-semibold text-text group-data-[outdoor=true]/field:text-white">
                     {jobTitle}
                   </p>
+                  {/* 14px, not 12px, and white/80 rather than white/60 in
+                      outdoor mode. The address is what a driver reads and
+                      "Day 2 of 3" is what a crew checks; both were the
+                      smallest, faintest text on a screen specified for
+                      gloves and daylight. */}
                   {job.site_address && (
-                    <p className="text-xs text-muted group-data-[outdoor=true]/field:text-white/60">
+                    <p className="text-sm text-muted group-data-[outdoor=true]/field:text-white/80">
                       {job.site_address}
                     </p>
                   )}
-                  <p className="font-mono text-xs text-muted group-data-[outdoor=true]/field:text-white/60">
+                  <p className="font-mono text-sm text-muted group-data-[outdoor=true]/field:text-white/80">
                     {job.crew_name} · {status.label}
                   </p>
                 </div>

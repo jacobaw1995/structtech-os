@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "@/lib/auth/actions";
+import { isManagerRole } from "@/lib/permissions/model";
 import {
   moduleLabel,
   type ActiveMembership,
@@ -74,7 +75,13 @@ export function WorkspaceShell({
     // grew and scrolled, header included) into a bounded app shell — <main>
     // below is now the one scrollable region, header/sidebar stay in view.
     <div className="flex h-dvh flex-col overflow-hidden bg-bg">
+      {/* data-chrome marks the app frame so FIELD OUTDOOR MODE can darken it.
+          An explicit hook, not a `header`/`main` element selector: this app
+          will grow more of both, and a mode that silently repaints whatever
+          happens to be a <header> is the kind of coupling nobody finds until
+          it misfires. See globals.css, [data-field-outdoor]. */}
       <header
+        data-chrome="topbar"
         className={`flex min-h-14 items-center gap-2 border-b border-border px-3 py-2 sm:min-h-0 sm:gap-3 sm:px-4 ${
           isAgencyOperating ? "bg-accent-soft" : "bg-surface"
         }`}
@@ -213,6 +220,7 @@ export function WorkspaceShell({
           switcher. Carries the agency tint so it reads as part of the bar
           above rather than as page content. */}
       <div
+        data-chrome="tenant-row"
         className={`relative border-b border-border px-3 pb-2 sm:hidden ${
           isAgencyOperating ? "bg-accent-soft" : "bg-surface"
         }`}
@@ -293,6 +301,30 @@ export function WorkspaceShell({
               </Link>
             );
           })}
+
+          {/* G3 — org administration, below the modules and separated from
+              them, because it is not one. Manager-tier only: this mirrors
+              is_org_manager()'s role list and is a VISIBILITY gate, not the
+              security boundary (the page reads through RLS and has no write
+              path at all). Not §2.8 blocking — §2.8 is about refusing data
+              entry the user is entitled to make, not about showing everyone
+              an administration screen. */}
+          {isManagerRole(active.role) && (
+            <>
+              <div className="mt-2 border-t border-border pt-2" />
+              <Link
+                href={`/w/${orgId}/settings/permissions`}
+                onClick={() => setDrawerOpen(false)}
+                className={`flex min-h-14 items-center rounded-md px-3 text-sm sm:min-h-0 sm:py-2 ${
+                  pathname === `/w/${orgId}/settings/permissions`
+                    ? "bg-accent-soft font-medium text-accent-strong"
+                    : "text-muted hover:bg-surface2 hover:text-text"
+                }`}
+              >
+                Roles &amp; permissions
+              </Link>
+            </>
+          )}
         </nav>
 
         {/* min-w-0 is load-bearing: a flex item defaults to min-width:auto,
@@ -302,7 +334,9 @@ export function WorkspaceShell({
             element past the viewport instead of respecting flex-1. On
             mobile the sidebar is `fixed` (out of flow), so this is already
             full-width there with no extra rule needed. */}
-        <main className="min-w-0 flex-1 overflow-y-auto p-4 sm:p-6">{children}</main>
+        <main data-chrome="main" className="min-w-0 flex-1 overflow-y-auto p-4 sm:p-6">
+          {children}
+        </main>
       </div>
     </div>
   );

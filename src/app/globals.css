@@ -30,3 +30,57 @@ body {
     text-wrap: balance;
   }
 }
+
+/* ===========================================================================
+ * FIELD OUTDOOR MODE — the frame, not just the panel.
+ *
+ * U-W1.4 (2026-09-05). Found by COMPOSING the two shells rather than by
+ * looking at either alone: FieldShell painted itself black, and then
+ * WorkspaceShell drew a white top bar, a white tenant row, and a 16px light
+ * margin on every side of it. Measured at 375x812 — main's padding is 16px, so
+ * the high-contrast panel sat inside a bright frame. On a phone in direct sun
+ * the brightest thing on screen was the chrome around the mode that exists to
+ * fight glare.
+ *
+ * FieldShell sets data-field-outdoor on <html> while it is mounted and clears
+ * it on unmount, so this cannot leak onto a non-field screen.
+ *
+ * Deliberately NOT done by redefining the :root tokens. Flipping --text and
+ * --surface globally would invert every surface at once, including
+ * `bg-warn-soft` + `text-text` chips — the ready-by conflict banner on the
+ * field Today page is exactly that pair — and would turn dark-on-light into
+ * white-on-light. Repainting three named surfaces is smaller and cannot do
+ * that.
+ * =========================================================================== */
+html[data-field-outdoor="true"] body {
+  background: #000;
+}
+html[data-field-outdoor="true"] [data-chrome="topbar"],
+html[data-field-outdoor="true"] [data-chrome="tenant-row"] {
+  background: #000;
+  border-color: oklch(38% 0 0);
+  color: #fff;
+}
+html[data-field-outdoor="true"] [data-chrome="topbar"] *,
+html[data-field-outdoor="true"] [data-chrome="tenant-row"] * {
+  color: #fff;
+  border-color: oklch(38% 0 0);
+}
+/* Two exceptions, both found by LOOKING at the composed screen rather than by
+   reasoning about the rule.
+   1. The S mark keeps its accent fill, so the app is still identifiable and
+      the fill still passes contrast against white text.
+   2. The account avatar is `bg-surface2` — a light chip. The blanket
+      `color:#fff` above turned its initial into white-on-light-grey, i.e.
+      invisible, on the control that is the only route to Sign out. It gets a
+      dark fill so the white it inherited is legible. */
+html[data-field-outdoor="true"] [data-chrome="topbar"] .bg-accent-strong {
+  background: var(--accent-strong);
+}
+html[data-field-outdoor="true"] [data-chrome="topbar"] .bg-surface2,
+html[data-field-outdoor="true"] [data-chrome="tenant-row"] .bg-surface2 {
+  background: oklch(30% 0 0);
+}
+html[data-field-outdoor="true"] [data-chrome="main"] {
+  background: #000;
+}
