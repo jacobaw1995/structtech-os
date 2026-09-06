@@ -202,7 +202,13 @@ export function WorkspaceShell({
                   {userEmail}
                 </div>
                 <form action={signOut}>
-                  <button className="w-full px-3 py-2 text-left text-sm text-text hover:bg-surface2">
+                  {/* Measured 2026-09-06 at 320x700: this was 36px tall — under
+                      the 56dp floor — on the one control a user cannot do
+                      without. It is app chrome rather than a field screen, but
+                      a crew member reaches it from a phone on a roof like
+                      everything else, so it gets the same target size below sm
+                      and keeps its compact size on a pointer device. */}
+                  <button className="min-h-14 w-full px-3 text-left text-sm text-text hover:bg-surface2 sm:min-h-0 sm:py-2">
                     Sign out
                   </button>
                 </form>
@@ -212,6 +218,30 @@ export function WorkspaceShell({
         </div>
       </header>
 
+      {/* MOBILE TENANT ROW — controller decision 1.2 (2026-09-03), amended
+          2026-09-06.
+
+          AMENDMENT: it renders only when there is a tenant question to answer.
+          A switcher offering one option is not a control, and this one is
+          expensive — measured at 375x812 it cost 65px, pushing page content to
+          y=154, 19% of the screen, above a drawer whose only link is the page
+          the user is already on.
+
+          THE PREDICATE IS `orgs.length > 1 || isAgencyOperating`, NOT JUST THE
+          FIRST HALF, and the second clause is the non-negotiable part. Decision
+          1.2 exists because the tenant you are operating INSIDE is the most
+          safety-critical label on this bar; an agency_admin normally holds two
+          orgs and would keep the row from the length test alone, but if one
+          ever holds exactly one, the length test would silently remove the one
+          label that must never be absent. The clause makes that impossible
+          rather than improbable.
+
+          WHAT A SINGLE-ORG USER LOSES: the tenant name on mobile. They keep it
+          on desktop, and they cannot be in the wrong tenant, because there is
+          only one. That trade is Jacob's to veto; it is stated here so it can
+          be. */}
+      {(orgs.length > 1 || isAgencyOperating) && (
+      <>
       {/* MOBILE TENANT ROW — controller decision 1.2 (2026-09-03).
           Full width, its own row, no `truncate` anywhere on the path to the
           name: it wraps to a second line before it elides. `text-left` and
@@ -246,6 +276,8 @@ export function WorkspaceShell({
         )}
         {switcherOpen && <SwitcherMenu orgs={orgs} orgId={orgId} onPick={() => setSwitcherOpen(false)} />}
       </div>
+      </>
+      )}
 
       <div className="flex flex-1 min-h-0">
         {/* Backdrop — mobile only, dismisses the drawer on tap. Doesn't

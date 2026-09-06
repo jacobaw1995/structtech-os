@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getWorkspaceContext } from "@/lib/workspace/context";
 import { CapabilityGrid, GridLegend } from "@/components/permissions/CapabilityGrid";
 import { RoleReference } from "@/components/permissions/RoleReference";
+import { MirrorRegistryPanel } from "@/components/permissions/MirrorRegistry";
 import {
   buildGrid,
   isManagerRole,
@@ -164,6 +165,7 @@ export default async function PermissionsPage({
           <CapabilityGrid cells={cells} />
           <GridLegend />
           <RoleReference />
+          <MirrorRegistryPanel />
 
           <section className="rounded-lg border border-border bg-surface">
             <h2 className="border-b border-border px-4 py-2 text-xs uppercase tracking-wide text-muted">
@@ -204,7 +206,7 @@ export default async function PermissionsPage({
                         <span className="font-medium text-[var(--warn-strong)]">
                           no permission keys — denied everything, where{" "}
                           <code>{m.role}</code> would grant{" "}
-                          {grantedCountForRole(m.role) ?? "?"} of {CAPABILITIES.length}
+                          {grantedCountForRole(m.role)} of {CAPABILITIES.length}
                         </span>
                       ) : drift.kind === "differs" ? (
                         <span className="text-[var(--warn-strong)]">

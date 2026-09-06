@@ -39,7 +39,12 @@ export const metadata: Metadata = {
 type Outcome =
   | { kind: "ok"; roadmap: RoadmapRow }
   | { kind: "not_found" }
-  | { kind: "restricted"; detail: string }
+  // `restricted` carries NO detail — see the ruling recorded in loadRoadmap().
+  // Removing the field rather than merely not rendering it is the point: a
+  // future edit that adds `detail={outcome.detail}` back to that branch now
+  // fails to compile instead of quietly re-publishing a function name to
+  // anonymous readers. The type is the control; a comment would not be.
+  | { kind: "restricted" }
   | { kind: "error"; detail: string };
 
 async function loadRoadmap(token: string): Promise<Outcome> {
@@ -67,9 +72,39 @@ async function loadRoadmap(token: string): Promise<Outcome> {
     // reporting the function as absent from its schema cache, which is what
     // a role with no EXECUTE sees — a 404-shaped answer to a permissions
     // question, and the single most misleading code on this path.
+    //
+    // ----------------------------------------------------------------------
+    // CONTROLLER RULING, 2026-09-06 — THIS SUPERSEDES THE REASON THAT USED TO
+    // BE RECORDED HERE, AND THE SUPERSEDED VERSION IS NAMED SO THE CHANGE IS
+    // LEGIBLE RATHER THAN INVISIBLE.
+    //
+    // WAS: `restricted` carried a `detail` string and the page rendered it, on
+    // the reasoning that a reader deserves the specific reason a request was
+    // refused rather than a shrug. That reasoning was right about honesty and
+    // wrong about audience.
+    //
+    // NOW: `restricted` renders NO detail. Track X measured the DEPLOYED route
+    // printing `42501: permission denied for function fetch_roadmap_by_token`
+    // to an anonymous visitor on a public URL. That is this application
+    // handing an unauthenticated reader the exact function name to target,
+    // on the one page in the build that has no login in front of it.
+    //
+    // The `error` branch KEEPS its detail. The two are not symmetric: a
+    // `restricted` outcome is, by construction, a caller who is already
+    // outside the fence and whose refusal message describes the fence. An
+    // `error` outcome is a caller who is inside a supported path and hit a
+    // fault, and its detail is what makes a support conversation possible.
+    //
+    // The diagnostic is not discarded, it is MOVED: it goes to the server log,
+    // where an operator can read it and a visitor cannot. Losing it entirely
+    // would trade one defect for another.
+    // ----------------------------------------------------------------------
     const code = error.code ?? "";
     if (code === "42501" || code === "PGRST202" || code === "PGRST301") {
-      return { kind: "restricted", detail: `${code}: ${error.message}` };
+      console.error(
+        `[roadmap] refused for token (restricted): ${code}: ${error.message}`
+      );
+      return { kind: "restricted" };
     }
     return { kind: "error", detail: `${code}: ${error.message}` };
   }
@@ -142,13 +177,16 @@ export default async function RoadmapPage({
       );
 
     case "restricted":
-      // Says what is true — this request was refused — and does not claim
-      // the roadmap is missing, because it has not been shown to be.
+      // Still does not claim the roadmap is missing — that distinction is the
+      // reason this branch exists and it survives intact. What is gone is the
+      // MECHANISM: "being held by StructTech and is not readable from here
+      // yet" described the shape of the refusal to a reader who, on this
+      // route, may be anyone at all. It now says the link is not available
+      // and what to do about it, and nothing about why.
       return (
         <Message
-          title="This roadmap can’t be opened right now."
-          body="The link is being held by StructTech and is not readable from here yet. Nothing has been lost — reply to whoever sent you this link and it can be opened up."
-          detail={outcome.detail}
+          title="This roadmap link isn’t available right now."
+          body="Nothing has been lost. Reply to whoever sent you this link and they can get it opened up for you."
         />
       );
 

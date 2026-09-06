@@ -36,6 +36,105 @@ import type { Database } from "@/lib/supabase/database.types";
 
 export type OrgMemberRow = Database["public"]["Tables"]["org_members"]["Row"];
 
+// ===========================================================================
+// THE MIRROR REGISTRY — U-W1.5, 2026-09-06.
+//
+// Material Matrix's framing, adopted: AN ENUMERATION THAT LIVES IN CODE IS
+// NEVER QUESTIONED; ONE THAT LIVES IN A DIRECTIVE IS. Each of the four mirrors
+// below already stated what it mirrored, when it was derived, and the query
+// that re-derives it. What nobody could do was COUNT them — so "how much of
+// this file is a copy of something that can change without us?" had no answer
+// short of reading three hundred lines.
+//
+// It now has one, and the count is rendered on the permissions page rather
+// than only living here.
+//
+// THIS IS NOT A STALENESS DETECTOR AND MUST NOT BE READ AS ONE. Nothing here
+// can tell you a mirror has drifted: the application cannot execute
+// default_permissions_for_role() (EXECUTE revoked from `authenticated` by
+// A2.1c step 1a), and pg_proc / pg_policies / pg_constraint are not reachable
+// through PostgREST. What it gives you is the DENOMINATOR and the COMMANDS —
+// so re-deriving is a mechanical five-minute job rather than an archaeology
+// problem, and so a person can see how old the answers are.
+//
+// PROVED THE SAME DAY IT WAS WRITTEN, which is the argument for it: mirror C
+// shipped on 2026-09-05 saying `schedule` was enforced by NOTHING. Track S
+// wired it the next morning — 0 sites to 6. The mirror was false within a day,
+// nothing in the running application could have noticed, and re-running the
+// census is what caught it.
+//
+// THE RULE: A NEW MIRROR IN THIS FILE GETS AN ENTRY HERE, OR THE COUNT IS A
+// LIE. Nothing enforces that — this comment is the enforcement, which is the
+// honest description of what it is.
+// ===========================================================================
+export type MirrorEntry = {
+  /** Stable id, used in the UI. */
+  id: "A" | "B" | "C" | "D";
+  /** The TypeScript constant that holds the copy. */
+  constant: string;
+  /** The database object it is a copy of. */
+  mirrors: string;
+  /** Why the application cannot simply read it at runtime. */
+  unreachableBecause: string;
+  /** ISO date this value was last derived FROM THE LIVE SCHEMA. */
+  derivedOn: string;
+  /** Paste into the SQL editor to re-derive. Kept executable, not prose. */
+  rederive: string;
+};
+
+export const MIRRORS: MirrorEntry[] = [
+  {
+    id: "A",
+    constant: "ORG_ROLES",
+    mirrors: "CHECK constraint org_members_role_check",
+    unreachableBecause:
+      "PostgREST exposes `public` only; pg_constraint is not reachable.",
+    derivedOn: "2026-09-06",
+    rederive: String.raw`select pg_get_constraintdef(oid) from pg_constraint where conname = 'org_members_role_check';`,
+  },
+  {
+    id: "B",
+    constant: "MANAGER_ROLES",
+    mirrors: "the role list inside is_org_manager()",
+    unreachableBecause:
+      "is_org_manager() answers only for auth.uid(); it cannot be asked which roles it would accept.",
+    derivedOn: "2026-09-06",
+    rederive: String.raw`select prosrc from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.proname = 'is_org_manager';`,
+  },
+  {
+    id: "C",
+    constant: "ENFORCEMENT",
+    mirrors:
+      "every has_capability() literal in pg_proc bodies and pg_policies expressions, plus the two thin wrappers",
+    unreachableBecause:
+      "pg_proc and pg_policies are not reachable through PostgREST.",
+    derivedOn: "2026-09-06",
+    rederive: String.raw`with fn as (select 'function' kind, proname site, prosrc body from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and proname not in ('has_capability','can_view_financials','can_view_master_work_order')), pol as (select case when permissive = 'RESTRICTIVE' then 'restrictive policy' else 'policy' end, tablename || '.' || policyname, coalesce(qual,'') || ' ' || coalesce(with_check,'') from pg_policies where schemaname = 'public'), s as (select * from fn union all select * from pol), hits as (select kind, site, (regexp_matches(body, 'has_capability\s*\([^,]+,\s*''([a-z_]+)''', 'g'))[1] cap from s union all select kind, site, 'view_financials' from s where body ~ 'can_view_financials' union all select kind, site, 'view_master_work_order' from s where body ~ 'can_view_master_work_order') select cap, kind, count(distinct site) from hits group by 1, 2 order by 1, 2;`,
+  },
+  {
+    id: "D",
+    constant: "ROLE_DEFAULTS",
+    mirrors:
+      "default_permissions_for_role(text), for every role in the CHECK constraint AND for the else branch an unrecognised role reaches",
+    unreachableBecause:
+      "EXECUTE revoked from `authenticated` by A2.1c step 1a (migration 20260826133457) — deliberately; it is called only from inside the database.",
+    derivedOn: "2026-09-06",
+    // The trailing 'some_future_role' is not padding. F5 (2026-09-06) changed
+    // ONLY the else branch, so a re-derivation limited to the seven named roles
+    // reported "unchanged" and was wrong. The probe for the unlisted case is
+    // part of the command now.
+    rederive: String.raw`select r.role, public.default_permissions_for_role(r.role) from unnest(array['owner','admin','agency_admin','office','member','field','client_portal_viewer','some_future_role']) as r(role);`,
+  },
+];
+
+/** The number this registry exists to make answerable. */
+export const MIRROR_COUNT = MIRRORS.length;
+
+/** The stalest derivation date across all mirrors. */
+export function oldestMirrorDerivation(): string {
+  return MIRRORS.map((m) => m.derivedOn).sort()[0];
+}
+
 // ---------------------------------------------------------------------------
 // MIRROR 1 — the role vocabulary.
 // Derived 2026-09-04 from constraint `org_members_role_check`:
@@ -103,12 +202,17 @@ export function isManagerRole(role: string): boolean {
 //   -- plus: select ... from s where body ~ 'can_view_financials'
 //   -- plus: select ... from s where body ~ 'can_view_master_work_order'
 //
-// TWO OF THE NINE CAME BACK WITH ZERO SITES. `schedule` and `view_field` are
-// derived by the deriver, stored on every seeded member row, and consulted by
-// NOTHING — no function body, no policy, no RESTRICTIVE policy, and nothing in
-// src/. They are names. The grid says so on their own row rather than drawing a
-// tick that implies a control, because a tick beside an unenforced key is the
-// same defect as a label standing in for a check.
+// ONE OF THE NINE COMES BACK WITH ZERO SITES. `view_field` is derived by the
+// deriver, stored on every seeded member row, and consulted by NOTHING — no
+// function body, no policy, no RESTRICTIVE policy, and nothing in src/. It is a
+// name. The grid says so on its own row rather than drawing a tick that implies
+// a control, because a tick beside an unenforced key is the same defect as a
+// label standing in for a check.
+//
+// It was TWO until 2026-09-06. `schedule` was wired that morning and this line
+// is only correct because the census was re-run — the count is derived from
+// ENFORCEMENT below, so the UI cannot disagree with the data even when this
+// prose goes stale.
 // ---------------------------------------------------------------------------
 export type Enforcement = {
   /** Distinct DB objects that consult this capability. 0 means it is inert. */
@@ -202,10 +306,20 @@ export const ENFORCEMENT: Record<Capability, Enforcement> = {
     where: ["rpc: add_deal_note"],
   },
   schedule: {
-    sites: 0,
+    // RE-DERIVED 2026-09-06, and it MOVED: 0 sites -> 6. Track S wired it
+    // (migration `wire_schedule_capability`) between yesterday's derivation
+    // and today's. This is the exact failure this file's registry exists to
+    // make visible: the mirror was shipped on 09-05 saying "nothing reads this
+    // key", was false within a day, and nothing in the running application
+    // could have noticed. It was caught by re-running the census, not by the
+    // code.
+    sites: 6,
     summary:
-      "NOTHING READS THIS KEY. No RPC, no policy, nothing in the app. It is derived onto every member row and then never consulted — granting or revoking it changes nothing anyone can observe.",
-    where: [],
+      "3 RPCs + 3 policies on schedule_blocks. Wired 2026-09-06; before that this key was derived onto every member row and read by nothing.",
+    where: [
+      "rpc: add_schedule_block, update_schedule_block, delete_schedule_block",
+      "policy: schedule_blocks (insert/update/delete)",
+    ],
   },
   view_field: {
     sites: 0,
@@ -280,6 +394,33 @@ export const ROLE_DEFAULTS: Record<OrgRole, Record<Capability, boolean>> = {
     manage_catalog: false, edit_leads: false, create_estimates: false,
     add_notes: true, schedule: true, view_field: true,
   },
+};
+
+/**
+ * The deriver's ELSE branch — what a role NOT in the CHECK constraint gets.
+ *
+ * RE-DERIVED 2026-09-06 after migration `f5_unrecognised_role_gets_nothing`
+ * landed mid-session, by calling the function with a role the constraint does
+ * not allow:
+ *
+ *   select public.default_permissions_for_role('some_future_role');
+ *
+ * Nine explicit falses — everything denied, and denied by a written value
+ * rather than by an absent key, which are different things everywhere else on
+ * this page. Before F5 this branch returned the member-like set (six grants),
+ * so an unrecognised role silently inherited most of a member's access.
+ *
+ * WHY THIS ENTRY EXISTS AT ALL, given the CHECK constraint makes it
+ * unreachable today: mirror D would otherwise have reported "unchanged" after
+ * F5, because all seven roles it enumerates hit a NAMED branch and none of them
+ * moved. The thing F5 changed is the only thing mirror D did not cover. A
+ * re-derivation that only checks the cases you already listed cannot find a
+ * change to the case you did not.
+ */
+export const ROLE_DEFAULTS_UNRECOGNISED: Record<Capability, boolean> = {
+  view_financials: false, view_estimates: false, view_master_work_order: false,
+  manage_catalog: false, edit_leads: false, create_estimates: false,
+  add_notes: false, schedule: false, view_field: false,
 };
 
 /** The nine keys as a stable fingerprint, so identical roles can be grouped. */
@@ -365,13 +506,17 @@ export function driftFromRoleDefault(
   permissions: unknown
 ): { kind: DriftKind; missing: Capability[]; extraTrue: Capability[]; extraFalse: Capability[] } {
   const perms = (permissions ?? {}) as Record<string, unknown>;
-  const known = ORG_ROLES.includes(role as OrgRole) ? ROLE_DEFAULTS[role as OrgRole] : null;
+  // An unrecognised role used to fall through to "matches", which said the row
+  // agreed with a default this file had no value for. F5 gave that branch a
+  // real answer, so it is compared like any other.
+  const known: Record<Capability, boolean> = ORG_ROLES.includes(role as OrgRole)
+    ? ROLE_DEFAULTS[role as OrgRole]
+    : ROLE_DEFAULTS_UNRECOGNISED;
   const missing: Capability[] = [];
   const extraTrue: Capability[] = [];
   const extraFalse: Capability[] = [];
 
   if (Object.keys(perms).length === 0) return { kind: "no-keys", missing: [...CAPABILITIES], extraTrue, extraFalse };
-  if (!known) return { kind: "matches", missing, extraTrue, extraFalse };
 
   for (const c of CAPABILITIES) {
     if (!(c in perms)) missing.push(c);
@@ -383,8 +528,13 @@ export function driftFromRoleDefault(
 }
 
 /** How many of the nine a role would grant, if the row were seeded properly. */
-export function grantedCountForRole(role: string): number | null {
-  if (!ORG_ROLES.includes(role as OrgRole)) return null;
+export function grantedCountForRole(role: string): number {
+  // No longer nullable. Since F5 the deriver has a defined answer for an
+  // unrecognised role — zero — so returning null would be this file being
+  // vaguer than the database.
+  if (!ORG_ROLES.includes(role as OrgRole)) {
+    return CAPABILITIES.filter((c) => ROLE_DEFAULTS_UNRECOGNISED[c]).length;
+  }
   return CAPABILITIES.filter((c) => ROLE_DEFAULTS[role as OrgRole][c]).length;
 }
 
