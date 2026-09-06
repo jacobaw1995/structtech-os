@@ -100,13 +100,37 @@ function config() {
 // ---------------------------------------------------------------------------
 class Undetermined extends Error {}
 
+// The monitor's own tag. MEASURED 2026-09-06: over the 24 h to 14:40Z the edge
+// log held 61 rows, of which 24 were this monitor's requests to Supabase and
+// ALL 24 WERE UNTAGGED — it calls `fetch` directly and never touches a
+// Supabase client, so `src/lib/supabase/client-info.ts` never applies to it.
+//
+// That is not cosmetic. The instrument the roadmap-grant decision rests on is
+// "tag ours, subtract, read the remainder", and on that day OUR OWN MONITOR
+// WAS THE LARGEST SINGLE OCCUPANT OF THE REMAINDER. A method whose leftover
+// bucket is dominated by our own traffic cannot answer "did a stranger call
+// this endpoint" — every reading would have to be hand-corrected for the
+// monitor, and a correction nobody remembers to apply is the absence-as-
+// control failure this project keeps finding.
+//
+// Tagging changes nothing about what is probed: x-client-info carries no
+// authorisation and PostgREST does not read it. D2.3 and D3.2 still reach the
+// backend with exactly the anon key and headers a public caller would use.
+// It labels our probe traffic as ours, which is all it claims to do.
+const MONITOR_CLIENT_INFO = 'structtech-os/frontdoor-monitor';
+
 async function probe(url, init, timeoutMs) {
   if (!url || !/^https?:\/\//.test(url)) {
     throw new Undetermined(`no usable URL configured (got ${JSON.stringify(url)})`);
   }
   let res;
   try {
-    res = await fetch(url, { ...init, signal: AbortSignal.timeout(timeoutMs), redirect: 'follow' });
+    res = await fetch(url, {
+      ...init,
+      headers: { ...(init?.headers ?? {}), 'x-client-info': MONITOR_CLIENT_INFO },
+      signal: AbortSignal.timeout(timeoutMs),
+      redirect: 'follow',
+    });
   } catch (err) {
     throw new Undetermined(`${err.name}: ${err.message}`);
   }
