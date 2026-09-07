@@ -364,14 +364,35 @@ async function run() {
   //     HEALTH_ROUTE_DUE, after which it reads FAIL. The allowance expires by
   //     the calendar rather than by somebody remembering to tighten it, which
   //     is the difference between a control and an intention.
+  // Probed ONCE, outside check(), because "the route is not deployed yet" is
+  // not one of the three verdicts this monitor has. It is not a door being
+  // down (FAIL) and it is not the monitor being blind (ERROR) — and routing it
+  // through ERROR is exactly the mistake this block exists to correct.
+  //
+  // FOUND BY THE GUARD-ON-THE-GUARD, 2026-09-07T23:03Z. The first version of
+  // D1.4 threw Undetermined on a 404, which made the whole run UNDETERMINED,
+  // which exits 2, which FAILS the workflow step — turning every scheduled run
+  // red for a reason everybody already knew, which is the precise outcome the
+  // 404 branch was written to avoid. The fault-injection job caught it on the
+  // first push ("fault mode '' exited 2, wanted 0"). It got past local testing
+  // because the local check read `$?` after piping the monitor into grep and
+  // graded grep's exit status instead of the monitor's.
+  //
+  // So: when the route is absent and the deadline has not passed, D1.4
+  // REGISTERS NO VERDICT. It prints, and the run is unaffected. After
+  // HEALTH_ROUTE_DUE a 404 is a real failure and is graded as one.
+  const healthPre = await probe(`${cfg.osBase}/api/health`, {}, cfg.timeoutMs).catch(() => null);
+  const healthOverdue = Date.now() > Date.parse(HEALTH_ROUTE_DUE);
+
+  if (healthPre?.status === 404 && !healthOverdue) {
+    console.log(`[ --  ] D1.4  (os.structtek.com · deployed commit is readable)`);
+    console.log(`         not deployed yet — /api/health returns 404. NOT GRADED until ${HEALTH_ROUTE_DUE}, a failure after it.`);
+  } else {
   await check('D1.4', 'os.structtek.com', 'deployed commit is readable', async () => {
-    const res = await probe(`${cfg.osBase}/api/health`, {}, cfg.timeoutMs);
+    const res = healthPre ?? await probe(`${cfg.osBase}/api/health`, {}, cfg.timeoutMs);
 
     if (res.status === 404) {
-      const overdue = Date.now() > Date.parse(HEALTH_ROUTE_DUE);
-      const msg = `/api/health returns 404 — the deployment cannot report its own commit (due ${HEALTH_ROUTE_DUE})`;
-      if (overdue) return fail(`${msg}. The grace period has expired: this route was expected live and is not.`);
-      throw new Undetermined(`${msg}. Not yet a failure — the route ships with this check and the deploy may not have landed.`);
+      return fail(`/api/health returns 404 — the deployment cannot report its own commit, and the ${HEALTH_ROUTE_DUE} grace period has expired.`);
     }
     if (res.status !== 200) return fail(`HTTP ${res.status} from /api/health. Body: ${res.body.slice(0, 200)}`);
 
@@ -393,6 +414,7 @@ async function run() {
     // history for free, and a deploy becomes visible as a change in this line.
     return pass(`deployed sha=${payload.sha.slice(0, 7)} env=${payload.env ?? '(none)'}`);
   });
+  }
 
   // === DOOR 2 · audit.structtek.com — the live lead-capture revenue path ===
 
