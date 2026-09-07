@@ -19,10 +19,24 @@ export function ScheduleBlockRow({
   orgId,
   workOrderId,
   block,
+  canSchedule,
 }: {
   orgId: string;
   workOrderId: string;
   block: ScheduleBlock;
+  /**
+   * U-W1.6 — has_capability(org, 'schedule'). Track S wired that key to refuse
+   * at both RPC and RLS on 2026-09-05; before today this component offered
+   * four controls (crew, start, end, delete) that all three schedule RPCs
+   * raise `your role cannot schedule work in this workspace` for.
+   *
+   * When false the row renders the SAME information as READ-ONLY TEXT rather
+   * than as disabled inputs. A disabled input reads as "off for now, try
+   * later"; text reads as "this is not yours to change", which is the true
+   * statement. It also cannot be re-enabled by a devtools poke into a submit
+   * the server will reject anyway.
+   */
+  canSchedule: boolean;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const [isPending, startTransition] = useTransition();
@@ -41,6 +55,16 @@ export function ScheduleBlockRow({
     // wrapper back into the form's direct flex children at desktop size,
     // reproducing the original single-line layout exactly.
     <div className="flex flex-col gap-1 border-b border-border py-2 last:border-b-0">
+      {!canSchedule ? (
+        // Same three facts, same order, no controls. `tabular-nums` because
+        // these are dates being scanned down a column.
+        <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:gap-3">
+          <span className="text-sm font-medium text-text">{block.crew_name}</span>
+          <span className="text-sm tabular-nums text-muted">
+            {formatDateOnly(block.start_date)} – {formatDateOnly(block.end_date)}
+          </span>
+        </div>
+      ) : (
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <form
           ref={formRef}
@@ -90,12 +114,23 @@ export function ScheduleBlockRow({
           </button>
         </form>
       </div>
+      )}
+      {/* The conflict warning renders in BOTH modes on purpose. "Materials are
+          not ready by this start date" is a fact about the job, not a control
+          — a reader who cannot change the date is often exactly the person who
+          needs to know it is wrong. */}
       {block.ready_by_conflict && (
         <p className="rounded-md bg-warn-soft px-2 py-1 text-xs text-text">
           {block.ready_by_conflict_reason ?? `materials are not ready by this start date`}
         </p>
       )}
-      {!block.ready_by_conflict && (
+      {/* This caption exists to translate the two <input type="date"> controls
+          above into readable dates — it is an ECHO of an editor, not the
+          schedule itself. In read-only mode there is no editor to echo and the
+          row already states the dates at full size, so rendering it there put
+          "Sep 9 – Sep 11" on the screen twice. Found by looking at the
+          fixture, not by reading this file. */}
+      {canSchedule && !block.ready_by_conflict && (
         <p className="text-xs text-muted">
           {formatDateOnly(block.start_date)} – {formatDateOnly(block.end_date)}
         </p>

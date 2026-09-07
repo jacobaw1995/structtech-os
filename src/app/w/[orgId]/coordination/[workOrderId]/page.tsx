@@ -77,7 +77,7 @@ export default async function WorkOrderPage({
   // above is unchanged and still returns the row itself: its `setof
   // work_orders` shape is what the deployed page reads, and narrowing it would
   // have broken production between the migration and the deploy (rule 5b).
-  const [{ data: fetchedEstimate }, { data: materialsData }, { data: scheduleData }, { data: activityData }, { data: memberRows }, { data: treeData }, { data: tradeNameData }, { data: lineItemData }, { data: canViewFinancials }] =
+  const [{ data: fetchedEstimate }, { data: materialsData }, { data: scheduleData }, { data: activityData }, { data: memberRows }, { data: treeData }, { data: tradeNameData }, { data: lineItemData }, { data: canViewFinancials }, { data: canScheduleData }] =
     await Promise.all([
       supabase.rpc("fetch_estimate", { p_estimate_id: workOrder.estimate_id }),
       supabase
@@ -116,6 +116,14 @@ export default async function WorkOrderPage({
         .eq("estimate_id", workOrder.estimate_id)
         .order("sort_order", { ascending: true }),
       supabase.rpc("can_view_financials", { p_org_id: params.orgId }),
+      // U-W1.6 — Track S wired `schedule` to refuse at RPC and RLS on
+      // 2026-09-05 (3 RPCs + 3 policies on schedule_blocks). Until today this
+      // page never asked, so it offered eight controls — crew/start/end/delete
+      // on every existing block, plus crew/start/end/add — that all three
+      // schedule RPCs raise `your role cannot schedule work in this workspace`
+      // for. Measured, not assumed: a grep of src/ for the capability returned
+      // a stage key and a model constant, and nothing else.
+      supabase.rpc("has_capability", { p_org_id: params.orgId, p_capability: "schedule" }),
     ]);
 
   const estimate = fetchedEstimate?.[0] as Estimate | undefined;
@@ -123,6 +131,10 @@ export default async function WorkOrderPage({
   const scheduleBlocks = (scheduleData ?? []) as ScheduleBlock[];
   const activity = (activityData ?? []) as WorkOrderActivity[];
   const members = memberRows ?? [];
+
+  // Closed default, matching has_capability(): anything that is not an explicit
+  // TRUE is a no. A null here (RPC error, network) must not read as permission.
+  const canSchedule = canScheduleData === true;
 
   const tree = (treeData ?? null) as WorkOrderTree | null;
   const isMaster = workOrder.kind === "master";
@@ -422,9 +434,30 @@ export default async function WorkOrderPage({
               orgId={params.orgId}
               workOrderId={workOrder.id}
               block={block}
+              canSchedule={canSchedule}
             />
           ))}
-          <AddScheduleBlockForm orgId={params.orgId} workOrderId={workOrder.id} />
+          {canSchedule ? (
+            <AddScheduleBlockForm orgId={params.orgId} workOrderId={workOrder.id} />
+          ) : (
+            /* NOT a disabled button. SCOPE §2.8 forbids blocking an action the
+               user is PERMITTED to take because other data is incomplete —
+               the catalog's manage_catalog gate and the permissions page's
+               manager gate draw the same line. This user is not permitted, and
+               the database will say so; offering the control anyway would make
+               the refusal arrive AFTER they had typed a crew name and two
+               dates, which is the worst version of a block.
+
+               Same voice as the roadmap `restricted` copy: says what is true,
+               says what to do, and does not explain the mechanism. It names no
+               role, because `schedule` is granted per member and the role that
+               holds it differs per tenant — naming "an owner" would be a guess
+               rendered as a fact. */
+            <p className="border-t border-border pt-2 text-sm text-muted">
+              Your role can see the schedule here but not change it. Ask whoever
+              manages scheduling in {ctx.active.org_name} if a date needs to move.
+            </p>
+          )}
         </div>
         )}
       </div>

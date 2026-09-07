@@ -108,7 +108,11 @@ export const MIRRORS: MirrorEntry[] = [
       "every has_capability() literal in pg_proc bodies and pg_policies expressions, plus the two thin wrappers",
     unreachableBecause:
       "pg_proc and pg_policies are not reachable through PostgREST.",
-    derivedOn: "2026-09-06",
+    // 2026-09-07: re-derived after a2_3_purchase_orders landed mid-session.
+    // ENFORCEMENT itself did not move; what moved is that a TENTH key now has
+    // 13 enforcement sites and is not in the derived set at all — see
+    // ENFORCED_BUT_UNDERIVED.
+    derivedOn: "2026-09-07",
     rederive: String.raw`with fn as (select 'function' kind, proname site, prosrc body from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and proname not in ('has_capability','can_view_financials','can_view_master_work_order')), pol as (select case when permissive = 'RESTRICTIVE' then 'restrictive policy' else 'policy' end, tablename || '.' || policyname, coalesce(qual,'') || ' ' || coalesce(with_check,'') from pg_policies where schemaname = 'public'), s as (select * from fn union all select * from pol), hits as (select kind, site, (regexp_matches(body, 'has_capability\s*\([^,]+,\s*''([a-z_]+)''', 'g'))[1] cap from s union all select kind, site, 'view_financials' from s where body ~ 'can_view_financials' union all select kind, site, 'view_master_work_order' from s where body ~ 'can_view_master_work_order') select cap, kind, count(distinct site) from hits group by 1, 2 order by 1, 2;`,
   },
   {
@@ -537,6 +541,52 @@ export function grantedCountForRole(role: string): number {
   }
   return CAPABILITIES.filter((c) => ROLE_DEFAULTS[role as OrgRole][c]).length;
 }
+
+/**
+ * ENFORCED BUT NEVER GRANTED — a third state, and the first key to be in it.
+ *
+ * `CAPABILITIES` above is the set `default_permissions_for_role()` EMITS. It is
+ * not the set the database ENFORCES, and on 2026-09-07 those two stopped being
+ * the same thing.
+ *
+ * `a2_3_purchase_orders` (ledger 20260907230009, applied 2026-09-07, not yet in
+ * main) introduced `manage_purchasing` and gates 13 objects on it — 6 RPCs and
+ * 7 policies. The deriver was NOT extended, so no role is ever seeded the key.
+ * Verified rather than inferred:
+ *
+ *   select public.default_permissions_for_role('owner') ? 'manage_purchasing';
+ *   -- false
+ *
+ * has_capability() is closed-default, so absence denies. The only callers who
+ * pass are manager tier, and they pass through the is_org_manager()
+ * short-circuit rather than through any stored key. Concretely: an `office`
+ * member — the role A2.1c deliberately gave `manage_catalog` because "the
+ * person who builds estimates maintains the item list" — cannot create a
+ * purchase order, and nothing in the role model says so.
+ *
+ * IT IS DELIBERATELY NOT IN `CAPABILITIES` AND NOT IN `ROLE_DEFAULTS`. Adding
+ * it there would require a boolean per role that the deriver does not have, and
+ * inventing those is the exact failure this file exists to avoid. It is listed
+ * here, separately, because the honest statement is "the database enforces a
+ * key the role model has never heard of."
+ *
+ * WHAT THIS MEANS FOR THE PO SURFACE (G2): gate it on
+ * has_capability(org, 'manage_purchasing') from the first commit. Doing what
+ * the scheduling surface did — offering controls and letting the RPC raise —
+ * would repeat U-W1.6 on a screen that does not exist yet, which is the
+ * cheapest possible moment to not do it.
+ */
+export const ENFORCED_BUT_UNDERIVED = [
+  {
+    key: "manage_purchasing",
+    sites: 13,
+    where: "6 RPCs (create/update/delete purchase_order, add/update/delete purchase_order_line) + 7 policies on purchase_orders, purchase_order_lines, purchase_order_line_promises",
+    derivedBy: "nothing — default_permissions_for_role() does not emit it",
+    consequence:
+      "Only manager tier passes, and only via the is_org_manager() short-circuit. Every office member is refused.",
+    observedOn: "2026-09-07",
+  },
+] as const;
 
 export function isCapability(k: string): k is Capability {
   return (CAPABILITIES as readonly string[]).includes(k);
