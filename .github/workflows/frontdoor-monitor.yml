@@ -94,10 +94,18 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SCHEDULE_NOMINAL_MINUTES: '60'
-          # 6h. Deliberately loose: the point is to catch the schedule going
-          # from hourly to half-daily, not to page on ordinary queue delay.
-          # Tighten it once a delivered-rate baseline for '23 * * * *' exists.
-          SCHEDULE_MAX_GAP_MINUTES: '360'
+          # 8h. Raised from 360 by controller decision (Jacob, 2026-09-06) and
+          # applied 2026-09-07, when the decision was found not to have reached
+          # the repository. 360 was too tight against the measured worst gap and
+          # the measurement proved it before the fix landed: the scheduled run
+          # at 2026-09-07T16:29:54Z went RED on a gap of 366.0 min — six minutes
+          # of overshoot, with every door green. That is an alarm firing on
+          # ordinary queue variance, which is the fastest way to teach someone
+          # to ignore this workflow's email.
+          #
+          # Measured baseline at n=21 over 76.39 h: mean gap 208.3 min, worst
+          # 365.8 min. 480 leaves ~31% headroom over the worst observed.
+          SCHEDULE_MAX_GAP_MINUTES: '480'
         run: node scripts/monitor/schedule-drift.mjs
 
       # DEAD-MAN'S PING — the only control that can catch the schedule DYING

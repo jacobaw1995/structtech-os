@@ -51,11 +51,19 @@
 import { appendFileSync } from 'node:fs';
 
 const DEFAULTS = {
-  osBase:    'https://os.structtek.com',
-  auditBase: 'https://audit.structtek.com',
+  // Overridable so D1.4's branches can be exercised against a locally built
+  // instance — a 404, a null sha and a valid sha cannot all be induced against
+  // production, and a branch that is never executed is not a tested branch.
+  // Production sets neither variable, so the defaults are what actually runs.
+  osBase:    process.env.MONITOR_OS_BASE    || 'https://os.structtek.com',
+  auditBase: process.env.MONITOR_AUDIT_BASE || 'https://audit.structtek.com',
 };
 
 const FAULT = process.env.MONITOR_FAULT || '';
+
+// See D1.4. A 404 on /api/health is tolerated until this date and a failure
+// after it. Deliberately a literal: an env var could be set to silence it.
+const HEALTH_ROUTE_DUE = '2026-09-14T00:00:00Z';
 const SELFTEST = process.env.MONITOR_SELFTEST === '1';
 const BASE_TIMEOUT_MS = Number(process.env.MONITOR_TIMEOUT_MS || 15000);
 
@@ -339,6 +347,51 @@ async function run() {
       return pass('HTTP 200, designed branch = not_found — the RPC was reachable and matched nothing, so anon EXECUTE has landed');
     }
     return fail('HTTP 200 with our chrome but NONE of the route\'s designed branch copy — the page rendered something it has no code path to render');
+  });
+
+  // 1.4 WHAT IS DEPLOYED. On 2026-09-07 this question had no answer available
+  //     to anyone outside the Vercel account: the Vercel API returns 403 to
+  //     us, the served HTML exposes no buildId, and the only build-derived
+  //     strings are content hashes that name a bundle rather than a commit.
+  //     "Is the fix live?" could be answered only by reasoning. /api/health
+  //     ends that, and this probe is what keeps it answerable — a health route
+  //     nobody reads rots exactly as quietly as no health route at all.
+  //
+  //     THE 404 BRANCH IS A DEADLINE, NOT AN EXEMPTION. The route ships in the
+  //     same change as this check, so between merge and deploy it legitimately
+  //     does not exist, and a red monitor for a known reason is how people
+  //     learn to ignore red. So a 404 reads UNDETERMINED — until
+  //     HEALTH_ROUTE_DUE, after which it reads FAIL. The allowance expires by
+  //     the calendar rather than by somebody remembering to tighten it, which
+  //     is the difference between a control and an intention.
+  await check('D1.4', 'os.structtek.com', 'deployed commit is readable', async () => {
+    const res = await probe(`${cfg.osBase}/api/health`, {}, cfg.timeoutMs);
+
+    if (res.status === 404) {
+      const overdue = Date.now() > Date.parse(HEALTH_ROUTE_DUE);
+      const msg = `/api/health returns 404 — the deployment cannot report its own commit (due ${HEALTH_ROUTE_DUE})`;
+      if (overdue) return fail(`${msg}. The grace period has expired: this route was expected live and is not.`);
+      throw new Undetermined(`${msg}. Not yet a failure — the route ships with this check and the deploy may not have landed.`);
+    }
+    if (res.status !== 200) return fail(`HTTP ${res.status} from /api/health. Body: ${res.body.slice(0, 200)}`);
+
+    let payload;
+    try {
+      payload = JSON.parse(res.body);
+    } catch {
+      return fail(`/api/health returned 200 but not JSON — something other than the route is answering that path. Body: ${res.body.slice(0, 120)}`);
+    }
+
+    // `sha` null is the route's HONEST answer when VERCEL_GIT_COMMIT_SHA is
+    // absent — which on the production host means the build was not produced
+    // from a git commit Vercel could name. That is a real defect in the
+    // deployment, not a monitor problem, so it FAILS rather than erroring.
+    if (typeof payload.sha !== 'string' || !/^[0-9a-f]{40}$/.test(payload.sha)) {
+      return fail(`/api/health answered but reports sha=${JSON.stringify(payload.sha)} — the deployment cannot name its own commit, so "is the fix live?" is still unanswerable`);
+    }
+    // Printed on every run ON PURPOSE: the run log then carries a deployment
+    // history for free, and a deploy becomes visible as a change in this line.
+    return pass(`deployed sha=${payload.sha.slice(0, 7)} env=${payload.env ?? '(none)'}`);
   });
 
   // === DOOR 2 · audit.structtek.com — the live lead-capture revenue path ===
