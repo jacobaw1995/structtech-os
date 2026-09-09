@@ -51,11 +51,19 @@
 import { appendFileSync } from 'node:fs';
 
 const DEFAULTS = {
-  osBase:    'https://os.structtek.com',
-  auditBase: 'https://audit.structtek.com',
+  // Overridable so D1.4's branches can be exercised against a locally built
+  // instance — a 404, a null sha and a valid sha cannot all be induced against
+  // production, and a branch that is never executed is not a tested branch.
+  // Production sets neither variable, so the defaults are what actually runs.
+  osBase:    process.env.MONITOR_OS_BASE    || 'https://os.structtek.com',
+  auditBase: process.env.MONITOR_AUDIT_BASE || 'https://audit.structtek.com',
 };
 
 const FAULT = process.env.MONITOR_FAULT || '';
+
+// See D1.4. A 404 on /api/health is tolerated until this date and a failure
+// after it. Deliberately a literal: an env var could be set to silence it.
+const HEALTH_ROUTE_DUE = '2026-09-14T00:00:00Z';
 const SELFTEST = process.env.MONITOR_SELFTEST === '1';
 const BASE_TIMEOUT_MS = Number(process.env.MONITOR_TIMEOUT_MS || 15000);
 
@@ -340,6 +348,94 @@ async function run() {
     }
     return fail('HTTP 200 with our chrome but NONE of the route\'s designed branch copy — the page rendered something it has no code path to render');
   });
+
+  // 1.4 WHAT IS DEPLOYED. On 2026-09-07 this question had no answer available
+  //     to anyone outside the Vercel account: the Vercel API returns 403 to
+  //     us, the served HTML exposes no buildId, and the only build-derived
+  //     strings are content hashes that name a bundle rather than a commit.
+  //     "Is the fix live?" could be answered only by reasoning. /api/health
+  //     ends that, and this probe is what keeps it answerable — a health route
+  //     nobody reads rots exactly as quietly as no health route at all.
+  //
+  //     THE 404 BRANCH IS A DEADLINE, NOT AN EXEMPTION. The route ships in the
+  //     same change as this check, so between merge and deploy it legitimately
+  //     does not exist, and a red monitor for a known reason is how people
+  //     learn to ignore red. So a 404 reads UNDETERMINED — until
+  //     HEALTH_ROUTE_DUE, after which it reads FAIL. The allowance expires by
+  //     the calendar rather than by somebody remembering to tighten it, which
+  //     is the difference between a control and an intention.
+  // Probed ONCE, outside check(), because "the route is not deployed yet" is
+  // not one of the three verdicts this monitor has. It is not a door being
+  // down (FAIL) and it is not the monitor being blind (ERROR) — and routing it
+  // through ERROR is exactly the mistake this block exists to correct.
+  //
+  // FOUND BY THE GUARD-ON-THE-GUARD, 2026-09-07T23:03Z. The first version of
+  // D1.4 threw Undetermined on a 404, which made the whole run UNDETERMINED,
+  // which exits 2, which FAILS the workflow step — turning every scheduled run
+  // red for a reason everybody already knew, which is the precise outcome the
+  // 404 branch was written to avoid. The fault-injection job caught it on the
+  // first push ("fault mode '' exited 2, wanted 0"). It got past local testing
+  // because the local check read `$?` after piping the monitor into grep and
+  // graded grep's exit status instead of the monitor's.
+  //
+  // So: when the route is absent and the deadline has not passed, D1.4
+  // REGISTERS NO VERDICT. It prints, and the run is unaffected. After
+  // HEALTH_ROUTE_DUE a 404 is a real failure and is graded as one.
+  const healthPre = await probe(`${cfg.osBase}/api/health`, {}, cfg.timeoutMs).catch(() => null);
+  const healthOverdue = Date.now() > Date.parse(HEALTH_ROUTE_DUE);
+
+  if (healthPre?.status === 404 && !healthOverdue) {
+    console.log(`[ --  ] D1.4  (os.structtek.com · deployed commit is readable)`);
+    console.log(`         not deployed yet — /api/health returns 404. NOT GRADED until ${HEALTH_ROUTE_DUE}, a failure after it.`);
+  } else {
+  await check('D1.4', 'os.structtek.com', 'deployed commit is readable', async () => {
+    const res = healthPre ?? await probe(`${cfg.osBase}/api/health`, {}, cfg.timeoutMs);
+
+    if (res.status === 404) {
+      return fail(`/api/health returns 404 — the deployment cannot report its own commit, and the ${HEALTH_ROUTE_DUE} grace period has expired.`);
+    }
+    if (res.status !== 200) return fail(`HTTP ${res.status} from /api/health. Body: ${res.body.slice(0, 200)}`);
+
+    let payload;
+    try {
+      payload = JSON.parse(res.body);
+    } catch {
+      return fail(`/api/health returned 200 but not JSON — something other than the route is answering that path. Body: ${res.body.slice(0, 120)}`);
+    }
+
+    // `sha` null is the route's HONEST answer when VERCEL_GIT_COMMIT_SHA is
+    // absent — which on the production host means the build was not produced
+    // from a git commit Vercel could name. That is a real defect in the
+    // deployment, not a monitor problem, so it FAILS rather than erroring.
+    if (typeof payload.sha !== 'string' || !/^[0-9a-f]{40}$/.test(payload.sha)) {
+      return fail(`/api/health answered but reports sha=${JSON.stringify(payload.sha)} — the deployment cannot name its own commit, so "is the fix live?" is still unanswerable`);
+    }
+    // DEPLOY DRIFT — REPORTED, NOT GRADED, and the distinction is the point.
+    //
+    // GITHUB_SHA on a scheduled run IS the default branch's head at dispatch,
+    // so comparing it to the deployed sha answers "is production running main?"
+    // for free — no API call, no token, no new permission. It is read from the
+    // runner's own environment, so outside Actions it is simply absent and the
+    // comparison is omitted rather than guessed at.
+    //
+    // It is NOT graded because a deploy legitimately lags a merge by minutes,
+    // and this monitor has no memory — it cannot tell "mid-deploy" from "stuck
+    // three days behind", which is the only distinction that would make a
+    // verdict meaningful. Inventing a threshold here would be building a gate
+    // out of a statistic, which is exactly the error the cron mean already
+    // taught us. Report the two SHAs, let a reader who can see history judge.
+    const headSha = process.env.GITHUB_SHA;
+    const drift = !headSha
+      ? ''
+      : headSha === payload.sha
+        ? ' · matches default branch'
+        : ` · DEFAULT BRANCH IS ${headSha.slice(0, 7)} — production is not running it`;
+
+    // Printed on every run ON PURPOSE: the run log then carries a deployment
+    // history for free, and a deploy becomes visible as a change in this line.
+    return pass(`deployed sha=${payload.sha.slice(0, 7)} env=${payload.env ?? '(none)'}${drift}`);
+  });
+  }
 
   // === DOOR 2 · audit.structtek.com — the live lead-capture revenue path ===
 

@@ -33,12 +33,16 @@ its free tier has no card and its grace period is configurable to the minute.
    yours to do — I do not create accounts or handle credentials.)
 2. **Add Check.**
    - Name: `structtech front-door monitor`
-   - Schedule: **Period 1 hour**, **Grace 3 hours**
-   - Why 3 h and not 1 h: the *delivered* worst gap measured on this repo is
-     4 h 33 m under the hourly cron and 5 h 10 m under `*/15`. A 1-hour grace
-     would page you several times a day about GitHub's queue rather than about
-     your site. Three hours is deliberately loose — it is watching for
-     *death*, not lateness. If the delivered cadence ever improves, tighten it.
+   - Schedule: **Period 1 hour**, **Grace 7 hours**
+   - Why 7 h and not 1 h: the *delivered* worst gap measured on this repo is
+     **6 h 06 m** (n=21 over 76 h, mean 3 h 28 m). A 1-hour grace would page
+     you several times a day about GitHub's queue rather than about your site.
+     Seven hours is deliberately loose — it is watching for *death*, not
+     lateness. If the delivered cadence ever improves, tighten it.
+   - This was 3 hours until 2026-09-07. It was raised on controller decision
+     after the in-workflow drift check went red at 366 min against a 360 min
+     threshold with every door green — a live demonstration that a grace
+     narrower than the observed worst gap alarms on the platform, not on us.
 3. Copy the check's **Ping URL** (it looks like `https://hc-ping.com/<uuid>`).
    **Do not paste it into a chat, a commit, or any file in this repo** — it is
    a capability: anyone holding it can silence the alarm.
