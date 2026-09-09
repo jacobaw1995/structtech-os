@@ -410,9 +410,30 @@ async function run() {
     if (typeof payload.sha !== 'string' || !/^[0-9a-f]{40}$/.test(payload.sha)) {
       return fail(`/api/health answered but reports sha=${JSON.stringify(payload.sha)} — the deployment cannot name its own commit, so "is the fix live?" is still unanswerable`);
     }
+    // DEPLOY DRIFT — REPORTED, NOT GRADED, and the distinction is the point.
+    //
+    // GITHUB_SHA on a scheduled run IS the default branch's head at dispatch,
+    // so comparing it to the deployed sha answers "is production running main?"
+    // for free — no API call, no token, no new permission. It is read from the
+    // runner's own environment, so outside Actions it is simply absent and the
+    // comparison is omitted rather than guessed at.
+    //
+    // It is NOT graded because a deploy legitimately lags a merge by minutes,
+    // and this monitor has no memory — it cannot tell "mid-deploy" from "stuck
+    // three days behind", which is the only distinction that would make a
+    // verdict meaningful. Inventing a threshold here would be building a gate
+    // out of a statistic, which is exactly the error the cron mean already
+    // taught us. Report the two SHAs, let a reader who can see history judge.
+    const headSha = process.env.GITHUB_SHA;
+    const drift = !headSha
+      ? ''
+      : headSha === payload.sha
+        ? ' · matches default branch'
+        : ` · DEFAULT BRANCH IS ${headSha.slice(0, 7)} — production is not running it`;
+
     // Printed on every run ON PURPOSE: the run log then carries a deployment
     // history for free, and a deploy becomes visible as a change in this line.
-    return pass(`deployed sha=${payload.sha.slice(0, 7)} env=${payload.env ?? '(none)'}`);
+    return pass(`deployed sha=${payload.sha.slice(0, 7)} env=${payload.env ?? '(none)'}${drift}`);
   });
   }
 
