@@ -329,24 +329,45 @@ async function run() {
     const chrome = classifyContains(res, ['Operations Roadmap', 'StructTech']);
     if (chrome.status !== 'PASS') return chrome;
 
-    // Copy chosen to avoid the typographic apostrophes in the headings — the
-    // headings render U+2019 raw, and matching on it is a byte-level
-    // dependency on a character nobody would think to preserve in an edit.
-    const RESTRICTED = 'The link is being held by StructTech and is not readable from here yet.';
-    const NOT_FOUND  = 'The link may have been mistyped';
-    const ERRORED    = 'This is a problem on our end, not with your link.';
+    // GRADED STRUCTURALLY, AND THIS IS THE SECOND VERSION.
+    //
+    // The first version listed the exact body copy of each branch and failed
+    // when none matched. On 2026-09-08 it went RED on a HEALTHY door: another
+    // track rewrote the `restricted` copy — correctly, removing the SQLSTATE
+    // and function name this monitor's own Saturday report had flagged as
+    // leaking to anonymous readers — and the assertion was pinned to the
+    // sentence they deleted. A monitor that cries outage when someone fixes a
+    // bug it reported is worse than no monitor: it is a trained reflex to
+    // ignore the word OUTAGE.
+    //
+    // The lesson is not "use better strings". It is that this check was
+    // COUPLED TO PROSE OWNED BY ANOTHER TRACK, and prose is exactly the thing
+    // that changes without anyone thinking about the monitor. So the grade now
+    // rests on structure the route cannot render without: a non-empty <h1>.
+    // Every designed Message branch renders one; a 500, a blank body, a
+    // deleted route and a Next.js error page all fail to.
+    const h1 = res.body.match(/<h1[^>]*>([\s\S]*?)<\/h1>/);
+    const heading = h1 ? h1[1].replace(/<[^>]+>/g, '').trim() : '';
+    if (!heading) {
+      return fail('HTTP 200 with our chrome but NO heading — the route rendered no designed state (a 500, a blank body, or a Next.js error page wearing our layout)');
+    }
 
-    if (res.body.includes(ERRORED)) {
-      return fail('the roadmap route rendered its ERROR branch — the RPC failed with something other than a permissions/absence code, which is a backend fault, not a closed door');
+    // The ONE remaining prose coupling, kept deliberately and scoped to one
+    // branch. `error` is the only outcome that means a genuine backend fault
+    // rather than a closed door, and it is the only one worth an outage claim.
+    // If this string drifts the check degrades to PASS — it under-reports
+    // rather than crying wolf, which is the correct direction for a coupling
+    // that cannot be made structural without editing another track's route.
+    // THE DURABLE FIX IS THEIRS TO MAKE: a `data-branch="restricted|not_found|
+    // error|ok"` attribute on the wrapper would let this be graded structurally
+    // and end the coupling. Proposed, not imposed.
+    if (heading.startsWith('Something went wrong loading this roadmap')) {
+      return fail(`the roadmap route rendered its ERROR branch (${heading}) — the RPC failed with something other than a permissions/absence code, which is a backend fault, not a closed door`);
     }
-    if (res.body.includes(RESTRICTED)) {
-      const code = res.body.match(/(42501|PGRST202|PGRST301)/)?.[1] ?? 'code not printed';
-      return pass(`HTTP 200, designed branch = restricted (${code}) — the route is serving and refusing correctly`);
-    }
-    if (res.body.includes(NOT_FOUND)) {
-      return pass('HTTP 200, designed branch = not_found — the RPC was reachable and matched nothing, so anon EXECUTE has landed');
-    }
-    return fail('HTTP 200 with our chrome but NONE of the route\'s designed branch copy — the page rendered something it has no code path to render');
+
+    // The heading is REPORTED, not matched. A copy change now shows up as a
+    // changed line in the run log — visible, diffable, and not a red run.
+    return pass(`HTTP 200, designed state rendered · heading: ${JSON.stringify(heading)}`);
   });
 
   // 1.4 WHAT IS DEPLOYED. On 2026-09-07 this question had no answer available
