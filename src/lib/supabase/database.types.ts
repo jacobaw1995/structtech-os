@@ -1320,6 +1320,7 @@ export type Database = {
           product_id: string | null
           quantity: number
           ready_by: string | null
+          ready_by_source: string
           sort_order: number
           unit: string | null
           updated_at: string
@@ -1334,6 +1335,7 @@ export type Database = {
           product_id?: string | null
           quantity?: number
           ready_by?: string | null
+          ready_by_source?: string
           sort_order?: number
           unit?: string | null
           updated_at?: string
@@ -1348,6 +1350,7 @@ export type Database = {
           product_id?: string | null
           quantity?: number
           ready_by?: string | null
+          ready_by_source?: string
           sort_order?: number
           unit?: string | null
           updated_at?: string
@@ -1941,6 +1944,170 @@ export type Database = {
           website?: string | null
         }
         Relationships: []
+      }
+      purchase_order_line_promises: {
+        Row: {
+          id: string
+          org_id: string
+          promised_date: string | null
+          purchase_order_line_id: string
+          recorded_at: string
+          recorded_by: string | null
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          promised_date?: string | null
+          purchase_order_line_id: string
+          recorded_at?: string
+          recorded_by?: string | null
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          promised_date?: string | null
+          purchase_order_line_id?: string
+          recorded_at?: string
+          recorded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_order_line_promises_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_order_line_promises_purchase_order_line_id_fkey"
+            columns: ["purchase_order_line_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_order_lines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchase_order_lines: {
+        Row: {
+          actual_date: string | null
+          created_at: string
+          id: string
+          material_item_id: string
+          org_id: string
+          promised_date: string | null
+          purchase_order_id: string
+          quantity_ordered: number
+          updated_at: string
+        }
+        Insert: {
+          actual_date?: string | null
+          created_at?: string
+          id?: string
+          material_item_id: string
+          org_id: string
+          promised_date?: string | null
+          purchase_order_id: string
+          quantity_ordered?: number
+          updated_at?: string
+        }
+        Update: {
+          actual_date?: string | null
+          created_at?: string
+          id?: string
+          material_item_id?: string
+          org_id?: string
+          promised_date?: string | null
+          purchase_order_id?: string
+          quantity_ordered?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_order_lines_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_order_lines_purchase_order_id_fkey"
+            columns: ["purchase_order_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_order_lines_material_item_id_fkey"
+            columns: ["material_item_id"]
+            isOneToOne: false
+            referencedRelation: "material_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchase_orders: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          job_id: string | null
+          notes: string | null
+          org_id: string
+          reference: string | null
+          status: string
+          supplier_name: string
+          supplier_org_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          job_id?: string | null
+          notes?: string | null
+          org_id: string
+          reference?: string | null
+          status?: string
+          supplier_name: string
+          supplier_org_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          job_id?: string | null
+          notes?: string | null
+          org_id?: string
+          reference?: string | null
+          status?: string
+          supplier_name?: string
+          supplier_org_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_orders_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_orders_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_orders_supplier_org_id_fkey"
+            columns: ["supplier_org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       roadmap_items: {
         Row: {
@@ -2822,6 +2989,56 @@ export type Database = {
       }
       complete_site_survey: {
         Args: { p_completed_at?: string; p_deal_id: string }
+        Returns: undefined
+      }
+      add_purchase_order_line: {
+        Args: {
+          p_po_id: string
+          p_material_item_id: string
+          p_quantity_ordered?: number
+          p_promised_date?: string
+        }
+        Returns: string
+      }
+      create_purchase_order: {
+        Args: {
+          p_job_id: string
+          p_supplier_name: string
+          p_supplier_org_id?: string
+        }
+        Returns: string
+      }
+      delete_purchase_order: {
+        Args: { p_po_id: string }
+        Returns: undefined
+      }
+      delete_purchase_order_line: {
+        Args: { p_line_id: string }
+        Returns: undefined
+      }
+      fetch_purchase_order: {
+        Args: { p_po_id: string }
+        Returns: Database["public"]["Tables"]["purchase_orders"]["Row"][]
+      }
+      list_purchase_orders: {
+        Args: { p_org_id: string; p_job_id?: string }
+        Returns: Database["public"]["Tables"]["purchase_orders"]["Row"][]
+      }
+      update_purchase_order: {
+        Args: {
+          p_po_id: string
+          p_supplier_name?: string
+          p_supplier_org_id?: string
+          p_status?: string
+        }
+        Returns: undefined
+      }
+      update_purchase_order_line: {
+        Args: {
+          p_line_id: string
+          p_quantity_ordered?: number
+          p_promised_date?: string
+        }
         Returns: undefined
       }
       create_check_in: {
