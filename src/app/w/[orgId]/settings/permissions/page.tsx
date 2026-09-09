@@ -60,14 +60,28 @@ export default async function PermissionsPage({
 
   const { cells } = buildGrid(members);
 
-  // Members whose permissions object is empty. Under A2.0's closed default this
-  // person is denied EVERYTHING, and A2.0b deliberately left this case open:
-  // "The residual case — a direct INSERT with permissions '{}' — is left
-  // failing CLOSED". This is that case, in production, and it is the first
-  // thing this page should tell you.
-  const unprovisioned = members.filter(
-    (m) => Object.keys((m.permissions ?? {}) as Record<string, unknown>).length === 0
-  );
+  // Members whose stored row is missing capabilities their role grants. Under
+  // A2.0's closed default an absent key grants NOTHING, and A2.0b deliberately
+  // left the hole open: "The residual case — a direct INSERT with permissions
+  // '{}' — is left failing CLOSED". That case is live in production and it is
+  // the first thing this page should tell you.
+  //
+  // 2026-09-08 — WIDENED, because a correct backfill by someone else silently
+  // switched this alarm off.
+  //
+  // It used to key on `Object.keys(permissions).length === 0`. The
+  // manage_purchasing backfill then wrote that one key into the very row this
+  // alarm exists to report, taking it from zero keys to one — so the row was
+  // still missing NINE capabilities, still denied almost everything, and no
+  // longer matched the test. A monitor whose subject can be moved out of scope
+  // by an unrelated migration is not a monitor.
+  //
+  // It now keys on MISSING KEYS, which is the thing that actually matters:
+  // under A2.0's closed default an absent key grants nothing, so a row missing
+  // any of them is under-provisioned whether it holds zero keys or nine.
+  const underProvisioned = members
+    .map((m) => ({ m, drift: driftFromRoleDefault(m.role, m.permissions) }))
+    .filter(({ m, drift }) => !isManagerRole(m.role) && drift.missing.length > 0);
 
   const inert = CAPABILITIES.filter((c) => ENFORCEMENT[c].sites === 0);
 
@@ -115,29 +129,33 @@ export default async function PermissionsPage({
             </p>
           )}
 
-          {unprovisioned.length > 0 && (
+          {underProvisioned.length > 0 && (
             <section className="rounded-lg border border-warn bg-warn-soft px-4 py-3">
               <h2 className="text-sm font-semibold text-text">
-                {unprovisioned.length} member
-                {unprovisioned.length === 1 ? " has" : "s have"} no permissions at all
+                {underProvisioned.length} member
+                {underProvisioned.length === 1 ? " is" : "s are"} missing capabilities
+                their role grants
               </h2>
               <ul className="mt-2 space-y-1 text-sm text-text">
-                {unprovisioned.map((m) => (
+                {underProvisioned.map(({ m, drift }) => (
                   <li key={m.user_id}>
                     <span className="font-medium">{m.full_name ?? "Unnamed member"}</span>{" "}
                     <span className="text-muted">
-                      · {m.role} · joined {formatDay(m.created_at)}
+                      · {m.role} · joined {formatDay(m.created_at)} ·{" "}
+                      {drift.missing.length} of {CAPABILITIES.length} keys never written
                     </span>
                   </li>
                 ))}
               </ul>
               <p className="mt-2 text-xs leading-relaxed text-muted">
-                Their <code>permissions</code> object is empty. Since A2.0 the default is
-                CLOSED — an absent key grants nothing — so this person is denied every
-                capability on the grid below, including the ones their role would normally
-                get. Nobody chose that: the row was written by a path that does not seed,
-                and no screen in this app can fix it. This is the case A2.0b recorded as
-                deliberately left &ldquo;failing closed&rdquo;.
+                Their stored row never had these keys written. Since A2.0 the default
+                is CLOSED — an absent key grants nothing — so they are denied every
+                capability listed above, including ones their role would normally get.
+                Nobody chose that: the row was written by a path that does not seed, and
+                no screen in this app can fix it. This is the case A2.0b recorded as
+                deliberately left &ldquo;failing closed&rdquo;. Note this is different
+                from a key written as <code>false</code>, which is a decision someone
+                made — the grid below draws that distinction per cell.
               </p>
             </section>
           )}
