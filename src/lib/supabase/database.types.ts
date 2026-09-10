@@ -3002,7 +3002,8 @@ export type Database = {
       }
       create_purchase_order: {
         Args: {
-          p_job_id: string
+          p_job_id?: string
+          p_org_id: string
           p_supplier_name: string
           p_supplier_org_id?: string
         }
@@ -3026,10 +3027,11 @@ export type Database = {
       }
       update_purchase_order: {
         Args: {
+          p_job_id?: string
           p_po_id: string
+          p_status?: string
           p_supplier_name?: string
           p_supplier_org_id?: string
-          p_status?: string
         }
         Returns: undefined
       }

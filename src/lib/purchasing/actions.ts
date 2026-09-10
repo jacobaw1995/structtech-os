@@ -55,7 +55,11 @@ export async function createPurchaseOrder(formData: FormData) {
   const jobId = requireString(formData, "jobId");
 
   const supabase = await client();
+  // p_org_id is REQUIRED as of migration 20260910215139 (Track S): a write
+  // names the tenant it writes to and never infers one from a membership set.
+  // The defect described at the top of this file is closed at the database.
   const { data, error } = await supabase.rpc("create_purchase_order", {
+    p_org_id: orgId,
     p_job_id: jobId,
     p_supplier_name: requireString(formData, "supplier_name"),
   });
