@@ -64,6 +64,10 @@ const FAULT = process.env.MONITOR_FAULT || '';
 // See D1.4. A 404 on /api/health is tolerated until this date and a failure
 // after it. Deliberately a literal: an env var could be set to silence it.
 const HEALTH_ROUTE_DUE = '2026-09-14T00:00:00Z';
+
+// See D1.3. The roadmap route's `data-branch` contract is tolerated as absent
+// until this date and a failure after it. A literal for the same reason.
+const ROADMAP_CONTRACT_DUE = '2026-09-17T00:00:00Z';
 const SELFTEST = process.env.MONITOR_SELFTEST === '1';
 const BASE_TIMEOUT_MS = Number(process.env.MONITOR_TIMEOUT_MS || 15000);
 
@@ -329,45 +333,48 @@ async function run() {
     const chrome = classifyContains(res, ['Operations Roadmap', 'StructTech']);
     if (chrome.status !== 'PASS') return chrome;
 
-    // GRADED STRUCTURALLY, AND THIS IS THE SECOND VERSION.
+    // THIRD VERSION — GRADED ON A CONTRACT THE ROUTE PUBLISHES FOR THIS CHECK.
     //
-    // The first version listed the exact body copy of each branch and failed
-    // when none matched. On 2026-09-08 it went RED on a HEALTHY door: another
-    // track rewrote the `restricted` copy — correctly, removing the SQLSTATE
-    // and function name this monitor's own Saturday report had flagged as
-    // leaking to anonymous readers — and the assertion was pinned to the
-    // sentence they deleted. A monitor that cries outage when someone fixes a
-    // bug it reported is worse than no monitor: it is a trained reflex to
-    // ignore the word OUTAGE.
+    // v1 asserted body copy and cried OUTAGE on a healthy door on 2026-09-08,
+    // when another track deleted — correctly — a sentence that leaked a
+    // SQLSTATE and function name to anonymous readers. v2 graded on a
+    // non-empty <h1> and kept one prose coupling, the error-branch heading.
+    // v3 removes that too: Track U now emits `data-branch` on the route's
+    // wrapper, one of exactly FOUR values, and documents it in the route as
+    // "THE CONTRACT THE MONITOR ASSERTS, INSTEAD OF A SENTENCE". The copy is
+    // free to change forever; the attribute is the promise.
     //
-    // The lesson is not "use better strings". It is that this check was
-    // COUPLED TO PROSE OWNED BY ANOTHER TRACK, and prose is exactly the thing
-    // that changes without anyone thinking about the monitor. So the grade now
-    // rests on structure the route cannot render without: a non-empty <h1>.
-    // Every designed Message branch renders one; a 500, a blank body, a
-    // deleted route and a Next.js error page all fail to.
+    // A FIFTH VALUE FAILS. That is U's design, not an accident of mine: if a
+    // new outcome is ever added without this check learning it, the monitor
+    // should say so loudly rather than pass on a page it does not recognise.
+    const ROADMAP_BRANCHES = ['restricted', 'not_found', 'error', 'ok'];
+    const branch = res.body.match(/data-branch="([^"]*)"/)?.[1];
+
+    if (branch !== undefined) {
+      if (!ROADMAP_BRANCHES.includes(branch)) {
+        return fail(`data-branch="${branch}" is not one of the four the route's contract defines (${ROADMAP_BRANCHES.join(' | ')}) — a new outcome shipped without this check learning it`);
+      }
+      if (branch === 'error') {
+        return fail('data-branch="error" — the RPC failed with something other than a permissions/absence code, which is a backend fault, not a closed door');
+      }
+      return pass(`HTTP 200, data-branch="${branch}" — a designed outcome, graded on the route's published contract`);
+    }
+
+    // FALLBACK, AND IT HAS A DEADLINE. The contract ships in the same merge
+    // window as this check, so for a while production legitimately has no
+    // attribute. Until ROADMAP_CONTRACT_DUE the v2 structural grade stands in;
+    // after it, a missing attribute is itself a FAIL — the contract was
+    // expected live and is not. Calendar, not memory: the same pattern D1.4
+    // used, for the same reason.
+    if (Date.now() > Date.parse(ROADMAP_CONTRACT_DUE)) {
+      return fail(`no data-branch attribute on the roadmap route, and the ${ROADMAP_CONTRACT_DUE} grace for it has expired — the published contract is missing`);
+    }
     const h1 = res.body.match(/<h1[^>]*>([\s\S]*?)<\/h1>/);
     const heading = h1 ? h1[1].replace(/<[^>]+>/g, '').trim() : '';
     if (!heading) {
-      return fail('HTTP 200 with our chrome but NO heading — the route rendered no designed state (a 500, a blank body, or a Next.js error page wearing our layout)');
+      return fail('HTTP 200 with our chrome but NO heading and NO data-branch — the route rendered no designed state (a 500, a blank body, or a Next.js error page wearing our layout)');
     }
-
-    // The ONE remaining prose coupling, kept deliberately and scoped to one
-    // branch. `error` is the only outcome that means a genuine backend fault
-    // rather than a closed door, and it is the only one worth an outage claim.
-    // If this string drifts the check degrades to PASS — it under-reports
-    // rather than crying wolf, which is the correct direction for a coupling
-    // that cannot be made structural without editing another track's route.
-    // THE DURABLE FIX IS THEIRS TO MAKE: a `data-branch="restricted|not_found|
-    // error|ok"` attribute on the wrapper would let this be graded structurally
-    // and end the coupling. Proposed, not imposed.
-    if (heading.startsWith('Something went wrong loading this roadmap')) {
-      return fail(`the roadmap route rendered its ERROR branch (${heading}) — the RPC failed with something other than a permissions/absence code, which is a backend fault, not a closed door`);
-    }
-
-    // The heading is REPORTED, not matched. A copy change now shows up as a
-    // changed line in the run log — visible, diffable, and not a red run.
-    return pass(`HTTP 200, designed state rendered · heading: ${JSON.stringify(heading)}`);
+    return pass(`HTTP 200, designed state rendered (pre-contract fallback until ${ROADMAP_CONTRACT_DUE}) · heading: ${JSON.stringify(heading)}`);
   });
 
   // 1.4 WHAT IS DEPLOYED. On 2026-09-07 this question had no answer available
