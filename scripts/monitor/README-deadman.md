@@ -35,7 +35,9 @@ its free tier has no card and its grace period is configurable to the minute.
    - Name: `structtech front-door monitor`
    - Schedule: **Period 1 hour**, **Grace 7 hours**
    - Why 7 h and not 1 h: the *delivered* worst gap measured on this repo is
-     **6 h 06 m** (n=21 over 76 h, mean 3 h 28 m). A 1-hour grace would page
+     **6 h 06 m** (n=34 over 126 h, mean 3 h 35 m — refreshed 2026-09-09; the
+     worst gap, which is the number this grace rests on, has not moved since
+     it was first measured). A 1-hour grace would page
      you several times a day about GitHub's queue rather than about your site.
      Seven hours is deliberately loose — it is watching for *death*, not
      lateness. If the delivered cadence ever improves, tighten it.
