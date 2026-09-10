@@ -1,6 +1,58 @@
-# A2 ACCEPTANCE — PRE-FLIGHT EVIDENCE
+# A2 ACCEPTANCE — EVIDENCE
 
-**Track S · 2026-09-09 · for the G2 gate on 2026-09-10.**
+> ## ▶ G2 DAY UPDATE — 2026-09-10 (Track S). READ THIS BLOCK FIRST.
+>
+> **G2 DECISION: NOT ACCEPTED — EXACTLY ONE CLAUSE OUTSTANDING, AND IT IS A BROWSER CHECK THAT IS JACOB'S.**
+> Every A2 *Done when* clause that can be graded by the database is PASS. **A2.1c's "prices an
+> estimate line with no re-entry" has NOT been run** — there is no record of it in the repo or the
+> directive — and per the gate's own instruction its absence is **not** a pass. Run it, record it,
+> and A2 accepts on what is already on `main`.
+>
+> **WHAT CHANGED SINCE THE 9/09 PRE-FLIGHT:**
+>
+> 1. **Yesterday's BLOCKER IS CLEARED.** The 9/09 blocker was the Definition of Done: A2.3 created three
+>    entities with no surface. **Track U shipped the surface and it is on `main` and DEPLOYED**, measured:
+>    `/api/health` reports production at **`5deb9b0` = `origin/main`** (the first time the deployed SHA was
+>    MEASURED rather than UNAVAILABLE), and `/w/<uuid>/coordination/po/<uuid>` answers **307→login** while a
+>    nonsense sibling **404s**. SCOPE §2.6 re-checked against the code on `main`:
+>
+>    | Entity | Create | Edit | Delete / archive / **void** | §2.6 |
+>    |---|---|---|---|---|
+>    | `purchase_orders` | `createPurchaseOrder` | `updatePurchaseOrder` (supplier, status) | **"Cancel this order"** → `status='cancelled'` — **VOID** | **MEETS** (void, not delete) |
+>    | `purchase_order_lines` | `addPurchaseOrderLine` | `updatePurchaseOrderLine` | `deletePurchaseOrderLine` | **MEETS** |
+>    | `purchase_order_line_promises` | implicit, via line add/update | — | — | **N/A BY RULING** — append-only history (ruling 1), never user-created |
+>
+>    **There is NO purchase-order DELETE anywhere in `src/`** — the RPC `delete_purchase_order` exists and nothing
+>    calls it. My first grep said otherwise: `deletePurchaseOrder` is a **substring of** `deletePurchaseOrderLine`.
+>    Rule 15's instrument lesson, again. §2.6 accepts *voided*, so this meets the standard; it is recorded so
+>    nobody later assumes a delete exists. **What I verified is that the controls exist and are wired to RPCs that
+>    work. I did not click through them in a browser** — that is a rendering check, the same class as A2.1c.
+>
+> 2. **A CROSS-TENANT WRITE DEFECT WAS FIXED FIRST** (`20260910215139`): `create_purchase_order`'s jobless branch
+>    took `org_members … limit 1` with no `ORDER BY` — and for the one human in all three orgs it picked
+>    **StructTech**, so a jobless PO drafted from the BMR workspace would have landed in the wrong tenant. Now
+>    `p_org_id` is required. And `job_id` could never be set after insert, so the refusal's own advice
+>    ("attach it to a job first") named an action the API did not implement; `update_purchase_order` now takes
+>    `p_job_id`. 0 POs existed, so nothing was ever misfiled.
+>
+> 3. **CLAUSES 8, 10 AND 11 MOVED OFF ROLLED-BACK FIXTURES ONTO COMMITTED PRODUCTION ROWS** — see §6 below for
+>    exactly what, and the honest limit on what "live" means here.
+>
+> 4. **§5 A2.3 amended**: `enforce_stage_gating` lives in `organizations.policy`, not `tenant_modules.config`.
+>
+> ### THE REVISED DISTRIBUTION
+>
+> | Grade | 9/09 | **9/10** |
+> |---|---|---|
+> | PASS | 11 | **11** |
+> | FAIL | 0 | **0** |
+> | UNGRADED | 0 | **0** |
+> | UNTESTABLE (browser) | 1 | **1 — A2.1c "no re-entry", NOT RUN** |
+> | **of the passes, exercised by committed production rows** | **1** (a refusal) | **4** — clauses 8, 9, 10, 11 |
+
+---
+
+**Track S · 2026-09-09 · original pre-flight for the G2 gate on 2026-09-10.**
 Every *Done when* below was read from `docs/STRUCTTECH_OS_DIRECTIVE.md` §5.2 itself —
 not from the PO proposal, not from a summary, not from memory of what was built.
 
@@ -125,3 +177,50 @@ agency_admin · office** · `schedule` **6** enforcement sites · `view_field` *
 exist at **0 rows** · `material_items` **0** · `schedule_blocks` **0** · `work_orders` **2**,
 both masters · advisors **238, 0 ERROR** · types **4 tables / 39 columns verified against
 `information_schema`, zero mismatches**.
+
+
+---
+
+## 6 · LIVE DATA THROUGH A2 — 2026-09-10
+
+**Created through the RPCs a user would use, as Jacob (BMR `agency_admin` — the honest identity for
+StructTech operating in a client tenant; nothing is attributed to Isaac), and COMMITTED.** No step
+refused. Re-read in a fresh query afterwards, not trusted from the committing transaction.
+
+| Row | id | How |
+|---|---|---|
+| trade `work_orders` | `195571d7-4161-4fa0-95cf-a1302c2561be` | `create_trade_work_order` under master `0ffcb7d4`, trade **"TRACK S · A2 live acceptance (Fake Lead)"** |
+| `material_items` | `9616011e-5177-45c1-b829-7cd8f51322c5` | `generate_take_off` from the signed estimate's own line `e310eb90` ("Ag panel: 26 ga black replacement.") — **zero manual entry** |
+| `purchase_orders` | `1256ba02-18ae-42e9-beaf-46dd85a382a6` | `create_purchase_order(p_org_id=BMR, …, job=83ff1534)`, supplier **"TRACK S · A2 acceptance supplier"**, status `draft` |
+| `purchase_order_lines` | `8183c721-94a0-4f3a-bde5-bfc7a2053473` | `add_purchase_order_line`, qty 1, promised **2026-10-20** |
+| `purchase_order_line_promises` | `3ab416f6-e06a-46b5-8c6f-559dc0d9241e` | written by the line add |
+| `schedule_blocks` | `7253dc37-7fe7-4c40-9af1-384c8df82de5` | `add_schedule_block`, crew **"TRACK S · acceptance crew"**, 2026-10-05→10-07 |
+
+**WHY THIS PARENT AND NOT THE OTHER.** Brothers Metal Roofing has two jobs. `a5f569ed` belongs to
+**Devin Carter / The Contracting Company** — a real customer — and was **not touched**. `83ff1534`
+hangs off an estimate whose client is literally **"Fake Lead"**. A standing rule from Jacob forbids
+test writes against a real BMR customer record, after it went wrong twice; this parent is the one
+the rule does not reach.
+
+**RE-GRADED AGAINST THE PERSISTED ROWS:**
+
+| # | Clause | Now | Evidence |
+|---|---|---|---|
+| 8 | A2.2 (a) take-off, zero manual entry, trade count named | **PASS — committed rows** | `created: 1`, `trades_with_take_off: 1` of `live_trade_count: 1`, from a **signed** estimate |
+| 10 | A2.3 (1) PO date sets `ready_by` | **PASS — committed rows** | `ready_by = 2026-10-20`, `ready_by_source = purchase_order` |
+| 11 | A2.3 (2) warns and still saves | **PASS — committed rows** | block saved, `ready_by_conflict = true`, *"materials not ready until 2026-10-20 (Ag panel…)"* |
+
+**THE HONEST LIMIT ON "LIVE".** These are committed production rows that went through the real
+write path — the thing a rolled-back fixture cannot prove. **They are not organic customer data:
+I created them, on a test lead, for this acceptance.** The step from *rolled-back fixture* to
+*committed production row* is real; the step to *a customer's real work* has not happened and will
+be taken the first time Isaac orders material for a real job.
+
+**THEY PERSIST, AS INSTRUCTED — AND THEY ARE FULLY REVERSIBLE THROUGH USER RPCS, MEASURED BEFORE
+WRITING:** `work_order_activity` is `ON DELETE CASCADE` from `work_orders`, and `delete_work_order`
+does not refuse on activity. So: `delete_schedule_block` → `delete_purchase_order` (line and promise
+cascade) → `delete_material_item` → `delete_work_order` on the now-childless trade, whose activity
+cascades with it. **No activity row was written anywhere by these calls** (checked across all
+`work_order_activity` in the window, including the master's), so nothing would be left behind.
+**Isaac will see them** on the Fake Lead job in his coordination screen; every row is labelled
+`TRACK S ·` so they cannot be mistaken for his work.
