@@ -117,17 +117,48 @@ async function loadRoadmap(token: string): Promise<Outcome> {
   return { kind: "ok", roadmap: rows[0] };
 }
 
+/**
+ * data-branch — THE CONTRACT THE MONITOR ASSERTS, INSTEAD OF A SENTENCE.
+ *
+ * Track X's D1.3 monitor cried OUTAGE on a healthy door on 2026-09-08 because
+ * its pass condition asserted a sentence this route used to render. The
+ * sentence was deleted on 09-06, correctly: it carried the SQLSTATE and the
+ * function name that X's own report had flagged as leaking to anonymous
+ * readers. Both sides were right and the monitor still went red.
+ *
+ * A MONITOR WHOSE PASS CONDITION DEPENDS ON SOMETHING ANOTHER TRACK CAN
+ * LEGITIMATELY CHANGE IS NOT A MONITOR. This is the same failure U-W1.7 hit
+ * from the other end, when a correct backfill wrote one key into the row a
+ * permissions alarm existed to report and silently switched the alarm off.
+ *
+ * So the branch is now stated as STRUCTURE. `data-branch` is one of exactly
+ * four values — restricted | not_found | error | ok — and it is the public,
+ * stable thing to assert. The COPY is free to change forever, which is the
+ * point: visitor-facing wording is a product decision and must never be a
+ * monitor's contract.
+ *
+ * If a fifth outcome is ever added, it gets a value here, and a monitor
+ * asserting "one of four" fails loudly rather than passing on a page it does
+ * not recognise.
+ */
+export type RoadmapBranch = "ok" | "not_found" | "restricted" | "error";
+
 function Message({
+  branch,
   title,
   body,
   detail,
 }: {
+  branch: RoadmapBranch;
   title: string;
   body: string;
   detail?: string;
 }) {
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-bg px-4 py-12">
+    <div
+      data-branch={branch}
+      className="flex min-h-dvh items-center justify-center bg-bg px-4 py-12"
+    >
       <div className="w-full max-w-md">
         <div className="mb-6 flex items-center gap-2">
           <span className="flex h-6 w-6 items-center justify-center rounded bg-accent-strong font-mono text-xs font-bold text-white">
@@ -171,6 +202,7 @@ export default async function RoadmapPage({
     case "not_found":
       return (
         <Message
+          branch="not_found"
           title="This roadmap link isn’t valid."
           body="The link may have been mistyped, or it may have been replaced with a newer one. Whoever sent you this link can send a current one, and it will open right here."
         />
@@ -185,6 +217,7 @@ export default async function RoadmapPage({
       // and what to do about it, and nothing about why.
       return (
         <Message
+          branch="restricted"
           title="This roadmap link isn’t available right now."
           body="Nothing has been lost. Reply to whoever sent you this link and they can get it opened up for you."
         />
@@ -193,6 +226,7 @@ export default async function RoadmapPage({
     case "error":
       return (
         <Message
+          branch="error"
           title="Something went wrong loading this roadmap."
           body="This is a problem on our end, not with your link. Try again in a moment; if it keeps happening, reply to whoever sent you this link."
           detail={outcome.detail}

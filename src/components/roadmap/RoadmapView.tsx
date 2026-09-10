@@ -275,7 +275,12 @@ export function RoadmapView({ roadmap }: { roadmap: RoadmapRow }) {
   const isArchived = roadmap.status?.trim().toLowerCase() === "archived";
 
   return (
-    <div style={SURFACE_VARS} className="min-h-dvh bg-bg">
+    /* data-branch="ok" — the fourth value of the contract the front-door
+       monitor asserts. The three failure branches stamp theirs in
+       app/roadmap/[token]/page.tsx; this is the success one, and it lives here
+       because this component IS the ok branch's wrapper. See that file for why
+       the monitor asserts structure rather than a sentence. */
+    <div data-branch="ok" style={SURFACE_VARS} className="min-h-dvh bg-bg">
       <div className="mx-auto w-full max-w-2xl px-4 py-8 sm:px-6 sm:py-14">
         {isArchived ? (
           <div className="mb-6 rounded-lg border border-warn bg-warn-soft px-4 py-3 text-sm text-[var(--warn-strong)]">
