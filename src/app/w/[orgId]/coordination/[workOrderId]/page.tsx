@@ -8,6 +8,8 @@ import { MaterialItemRow } from "@/components/coordination/MaterialItemRow";
 import { AddMaterialItemForm } from "@/components/coordination/AddMaterialItemForm";
 import { ScheduleBlockRow } from "@/components/coordination/ScheduleBlockRow";
 import { AddScheduleBlockForm } from "@/components/coordination/AddScheduleBlockForm";
+import { PurchaseOrderList } from "@/components/purchasing/PurchaseOrderList";
+import type { PurchaseOrder } from "@/lib/purchasing/model";
 import { WorkOrderDangerZone } from "@/components/coordination/WorkOrderDangerZone";
 import { AddTradeWorkOrderForm } from "@/components/coordination/AddTradeWorkOrderForm";
 import { TakeOffPanel, type TakeOffLine } from "@/components/coordination/TakeOffPanel";
@@ -77,7 +79,7 @@ export default async function WorkOrderPage({
   // above is unchanged and still returns the row itself: its `setof
   // work_orders` shape is what the deployed page reads, and narrowing it would
   // have broken production between the migration and the deploy (rule 5b).
-  const [{ data: fetchedEstimate }, { data: materialsData }, { data: scheduleData }, { data: activityData }, { data: memberRows }, { data: treeData }, { data: tradeNameData }, { data: lineItemData }, { data: canViewFinancials }, { data: canScheduleData }] =
+  const [{ data: fetchedEstimate }, { data: materialsData }, { data: scheduleData }, { data: activityData }, { data: memberRows }, { data: treeData }, { data: tradeNameData }, { data: lineItemData }, { data: canViewFinancials }, { data: canScheduleData }, { data: canPurchaseData }] =
     await Promise.all([
       supabase.rpc("fetch_estimate", { p_estimate_id: workOrder.estimate_id }),
       supabase
@@ -124,6 +126,10 @@ export default async function WorkOrderPage({
       // for. Measured, not assumed: a grep of src/ for the capability returned
       // a stage key and a model constant, and nothing else.
       supabase.rpc("has_capability", { p_org_id: params.orgId, p_capability: "schedule" }),
+      // A2.3 — purchase orders. Gates the WRITE path only: reading a purchase
+      // order is org-scoped and needs no capability (controller ruling
+      // 2026-09-08, and the three read policies agree).
+      supabase.rpc("has_capability", { p_org_id: params.orgId, p_capability: "manage_purchasing" }),
     ]);
 
   const estimate = fetchedEstimate?.[0] as Estimate | undefined;
@@ -135,6 +141,21 @@ export default async function WorkOrderPage({
   // Closed default, matching has_capability(): anything that is not an explicit
   // TRUE is a no. A null here (RPC error, network) must not read as permission.
   const canSchedule = canScheduleData === true;
+  const canPurchase = canPurchaseData === true;
+
+  // A2.3 — the job's purchase orders. Fetched only on the MASTER, because a PO
+  // covers one JOB across any number of trades; hanging it off a trade would
+  // assert one PO per trade, which the schema deliberately does not say.
+  const isMasterKind = workOrder.kind === "master";
+  const jobIdForPos = (treeData as WorkOrderTree | null)?.job_id ?? null;
+  const { data: poRows } =
+    isMasterKind && jobIdForPos
+      ? await supabase.rpc("list_purchase_orders", {
+          p_org_id: params.orgId,
+          p_job_id: jobIdForPos,
+        })
+      : { data: null };
+  const purchaseOrders = (poRows ?? []) as PurchaseOrder[];
 
   const tree = (treeData ?? null) as WorkOrderTree | null;
   const isMaster = workOrder.kind === "master";
@@ -343,6 +364,17 @@ export default async function WorkOrderPage({
             </p>
           )}
         </div>
+      )}
+
+      {isMaster && (
+        <PurchaseOrderList
+          orgId={params.orgId}
+          workOrderId={workOrder.id}
+          jobId={jobIdForPos}
+          orgName={ctx.active.org_name}
+          orders={purchaseOrders}
+          canPurchase={canPurchase}
+        />
       )}
 
       {/* A2.2 clause (b) lives here — see MasterTakeOffCard for why the button
