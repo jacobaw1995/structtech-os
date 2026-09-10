@@ -62,22 +62,20 @@ export const PO_STATUS_MEANING: Record<PoStatus, string> = {
 export const CANCELLATION_IS_ON_THE_HEADER = true;
 
 /**
- * A PO WITH NO JOB CANNOT LEAVE DRAFT — and, as the schema stands, cannot be
- * fixed either.
+ * A PO WITH NO JOB CANNOT LEAVE DRAFT — and, since 2026-09-10, it can be fixed.
  *
- * `job_id` is nullable and `create_purchase_order` explicitly accepts null.
- * `update_purchase_order` has NO `p_job_id` parameter, and no other function
- * writes the column: measured, `job_id` appears in a write position exactly
- * once in the whole migration, in the INSERT. So the refusal string —
- * "this purchase order has no job, so it cannot leave draft. Attach it to a
- * job first" — names an action the API does not implement.
+ * `job_id` is nullable and `create_purchase_order` accepts null. The draft-exit
+ * rule in update_purchase_order refuses ANY status other than draft while the
+ * effective job is null — including `cancelled`, because cancelling is also
+ * leaving draft. So a jobless draft has exactly two ways forward: attach a job
+ * (optionally moving status in the same call), or delete it.
  *
- * The surface consequences, and they are deliberate:
- *   1. It never OFFERS a create-without-job control. That is not a narrowing
- *      of the ruling that drafting off a phone call is real; it is a refusal
- *      to hand someone a one-way door.
- *   2. It still RENDERS a jobless PO correctly if one exists, and says plainly
- *      that it is stuck, rather than showing a status control that will raise.
+ * HISTORY: until migration 20260910215139 there was no way to attach a job
+ * after creation — job_id was written only at INSERT — and the refusal
+ * string's advice ("Attach it to a job first") named an action the API did not
+ * implement. The surface refused to offer jobless creation for that reason,
+ * and for a second one: the create path inferred the tenant from
+ * `limit 1` over the caller's memberships. Both are closed at the database.
  */
 export function isStuckInDraft(po: Pick<PurchaseOrder, "job_id" | "status">): boolean {
   return po.job_id === null && po.status === "draft";
@@ -129,4 +127,41 @@ export function promiseHistory(
 /** How many times a promised date has MOVED — one fewer than the row count. */
 export function timesMoved(count: number): number {
   return Math.max(0, count - 1);
+}
+
+/**
+ * HOW A JOB IS NAMED on a purchase order surface — one definition, used by
+ * both the org-level picker and the PO page, so the two cannot drift into
+ * calling the same job two different things.
+ *
+ * `jobs` has no title column. The customer (estimate company, else contact)
+ * plus the service address is how a roofer refers to a job, and the address
+ * is where the supplier delivers — the fact a PO most needs to be right about.
+ */
+export function jobLabel(
+  job: {
+    created_at: string;
+    service_address_street: string | null;
+    service_address_city: string | null;
+    service_address_state: string | null;
+    service_address_zip: string | null;
+  },
+  estimate: { company: string | null; contact_name: string | null } | null
+): string {
+  const who = estimate?.company?.trim() || estimate?.contact_name?.trim() || null;
+  const where = [
+    job.service_address_street,
+    job.service_address_city,
+    job.service_address_state,
+    job.service_address_zip,
+  ]
+    .filter((p): p is string => Boolean(p && p.trim()))
+    .join(", ");
+  return (
+    [who, where].filter(Boolean).join(" · ") ||
+    `Job created ${new Date(job.created_at).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    })}`
+  );
 }

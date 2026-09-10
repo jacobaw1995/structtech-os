@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { requireModuleAccess } from "@/lib/workspace/context";
 import { createJobFromEstimate } from "@/lib/coordination/actions";
+import { PurchaseOrderList } from "@/components/purchasing/PurchaseOrderList";
+import { jobLabel, type PurchaseOrder } from "@/lib/purchasing/model";
 import type { Database } from "@/lib/supabase/database.types";
 
 // More specific than the [moduleKey] placeholder route — see crm/page.tsx's
@@ -50,7 +52,7 @@ export default async function CoordinationPage({
   // count and the master's id come back with the job instead of costing a
   // round trip per row — and, structurally, a work order can only ever
   // appear nested inside its job, never as a sibling of one.
-  const [{ data: jobs }, { data: signedEstimates }, { data: canViewMaster }] = await Promise.all([
+  const [{ data: jobs }, { data: signedEstimates }, { data: canViewMaster }, { data: poRows }, { data: canPurchaseData }] = await Promise.all([
     supabase
       .from("jobs")
       .select(
@@ -70,9 +72,21 @@ export default async function CoordinationPage({
     // job's trades and NOT its master — on a job that has one. The capability
     // is knowable here, so the branch is on the capability, not on the absence.
     supabase.rpc("can_view_master_work_order", { p_org_id: params.orgId }),
+    // A2.3 — EVERY purchase order in the org, jobless ones included. p_job_id
+    // omitted is `default null`, and the RPC reads that as "all jobs". This is
+    // the only place a jobless draft is reachable from: it has no job, so it
+    // has no master work order to hang off.
+    supabase.rpc("list_purchase_orders", { p_org_id: params.orgId }),
+    supabase.rpc("has_capability", { p_org_id: params.orgId, p_capability: "manage_purchasing" }),
   ]);
 
   const jobList = (jobs ?? []) as JobRow[];
+  const purchaseOrders = (poRows ?? []) as PurchaseOrder[];
+  const canPurchase = canPurchaseData === true;
+
+  // How a job is NAMED in the picker — the shared definition in
+  // lib/purchasing/model.ts, so this list and the PO page cannot disagree.
+  const jobChoices = jobList.map((j) => ({ id: j.id, label: jobLabel(j, j.estimate) }));
   const canSeeMaster = canViewMaster === true;
 
   // A1.6 — the strip's condition changed from "signed estimate with no WORK
@@ -127,6 +141,16 @@ export default async function CoordinationPage({
           ))}
         </div>
       )}
+
+      <PurchaseOrderList
+        orgId={params.orgId}
+        returnTo={`/w/${params.orgId}/coordination`}
+        jobs={jobChoices}
+        orgName={ctx.active.org_name}
+        orders={purchaseOrders}
+        canPurchase={canPurchase}
+        heading="All purchase orders"
+      />
 
       <div className="flex flex-col gap-2">
         <h2 className="text-xs font-semibold uppercase tracking-wide text-muted">

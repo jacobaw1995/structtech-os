@@ -7,6 +7,7 @@ import {
   PO_STATUS_MEANING,
   isPoStatus,
   isStuckInDraft,
+  jobLabel,
   promiseHistory,
   timesMoved,
   type PurchaseOrder,
@@ -15,7 +16,11 @@ import {
 } from "@/lib/purchasing/model";
 import { PoLineRow } from "@/components/purchasing/PoLineRow";
 import { AddPoLineForm } from "@/components/purchasing/AddPoLineForm";
-import { updatePurchaseOrder } from "@/lib/purchasing/actions";
+import { StuckDraftBanner } from "@/components/purchasing/StuckDraftBanner";
+import {
+  updatePurchaseOrder,
+  deletePurchaseOrder,
+} from "@/lib/purchasing/actions";
 
 // A2.3 — one purchase order.
 //
@@ -37,7 +42,7 @@ export default async function PurchaseOrderPage({
   searchParams,
 }: {
   params: { orgId: string; poId: string };
-  searchParams: { error?: string };
+  searchParams: { error?: string; confirmDelete?: string };
 }) {
   const ctx = await requireModuleAccess(params.orgId, "coordination");
   const supabase = ctx.supabase;
@@ -115,6 +120,41 @@ export default async function PurchaseOrderPage({
 
   const itemById = new Map(items.map((i) => [i.id, i]));
 
+  // The org's jobs, labelled by the shared jobLabel(). Two list queries, not
+  // an embed. Used for the attach picker on a jobless draft and for the
+  // "delivering to" line on every other order.
+  const { data: jobRowsRaw } = await supabase
+    .from("jobs")
+    .select("id, estimate_id, created_at, service_address_street, service_address_city, service_address_state, service_address_zip")
+    .eq("org_id", params.orgId)
+    .order("created_at", { ascending: false });
+  type JobLite = {
+    id: string;
+    estimate_id: string;
+    created_at: string;
+    service_address_street: string | null;
+    service_address_city: string | null;
+    service_address_state: string | null;
+    service_address_zip: string | null;
+  };
+  const jobRows = (jobRowsRaw ?? []) as JobLite[];
+  const estIds = Array.from(new Set(jobRows.map((j) => j.estimate_id)));
+  const { data: estRowsRaw } = estIds.length
+    ? await supabase.from("estimates").select("id, company, contact_name").in("id", estIds)
+    : { data: [] as never[] };
+  const estById = new Map(
+    ((estRowsRaw ?? []) as { id: string; company: string | null; contact_name: string | null }[]).map(
+      (e) => [e.id, e]
+    )
+  );
+  const jobChoices = jobRows.map((j) => ({
+    id: j.id,
+    label: jobLabel(j, estById.get(j.estimate_id) ?? null),
+  }));
+  const attachedJobLabel = po.job_id
+    ? jobChoices.find((j) => j.id === po.job_id)?.label ?? "a job in this workspace"
+    : null;
+
   // Selectable items for the add form: THE WHOLE JOB'S, across every trade,
   // because that is the property the schema encodes. Two list queries rather
   // than an embed (the null-embed sweep of 2026-08-27 left exactly one embed
@@ -146,7 +186,7 @@ export default async function PurchaseOrderPage({
         }[]
       ).map((i) => ({
         id: i.id,
-        name: i.name,
+        name: i.name.trim(),
         unit: i.unit,
         trade: tradeByWo.get(i.work_order_id) ?? "Untitled trade",
       }));
@@ -178,6 +218,12 @@ export default async function PurchaseOrderPage({
             Purchase order · {ctx.active.org_name}
             {po.reference ? ` · ${po.reference}` : ""}
           </p>
+          {attachedJobLabel && (
+            <p className="text-sm text-text">
+              <span className="text-muted">For </span>
+              {attachedJobLabel}
+            </p>
+          )}
         </div>
         <span
           className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
@@ -198,27 +244,28 @@ export default async function PurchaseOrderPage({
         </p>
       )}
 
-      {/* A PO WITH NO JOB. §2.8: warn at draft time, block only at the
-          transition — and the block is the RPC's, not this page's. What this
-          page adds is that the advice in the refusal ("attach it to a job
-          first") is currently impossible: `job_id` is written only at INSERT,
-          in create_purchase_order, and no RPC updates it. Saying so is better
-          than letting someone hunt for a control that does not exist. */}
+      {/* A PO WITH NO JOB — U-W1.9, rewritten now that the advice can be
+          followed. Until 2026-09-10 this banner had to say "there is no way to
+          attach one from here yet": job_id was written only at INSERT.
+          Migration 20260910215139 added p_job_id to update_purchase_order, so
+          the control that follows the advice lives directly under it.
+
+          §2.8 — warn at draft time, block only at the transition. The draft is
+          fully editable and nothing here is disabled. The TRANSITION is offered
+          only together with a job: update_purchase_order checks the draft-exit
+          rule against coalesce(p_job_id, current job), so "attach and mark
+          sent" is ONE write that the database accepts, rather than a "Mark
+          sent" button it would refuse. That keeps U-W1.6's property — no
+          control the backend will refuse — without turning the requirement
+          into a gate. */}
       {stuck && (
-        <section className="rounded-lg border border-warn bg-warn-soft px-4 py-3">
-          <h2 className="text-sm font-semibold text-text">
-            This purchase order has no job attached
-          </h2>
-          <p className="mt-1 text-sm leading-relaxed text-text">
-            It can be edited as a draft, and it cannot be sent or confirmed —
-            leaving draft needs a job.
-          </p>
-          <p className="mt-1.5 text-xs leading-relaxed text-muted">
-            There is no way to attach one from here yet: a job is set when the
-            purchase order is created and nothing changes it afterwards. Create
-            a replacement from the job and delete this one.
-          </p>
-        </section>
+        <StuckDraftBanner
+          orgId={params.orgId}
+          poId={po.id}
+          orgName={ctx.active.org_name}
+          canPurchase={canPurchase}
+          jobChoices={jobChoices}
+        />
       )}
 
       {/* NO MONEY, AND NOTHING THAT IMPLIES ONE IS COMING. The only numeric on
@@ -252,7 +299,14 @@ export default async function PurchaseOrderPage({
                   orgId={params.orgId}
                   poId={po.id}
                   line={line}
-                  itemName={item?.name ?? "Unknown item"}
+                  // TRIMMED — found against LIVE data on 2026-09-10, not in a
+                  // fixture. The first real material item on BMR is named
+                  // "Ag panel: 26 ga black replacement. " with a trailing
+                  // space: the take-off copies an estimate LINE DESCRIPTION
+                  // verbatim, so real item names are sentences, not SKUs, and
+                  // arrive untrimmed. HTML hides it in body text; it does not
+                  // hide it in aria-labels or <option>s.
+                  itemName={item?.name?.trim() || "Unknown item"}
                   itemUnit={item?.unit ?? null}
                   itemQuantity={item?.quantity ?? null}
                   trade={tradeOf.get(item?.work_order_id ?? "") ?? null}
@@ -293,7 +347,7 @@ export default async function PurchaseOrderPage({
         )}
       </section>
 
-      {canPurchase && (
+      {canPurchase && !stuck && (
         <section className="rounded-lg border border-border bg-surface p-4">
           <h2 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">
             Status
@@ -328,6 +382,53 @@ export default async function PurchaseOrderPage({
             on its own. Cancelled orders stop counting toward material ready-by
             dates.
           </p>
+        </section>
+      )}
+
+      {/* DELETE — SCOPE §2.6, and for a jobless draft it is the ONLY way out:
+          cancelling is itself a transition out of draft, so
+          update_purchase_order refuses it without a job. A phone-call draft
+          that fell through would otherwise be permanent. Two taps via
+          ?confirmDelete=1, and the second names what it removes — the
+          catalogue's pattern. This also retires the promise the old banner
+          made ("…and delete this one") on a page that had no delete control. */}
+      {canPurchase && (
+        <section className="rounded-lg border border-border bg-surface p-4">
+          {searchParams.confirmDelete === "1" ? (
+            <div className="flex flex-col gap-2">
+              <p className="text-sm text-text">
+                Delete the order to <span className="font-medium">{po.supplier_name}</span>
+                {lines.length > 0 &&
+                  ` and its ${lines.length} line${lines.length === 1 ? "" : "s"}`}
+                ? Material ready-by dates are recalculated without it.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <form action={deletePurchaseOrder}>
+                  <input type="hidden" name="orgId" value={params.orgId} />
+                  <input type="hidden" name="poId" value={po.id} />
+                  <button
+                    type="submit"
+                    className="min-h-14 rounded-md bg-warn px-4 text-sm font-medium text-white sm:h-10 sm:min-h-0"
+                  >
+                    Delete this order for good
+                  </button>
+                </form>
+                <Link
+                  href={`/w/${params.orgId}/coordination/po/${po.id}`}
+                  className="inline-flex min-h-14 items-center rounded-md border border-border px-4 text-sm font-medium text-text sm:h-10 sm:min-h-0"
+                >
+                  Keep it
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <Link
+              href={`/w/${params.orgId}/coordination/po/${po.id}?confirmDelete=1`}
+              className="inline-flex min-h-14 items-center text-sm text-muted hover:text-warn sm:min-h-0"
+            >
+              {stuck ? "Delete this draft" : "Delete this order"}
+            </Link>
+          )}
         </section>
       )}
     </div>

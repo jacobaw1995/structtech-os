@@ -9,16 +9,16 @@ import { createClient } from "@/lib/supabase/server";
 // mutation goes through a security-definer RPC (rule 3); getSession() before
 // any DB call (rule 1).
 //
-// NOTE WHAT IS ABSENT: there is no createPurchaseOrder action that omits a
-// job. `create_purchase_order`'s no-job branch resolves the org with
+// HISTORY, kept because the refusal is the reason for the fix. Until
+// 2026-09-10 there was no jobless create action here, on purpose:
+// `create_purchase_order`'s no-job branch resolved the org with
 //   select org_id from org_members where user_id = auth.uid() limit 1
-// — no ORDER BY, no org argument — so for a user in more than one org it picks
-// arbitrarily. That is not hypothetical here: the only human who would draft a
-// PO off a supplier call is in THREE orgs (Brothers Metal Roofing, Material
-// Matrix, StructTech), measured 2026-09-09. A jobless draft from a
-// workspace-scoped screen could land in the wrong tenant, and the PO could
-// then never leave draft because nothing writes job_id after the insert.
-// Reported to Track S; not worked around here.
+// — no ORDER BY, no org argument — and the one human who would draft off a
+// supplier call is in three orgs. Migration 20260910215139
+// (po_org_explicit_and_attach) closed it at the database: p_org_id is now
+// REQUIRED and first, p_job_id is `default null`, and update_purchase_order
+// gained p_job_id so a jobless draft can be attached later. Every write below
+// NAMES its tenant; none infers one.
 
 function requireString(formData: FormData, key: string): string {
   const value = formData.get(key);
@@ -49,28 +49,68 @@ async function client() {
 
 export async function createPurchaseOrder(formData: FormData) {
   const orgId = requireString(formData, "orgId");
-  const workOrderId = requireString(formData, "workOrderId");
-  // Always present. See the note at the top of this file for why there is no
-  // jobless path.
-  const jobId = requireString(formData, "jobId");
+  // Where to send the user back to on a refusal — the job's master work order
+  // or the coordination index. Explicit, because the form now lives on both.
+  const returnTo = requireString(formData, "returnTo");
+  // OPTIONAL since 20260910215139. "" from the picker's "No job yet" option
+  // arrives as undefined and is sent as null — a draft off a supplier call.
+  const jobId = optionalString(formData, "jobId");
 
   const supabase = await client();
-  // p_org_id is REQUIRED as of migration 20260910215139 (Track S): a write
-  // names the tenant it writes to and never infers one from a membership set.
-  // The defect described at the top of this file is closed at the database.
   const { data, error } = await supabase.rpc("create_purchase_order", {
+    // The tenant is NAMED, never inferred: this is the route's orgId, already
+    // verified against the caller's memberships by requireModuleAccess().
     p_org_id: orgId,
     p_job_id: jobId,
     p_supplier_name: requireString(formData, "supplier_name"),
   });
 
   if (error) {
-    redirect(
-      `/w/${orgId}/coordination/${workOrderId}?error=${encodeURIComponent(error.message)}`
-    );
+    redirect(`${returnTo}?error=${encodeURIComponent(error.message)}`);
   }
-  revalidatePath(`/w/${orgId}/coordination/${workOrderId}`);
+  revalidatePath(returnTo);
   redirect(poHref(orgId, data as unknown as string));
+}
+
+/**
+ * Attach a job to a purchase order — and, optionally, move it out of draft in
+ * the SAME call. update_purchase_order checks the draft-exit rule against
+ * `coalesce(p_job_id, current job)`, so "attach and mark sent" is one write,
+ * not two. That is what lets the surface offer the transition on a jobless
+ * draft without offering a control the database refuses.
+ */
+export async function attachJobToPurchaseOrder(formData: FormData) {
+  const orgId = requireString(formData, "orgId");
+  const poId = requireString(formData, "poId");
+
+  const supabase = await client();
+  const { error } = await supabase.rpc("update_purchase_order", {
+    p_po_id: poId,
+    p_job_id: requireString(formData, "jobId"),
+    p_status: optionalString(formData, "status"),
+  });
+
+  if (error) redirect(poHref(orgId, poId, error.message));
+  revalidatePath(poHref(orgId, poId));
+  redirect(poHref(orgId, poId));
+}
+
+/**
+ * Delete a purchase order. SCOPE §2.6 — and for a jobless draft it is the ONLY
+ * way out: cancelling is itself a transition out of draft, so
+ * update_purchase_order refuses it without a job. A phone-call draft that fell
+ * through would otherwise be permanent.
+ */
+export async function deletePurchaseOrder(formData: FormData) {
+  const orgId = requireString(formData, "orgId");
+  const poId = requireString(formData, "poId");
+
+  const supabase = await client();
+  const { error } = await supabase.rpc("delete_purchase_order", { p_po_id: poId });
+
+  if (error) redirect(poHref(orgId, poId, error.message));
+  revalidatePath(`/w/${orgId}/coordination`);
+  redirect(`/w/${orgId}/coordination`);
 }
 
 export async function updatePurchaseOrder(formData: FormData) {

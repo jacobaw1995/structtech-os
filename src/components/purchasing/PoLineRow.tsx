@@ -83,22 +83,6 @@ export function PoLineRow({
           )}
         </div>
 
-        {canPurchase && (
-          <form action={deletePurchaseOrderLine} className="shrink-0 self-end sm:self-auto">
-            <input type="hidden" name="orgId" value={orgId} />
-            <input type="hidden" name="poId" value={poId} />
-            <input type="hidden" name="lineId" value={line.id} />
-            {/* Remove, not cancel. Cancellation lives on the PO header; a line
-                has no status column to cancel into. */}
-            <button
-              type="submit"
-              aria-label={`Remove ${itemName} from this order`}
-              className="flex h-14 w-14 items-center justify-center text-muted hover:text-warn sm:h-9 sm:w-9"
-            >
-              ✕
-            </button>
-          </form>
-        )}
       </div>
 
       {/* THE HISTORY. Oldest first: the first row is what was originally
@@ -131,7 +115,7 @@ export function PoLineRow({
                     {h.promised_date ? formatDateOnly(h.promised_date) : "no date"}
                   </span>
                   <span className="tabular-nums text-[11px] text-muted">
-                    recorded {formatDateOnly(h.recorded_at.slice(0, 10))}
+                    recorded {recordedOn(h.recorded_at)}
                   </span>
                   {last && <span className="text-[11px] text-muted">· current</span>}
                 </li>
@@ -142,44 +126,116 @@ export function PoLineRow({
       )}
 
       {canPurchase && (
-        <form
-          action={updatePurchaseOrderLine}
-          className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-end"
-        >
-          <input type="hidden" name="orgId" value={orgId} />
-          <input type="hidden" name="poId" value={poId} />
-          <input type="hidden" name="lineId" value={line.id} />
-          <label className="flex flex-col gap-1">
-            <span className="text-[11px] font-medium uppercase tracking-wide text-muted">
-              Quantity
+        /* U-W1.9 — COLLAPSED BEHIND A NATIVE <details>. Measured on a
+           fifteen-line order at 375x812 before this change: 30 visible inputs
+           (a date and a quantity on every line), 30 buttons (a Save and a ✕ on
+           every line), and a scroll height of 7,386px — 9.1 screens of form to
+           read one purchase order. The catalogue had the same shape before its
+           design pass.
+
+           WHAT STAYS OUT, UNTAPPED: everything you READ — item, trade,
+           "12 of 40", ready-by and its source, and the full promise history.
+           Reading an order never needs a tap.
+
+           WHAT IS ONE TAP AWAY: changing the promised date, which is the field
+           that actually moves (it is the reason the history table exists).
+           The summary is labelled by that act rather than by "Edit", so the
+           common action is named, not hidden inside a generic one. Quantity and
+           Remove live inside the same disclosure — quantity rarely changes, and
+           Remove is destructive, so fifteen of them in thumb reach was a
+           mis-tap waiting to happen.
+
+           <details> rather than client state: no JS, keyboard-accessible, and
+           it closes itself on the redirect after a save, which is the right
+           behaviour. */
+        <details className="group mt-2">
+          <summary className="flex min-h-14 cursor-pointer list-none items-center gap-2 rounded-md border border-border px-3 text-sm font-medium text-text sm:h-10 sm:min-h-0 sm:w-fit [&::-webkit-details-marker]:hidden">
+            <span aria-hidden="true" className="text-muted transition-transform group-open:rotate-90">
+              ›
             </span>
-            <input
-              name="quantity_ordered"
-              type="number"
-              step="0.001"
-              inputMode="decimal"
-              defaultValue={line.quantity_ordered}
-              className="min-h-14 w-full rounded-md border border-border bg-bg px-2 text-base tabular-nums text-text outline-none focus:border-accent sm:h-10 sm:w-28 sm:min-h-0 sm:text-sm"
-            />
-          </label>
-          <label className="flex flex-col gap-1">
-            <span className="text-[11px] font-medium uppercase tracking-wide text-muted">
-              New promised date
-            </span>
-            <input
-              name="promised_date"
-              type="date"
-              className="min-h-14 w-full rounded-md border border-border bg-bg px-2 text-base text-text outline-none focus:border-accent sm:h-10 sm:w-auto sm:min-h-0 sm:text-sm"
-            />
-          </label>
-          <button
-            type="submit"
-            className="min-h-14 rounded-md border border-border px-4 text-sm font-medium text-text sm:h-10 sm:min-h-0"
-          >
-            Save
-          </button>
-        </form>
+            Record a new promised date
+          </summary>
+
+          <div className="mt-2 flex flex-col gap-3 rounded-md border border-border p-3">
+            <form
+              action={updatePurchaseOrderLine}
+              className="flex flex-col gap-2 sm:flex-row sm:items-end"
+            >
+              <input type="hidden" name="orgId" value={orgId} />
+              <input type="hidden" name="poId" value={poId} />
+              <input type="hidden" name="lineId" value={line.id} />
+              {/* The date comes FIRST and is the default focus of the
+                  disclosure — it is what you opened it for. */}
+              <label className="flex flex-col gap-1">
+                <span className="text-[11px] font-medium uppercase tracking-wide text-muted">
+                  New promised date
+                </span>
+                <input
+                  name="promised_date"
+                  type="date"
+                  className="min-h-14 w-full rounded-md border border-border bg-bg px-2 text-base text-text outline-none focus:border-accent sm:h-10 sm:w-auto sm:min-h-0 sm:text-sm"
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-[11px] font-medium uppercase tracking-wide text-muted">
+                  Quantity
+                </span>
+                <input
+                  name="quantity_ordered"
+                  type="number"
+                  step="0.001"
+                  inputMode="decimal"
+                  defaultValue={line.quantity_ordered}
+                  className="min-h-14 w-full rounded-md border border-border bg-bg px-2 text-base tabular-nums text-text outline-none focus:border-accent sm:h-10 sm:w-28 sm:min-h-0 sm:text-sm"
+                />
+              </label>
+              <button
+                type="submit"
+                className="min-h-14 rounded-md bg-accent-strong px-4 text-sm font-medium text-white sm:h-10 sm:min-h-0"
+              >
+                Save
+              </button>
+            </form>
+
+            {/* Remove, not cancel: cancellation lives on the PO header and a
+                line has no status column to cancel into. Inside the
+                disclosure so it is deliberate — two taps, not one. */}
+            <form action={deletePurchaseOrderLine} className="border-t border-border pt-3">
+              <input type="hidden" name="orgId" value={orgId} />
+              <input type="hidden" name="poId" value={poId} />
+              <input type="hidden" name="lineId" value={line.id} />
+              <button
+                type="submit"
+                aria-label={`Remove ${itemName} from this order`}
+                className="min-h-14 rounded-md px-3 text-sm text-muted hover:text-warn sm:h-9 sm:min-h-0"
+              >
+                Remove from this order
+              </button>
+            </form>
+          </div>
+        </details>
       )}
     </li>
   );
+}
+
+/**
+ * `recorded_at` is a timestamptz and arrives as UTC (`…T22:19:10+00:00`). The
+ * first version of this file took `.slice(0, 10)` of it — a UTC CALENDAR DATE —
+ * which is correct until 8 PM Eastern and then silently shows TOMORROW, the
+ * exact rollover CLAUDE.md records as having mis-stamped the A1 acceptance.
+ * Every fixture used `T10:00:00Z`, which never crosses midnight, so the defect
+ * could not appear in one. It surfaced only against the first LIVE promise row
+ * on 2026-09-10, recorded at 22:19 UTC.
+ *
+ * America/New_York because the project runs on it (CLAUDE.md) and BMR is on
+ * Eastern time. A per-tenant timezone would be the general answer; there is no
+ * such column today, and inventing one is not a surface task.
+ */
+function recordedOn(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-US", {
+    timeZone: "America/New_York",
+    month: "short",
+    day: "numeric",
+  });
 }
