@@ -1,5 +1,12 @@
 # A2 ACCEPTANCE — EVIDENCE
 
+> ## ▶ STILL NOT ACCEPTED as of 2026-09-11 (Track S).
+>
+> **A2.1c's "prices an estimate line with no re-entry" has still not been run.** No result has been
+> reported, and its absence is not a pass. Nothing else is outstanding: every other A2 *Done when*
+> clause is PASS, and four of them now rest on committed production rows rather than fixtures.
+> **One item, one owner, and it is a browser check.**
+>
 > ## ▶ G2 DAY UPDATE — 2026-09-10 (Track S). READ THIS BLOCK FIRST.
 >
 > **G2 DECISION: NOT ACCEPTED — EXACTLY ONE CLAUSE OUTSTANDING, AND IT IS A BROWSER CHECK THAT IS JACOB'S.**
