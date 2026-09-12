@@ -3604,6 +3604,23 @@ export type Database = {
         Returns: undefined
       }
       roadmap_playbook: { Args: { q: string }; Returns: Json }
+      role_capability_matrix: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          role: string
+          capability: string
+          allowed: boolean
+        }[]
+      }
+      set_member_capability: {
+        Args: {
+          p_org_id: string
+          p_user_id: string
+          p_capability: string
+          p_value: boolean
+        }
+        Returns: undefined
+      }
       set_tenant_module: {
         Args: {
           p_config?: Json
