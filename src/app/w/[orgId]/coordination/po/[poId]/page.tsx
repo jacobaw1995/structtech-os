@@ -392,7 +392,27 @@ export default async function PurchaseOrderPage({
           ?confirmDelete=1, and the second names what it removes — the
           catalogue's pattern. This also retires the promise the old banner
           made ("…and delete this one") on a page that had no delete control. */}
-      {canPurchase && (
+      {/* DELETE IS DRAFT-ONLY as of migration 20260911234338, which landed the
+          evening AFTER this control shipped. delete_purchase_order now raises
+          "this purchase order is % and cannot be deleted — a supplier has
+          already been told about it. Cancel it instead…" for any status other
+          than draft. Offering the control anyway would be U-W1.6's defect
+          exactly, introduced by a correct change from another track rather
+          than by the original author — the same shape as the backfill that
+          silenced the permissions alarm on 09-08.
+
+          For a non-draft order the page says what IS possible instead, and
+          Cancel is right there in the status section above. */}
+      {canPurchase && status !== "draft" && (
+        <p className="text-xs leading-relaxed text-muted">
+          A purchase order can only be deleted while it is a draft. This one is{" "}
+          {PO_STATUS_LABEL[status].toLowerCase()} — a supplier has been told
+          about it, so cancelling is the way out, and it keeps the record and
+          its promise history.
+        </p>
+      )}
+
+      {canPurchase && status === "draft" && (
         <section className="rounded-lg border border-border bg-surface p-4">
           {searchParams.confirmDelete === "1" ? (
             <div className="flex flex-col gap-2">

@@ -89,7 +89,7 @@ export const MIRRORS: MirrorEntry[] = [
     mirrors: "CHECK constraint org_members_role_check",
     unreachableBecause:
       "PostgREST exposes `public` only; pg_constraint is not reachable.",
-    derivedOn: "2026-09-10",
+    derivedOn: "2026-09-11",
     rederive: String.raw`select pg_get_constraintdef(oid) from pg_constraint where conname = 'org_members_role_check';`,
   },
   {
@@ -98,7 +98,7 @@ export const MIRRORS: MirrorEntry[] = [
     mirrors: "the role list inside is_org_manager()",
     unreachableBecause:
       "is_org_manager() answers only for auth.uid(); it cannot be asked which roles it would accept.",
-    derivedOn: "2026-09-10",
+    derivedOn: "2026-09-11",
     rederive: String.raw`select prosrc from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.proname = 'is_org_manager';`,
   },
   {
@@ -112,6 +112,26 @@ export const MIRRORS: MirrorEntry[] = [
     // ENFORCEMENT itself did not move; what moved is that a TENTH key now has
     // 13 enforcement sites and is not in the derived set at all — see
     // ENFORCED_BUT_UNDERIVED.
+    //
+    // 2026-09-11: re-derived at the closing check, NO MOVEMENT.
+    //
+    // AND THE REGISTRY IS ABOUT TO SHRINK. `role_capability_matrix()` landed
+    // this evening (migration 20260911233218), is EXECUTE-granted to
+    // `authenticated`, and returns 7 roles x 10 capabilities. Measured, not
+    // assumed: it derives its role list from the org_members_role_check
+    // CHECK CONSTRAINT and its capability list from
+    // default_permissions_for_role('owner'), and it agrees with the deriver on
+    // all 70 pairs with zero disagreements. That retires TWO mirrors — A
+    // (ORG_ROLES) and D (ROLE_DEFAULTS) — because both are now readable at
+    // runtime. C (ENFORCEMENT) is NOT retired: the matrix says what a role is
+    // granted, never where a capability is enforced, and site counts still
+    // come from pg_proc and pg_policies. B (MANAGER_ROLES) is not retired
+    // either — is_org_manager()'s short-circuit list is not in the matrix.
+    //
+    // The swap is deliberately NOT done here. It is the same edit as making
+    // the grid editable (G3, Monday): both rewire how this page gets role
+    // data, and doing half of it at the end of a Friday session is how the two
+    // halves disagree.
     //
     // 2026-09-10: re-derived at the closing check, NO MOVEMENT — the day's
     // migration (po_org_explicit_and_attach) changed function signatures, not
@@ -129,7 +149,7 @@ export const MIRRORS: MirrorEntry[] = [
     // WHEN SOMEONE LAST LOOKED, not when the answer last changed, and a date
     // that only moves on change cannot distinguish "still true" from
     // "nobody has checked since".
-    derivedOn: "2026-09-10",
+    derivedOn: "2026-09-11",
     rederive: String.raw`with fn as (select 'function' kind, proname site, prosrc body from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and proname not in ('has_capability','can_view_financials','can_view_master_work_order')), pol as (select case when permissive = 'RESTRICTIVE' then 'restrictive policy' else 'policy' end, tablename || '.' || policyname, coalesce(qual,'') || ' ' || coalesce(with_check,'') from pg_policies where schemaname = 'public'), s as (select * from fn union all select * from pol), hits as (select kind, site, (regexp_matches(body, 'has_capability\s*\([^,]+,\s*''([a-z_]+)''', 'g'))[1] cap from s union all select kind, site, 'view_financials' from s where body ~ 'can_view_financials' union all select kind, site, 'view_master_work_order' from s where body ~ 'can_view_master_work_order') select cap, kind, count(distinct site) from hits group by 1, 2 order by 1, 2;`,
   },
   {
@@ -139,7 +159,7 @@ export const MIRRORS: MirrorEntry[] = [
       "default_permissions_for_role(text), for every role in the CHECK constraint AND for the else branch an unrecognised role reaches",
     unreachableBecause:
       "EXECUTE revoked from `authenticated` by A2.1c step 1a (migration 20260826133457) — deliberately; it is called only from inside the database.",
-    derivedOn: "2026-09-10",
+    derivedOn: "2026-09-11",
     // The trailing 'some_future_role' is not padding. F5 (2026-09-06) changed
     // ONLY the else branch, so a re-derivation limited to the seven named roles
     // reported "unchanged" and was wrong. The probe for the unlisted case is
