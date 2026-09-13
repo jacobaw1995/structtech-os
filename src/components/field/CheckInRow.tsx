@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { updateCheckIn, deleteCheckIn } from "@/lib/field/actions";
 import { PhotoPicker } from "@/components/field/PhotoPicker";
 import { formatDateOnly } from "@/lib/coordination/stage";
@@ -23,6 +23,12 @@ export function CheckInRow({
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const [isPending, startTransition] = useTransition();
+  // U-W1.10 — two taps to delete. Measured at 375x812: this control was 44px,
+  // under §2.4's 56dp floor, and four of them sat in thumb reach on the
+  // check-in tab. It destroys a day's logged work, on a roof, with gloves on.
+  // Local state rather than a URL param because this is already a client
+  // component and the redirect after a real delete resets it anyway.
+  const [confirming, setConfirming] = useState(false);
 
   function submit() {
     startTransition(() => {
@@ -37,18 +43,37 @@ export function CheckInRow({
         <span className="text-xs uppercase tracking-wide text-muted group-data-[outdoor=true]/field:text-white/60">
           {formatDateOnly(checkIn.check_in_date)}
         </span>
-        <form action={deleteCheckIn}>
-          <input type="hidden" name="orgId" value={orgId} />
-          <input type="hidden" name="workOrderId" value={workOrderId} />
-          <input type="hidden" name="checkInId" value={checkIn.id} />
+        {confirming ? (
+          <div className="flex items-center gap-2">
+            <form action={deleteCheckIn}>
+              <input type="hidden" name="orgId" value={orgId} />
+              <input type="hidden" name="workOrderId" value={workOrderId} />
+              <input type="hidden" name="checkInId" value={checkIn.id} />
+              <button
+                type="submit"
+                className="flex min-h-14 items-center justify-center rounded-lg bg-warn px-3 text-sm font-semibold text-white"
+              >
+                Delete
+              </button>
+            </form>
+            <button
+              type="button"
+              onClick={() => setConfirming(false)}
+              className="flex min-h-14 items-center justify-center rounded-lg border border-border px-3 text-sm font-medium text-text group-data-[outdoor=true]/field:border-white/40 group-data-[outdoor=true]/field:text-white"
+            >
+              Keep
+            </button>
+          </div>
+        ) : (
           <button
-            type="submit"
-            aria-label="Delete check-in"
-            className="flex min-h-11 min-w-11 items-center justify-center text-muted hover:text-warn"
+            type="button"
+            onClick={() => setConfirming(true)}
+            aria-label={`Delete the check-in for ${formatDateOnly(checkIn.check_in_date)}`}
+            className="flex min-h-14 min-w-14 items-center justify-center text-muted hover:text-warn group-data-[outdoor=true]/field:text-white/60"
           >
             ✕
           </button>
-        </form>
+        )}
       </div>
 
       <form ref={formRef} action={updateCheckIn} className="flex flex-col gap-2.5">

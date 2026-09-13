@@ -115,7 +115,28 @@ export default async function FieldJobPage({
       )}
 
       {tab === "check-in" && (
+        /* U-W1.10 — THE NEW CHECK-IN COMES FIRST. Measured at 375x812 with
+           four past check-ins: the form sat 2,224px down, 3.01 SCREENS of
+           scroll, because history rendered above it. A crew member opens this
+           screen to record today, not to read last Tuesday — and they open it
+           standing on a roof.
+
+           History stays fully visible underneath, not collapsed: reading what
+           was logged yesterday is how you know what is left, and it costs no
+           tap. Same call as the PO line editor — collapse the FORM you are not
+           using, never the FACTS you came to read; here the form IS what they
+           came for, so it is the history that moves down. */
         <div className="flex flex-col gap-4">
+          <AddCheckInForm
+            orgId={params.orgId}
+            workOrderId={workOrder.id}
+            defaultCrewName={lastCrewName}
+          />
+          {checkIns.length > 0 && (
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted group-data-[outdoor=true]/field:text-white/60">
+              Earlier check-ins · {checkIns.length}
+            </p>
+          )}
           {checkIns.map((checkIn) => (
             <CheckInRow
               key={checkIn.id}
@@ -124,11 +145,6 @@ export default async function FieldJobPage({
               checkIn={checkIn}
             />
           ))}
-          <AddCheckInForm
-            orgId={params.orgId}
-            workOrderId={workOrder.id}
-            defaultCrewName={lastCrewName}
-          />
         </div>
       )}
 

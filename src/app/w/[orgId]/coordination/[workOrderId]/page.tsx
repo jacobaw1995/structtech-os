@@ -369,7 +369,7 @@ export default async function WorkOrderPage({
       {isMaster && (
         <PurchaseOrderList
           orgId={params.orgId}
-          workOrderId={workOrder.id}
+          returnTo={`/w/${params.orgId}/coordination/${workOrder.id}`}
           jobId={jobIdForPos}
           orgName={ctx.active.org_name}
           orders={purchaseOrders}

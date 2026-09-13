@@ -49,11 +49,12 @@ export type OrgMemberRow = Database["public"]["Tables"]["org_members"]["Row"];
 // It now has one, and the count is rendered on the permissions page rather
 // than only living here.
 //
-// THIS IS NOT A STALENESS DETECTOR AND MUST NOT BE READ AS ONE. Nothing here
-// can tell you a mirror has drifted: the application cannot execute
-// default_permissions_for_role() (EXECUTE revoked from `authenticated` by
-// A2.1c step 1a), and pg_proc / pg_policies / pg_constraint are not reachable
-// through PostgREST. What it gives you is the DENOMINATOR and the COMMANDS —
+// THIS IS NOT A STALENESS DETECTOR FOR THE MIRRORS THAT REMAIN. B and C copy
+// things that are still unreachable through PostgREST (pg_proc, pg_policies)
+// and nothing in the running app can tell you they have drifted. What changed
+// on 2026-09-12 is that A and D stopped being mirrors at all — they are READ —
+// and C's capability KEY list is now checked against the live matrix on every
+// render (capabilityDrift), even though its site counts still cannot be. What it gives you is the DENOMINATOR and the COMMANDS —
 // so re-deriving is a mechanical five-minute job rather than an archaeology
 // problem, and so a person can see how old the answers are.
 //
@@ -69,7 +70,7 @@ export type OrgMemberRow = Database["public"]["Tables"]["org_members"]["Row"];
 // ===========================================================================
 export type MirrorEntry = {
   /** Stable id, used in the UI. */
-  id: "A" | "B" | "C" | "D";
+  id: "B" | "C";
   /** The TypeScript constant that holds the copy. */
   constant: string;
   /** The database object it is a copy of. */
@@ -84,21 +85,16 @@ export type MirrorEntry = {
 
 export const MIRRORS: MirrorEntry[] = [
   {
-    id: "A",
-    constant: "ORG_ROLES",
-    mirrors: "CHECK constraint org_members_role_check",
-    unreachableBecause:
-      "PostgREST exposes `public` only; pg_constraint is not reachable.",
-    derivedOn: "2026-09-09",
-    rederive: String.raw`select pg_get_constraintdef(oid) from pg_constraint where conname = 'org_members_role_check';`,
-  },
-  {
     id: "B",
     constant: "MANAGER_ROLES",
     mirrors: "the role list inside is_org_manager()",
     unreachableBecause:
       "is_org_manager() answers only for auth.uid(); it cannot be asked which roles it would accept.",
-    derivedOn: "2026-09-09",
+    // KEPT, and why, since the matrix retired its neighbours: the matrix
+    // returns what each role is GRANTED, not which roles is_org_manager()
+    // short-circuits. A manager's grant and a manager's bypass are different
+    // facts — the matrix shows owner=true for every key either way.
+    derivedOn: "2026-09-12",
     rederive: String.raw`select prosrc from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.proname = 'is_org_manager';`,
   },
   {
@@ -113,6 +109,37 @@ export const MIRRORS: MirrorEntry[] = [
     // 13 enforcement sites and is not in the derived set at all — see
     // ENFORCED_BUT_UNDERIVED.
     //
+    // KEPT, and why: the matrix says what a role is GRANTED, never where a
+    // capability is ENFORCED. Site counts still come from pg_proc and
+    // pg_policies. Its capability KEY list, though, is now checked against the
+    // live matrix on every render (capabilityDrift).
+    //
+    // 2026-09-12: re-derived at the closing check (see report).
+    //
+    // 2026-09-11: re-derived at the closing check, NO MOVEMENT.
+    //
+    // AND THE REGISTRY IS ABOUT TO SHRINK. `role_capability_matrix()` landed
+    // this evening (migration 20260911233218), is EXECUTE-granted to
+    // `authenticated`, and returns 7 roles x 10 capabilities. Measured, not
+    // assumed: it derives its role list from the org_members_role_check
+    // CHECK CONSTRAINT and its capability list from
+    // default_permissions_for_role('owner'), and it agrees with the deriver on
+    // all 70 pairs with zero disagreements. That retires TWO mirrors — A
+    // (ORG_ROLES) and D (ROLE_DEFAULTS) — because both are now readable at
+    // runtime. C (ENFORCEMENT) is NOT retired: the matrix says what a role is
+    // granted, never where a capability is enforced, and site counts still
+    // come from pg_proc and pg_policies. B (MANAGER_ROLES) is not retired
+    // either — is_org_manager()'s short-circuit list is not in the matrix.
+    //
+    // The swap is deliberately NOT done here. It is the same edit as making
+    // the grid editable (G3, Monday): both rewire how this page gets role
+    // data, and doing half of it at the end of a Friday session is how the two
+    // halves disagree.
+    //
+    // 2026-09-10: re-derived at the closing check, NO MOVEMENT — the day's
+    // migration (po_org_explicit_and_attach) changed function signatures, not
+    // any has_capability() literal, and the census confirms it.
+    //
     // 2026-09-09: re-derived at the closing check, NO MOVEMENT — same nine
     // counts plus manage_purchasing=13, which joined the derived set the
     // previous evening. All four mirrors were checked; none moved.
@@ -125,53 +152,48 @@ export const MIRRORS: MirrorEntry[] = [
     // WHEN SOMEONE LAST LOOKED, not when the answer last changed, and a date
     // that only moves on change cannot distinguish "still true" from
     // "nobody has checked since".
-    derivedOn: "2026-09-09",
+    derivedOn: "2026-09-12",
     rederive: String.raw`with fn as (select 'function' kind, proname site, prosrc body from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and proname not in ('has_capability','can_view_financials','can_view_master_work_order')), pol as (select case when permissive = 'RESTRICTIVE' then 'restrictive policy' else 'policy' end, tablename || '.' || policyname, coalesce(qual,'') || ' ' || coalesce(with_check,'') from pg_policies where schemaname = 'public'), s as (select * from fn union all select * from pol), hits as (select kind, site, (regexp_matches(body, 'has_capability\s*\([^,]+,\s*''([a-z_]+)''', 'g'))[1] cap from s union all select kind, site, 'view_financials' from s where body ~ 'can_view_financials' union all select kind, site, 'view_master_work_order' from s where body ~ 'can_view_master_work_order') select cap, kind, count(distinct site) from hits group by 1, 2 order by 1, 2;`,
-  },
-  {
-    id: "D",
-    constant: "ROLE_DEFAULTS",
-    mirrors:
-      "default_permissions_for_role(text), for every role in the CHECK constraint AND for the else branch an unrecognised role reaches",
-    unreachableBecause:
-      "EXECUTE revoked from `authenticated` by A2.1c step 1a (migration 20260826133457) — deliberately; it is called only from inside the database.",
-    derivedOn: "2026-09-09",
-    // The trailing 'some_future_role' is not padding. F5 (2026-09-06) changed
-    // ONLY the else branch, so a re-derivation limited to the seven named roles
-    // reported "unchanged" and was wrong. The probe for the unlisted case is
-    // part of the command now.
-    rederive: String.raw`select r.role, public.default_permissions_for_role(r.role) from unnest(array['owner','admin','agency_admin','office','member','field','client_portal_viewer','some_future_role']) as r(role);`,
   },
 ];
 
 /** The number this registry exists to make answerable. */
 export const MIRROR_COUNT = MIRRORS.length;
 
+/**
+ * Mirrors that STOPPED being mirrors, kept so the count's history is legible:
+ * "2" means nothing without knowing it was 4.
+ */
+export const RETIRED_MIRRORS: {
+  id: "A" | "D";
+  constant: string;
+  retiredOn: string;
+  nowReadFrom: string;
+  evidence: string;
+}[] = [
+  {
+    id: "A",
+    constant: "ORG_ROLES",
+    retiredOn: "2026-09-12",
+    nowReadFrom: "role_capability_matrix() — its role list",
+    evidence:
+      "The function body derives roles from pg_get_constraintdef(org_members_role_check), the exact object this mirror copied.",
+  },
+  {
+    id: "D",
+    constant: "ROLE_DEFAULTS",
+    retiredOn: "2026-09-12",
+    nowReadFrom: "role_capability_matrix() — its allowed column",
+    evidence:
+      "The function body reads default_permissions_for_role(role) ->> capability for every pair, and agreed with the deriver on all 70 pairs when checked.",
+  },
+];
+
 /** The stalest derivation date across all mirrors. */
 export function oldestMirrorDerivation(): string {
   return MIRRORS.map((m) => m.derivedOn).sort()[0];
 }
 
-// ---------------------------------------------------------------------------
-// MIRROR 1 — the role vocabulary.
-// Derived 2026-09-04 from constraint `org_members_role_check`:
-//   select pg_get_constraintdef(oid) from pg_constraint
-//    where conrelid = 'public.org_members'::regclass and contype = 'c';
-// -> CHECK (role = ANY (ARRAY['owner','admin','office','field',
-//                             'client_portal_viewer','agency_admin','member']))
-// Order below is presentation order (manager tier first), not constraint order.
-// ---------------------------------------------------------------------------
-export const ORG_ROLES = [
-  "owner",
-  "admin",
-  "agency_admin",
-  "office",
-  "member",
-  "field",
-  "client_portal_viewer",
-] as const;
-
-export type OrgRole = (typeof ORG_ROLES)[number];
 
 // ---------------------------------------------------------------------------
 // MIRROR 2 — the manager short-circuit, from the live body of is_org_manager():
@@ -186,7 +208,7 @@ export type OrgRole = (typeof ORG_ROLES)[number];
 // to false would change nothing. A grid that showed the stored value for these
 // roles would be showing a number that does not decide anything.
 // ---------------------------------------------------------------------------
-export const MANAGER_ROLES: readonly OrgRole[] = ["owner", "admin", "agency_admin"];
+export const MANAGER_ROLES: readonly string[] = ["owner", "admin", "agency_admin"];
 
 export function isManagerRole(role: string): boolean {
   return (MANAGER_ROLES as readonly string[]).includes(role);
@@ -362,103 +384,123 @@ export const ENFORCEMENT: Record<Capability, Enforcement> = {
 };
 
 // ---------------------------------------------------------------------------
-// MIRROR 4 — WHAT EACH ROLE GRANTS WHEN A HUMAN IS ADDED.
+// RETIRED 2026-09-12 — MIRROR D (`ROLE_DEFAULTS`) AND MIRROR A (`ORG_ROLES`).
 //
-// Obtained 2026-09-05 by CALLING the live deriver for every role the CHECK
-// constraint allows, not by transcribing its body:
+// Both were copies of things the app could not read. They can be read now:
+// `role_capability_matrix()` (migration 20260911233218) is EXECUTE-granted to
+// `authenticated` and returns one row per (role, capability, allowed).
 //
-//   select r.role, public.default_permissions_for_role(r.role)
-//     from unnest(array['owner','admin','agency_admin','office','member',
-//                       'field','client_portal_viewer']) as r(role);
+// It retires TWO, not one, and that was established by reading its body on
+// 2026-09-11 rather than by trusting its name: its role list comes from
+//   regexp_matches(pg_get_constraintdef(<org_members_role_check>), ...)
+// — the CHECK constraint mirror A copied — and its capability list comes from
+//   jsonb_object_keys(default_permissions_for_role('owner'))
+// — the deriver mirror D copied. It agreed with the deriver on all 70 pairs
+// with zero disagreements when checked.
 //
-// WHY THIS MIRROR EXISTS WHEN FRIDAY DELIBERATELY REFUSED TO ADD IT.
-// Friday's refusal was narrower than it looked: it refused to fill an
-// UNOBSERVED GRID CELL with a default, because a cell that reads as an
-// observation must not silently become a guess. That still holds and the grid
-// still shows an empty dashed circle there. This is a different claim in a
-// different place — a reference table, labelled as the deriver's output, never
-// mixed into the observed grid.
+// So the role vocabulary and every role's defaults are now READ, per request,
+// from the database. What did NOT go away, and why, is in the registry: B (the
+// manager short-circuit list) and C (where each capability is enforced) are
+// not in the matrix and stay mirrors.
 //
-// The trap it exists to close: `office` and `member` are IDENTICAL on eight of
-// the nine keys and differ on exactly `manage_catalog`. Nothing anywhere told
-// anyone that. An office hire invited as `member` loses the catalog and keeps
-// everything else, which is the least visible way for a permission to be wrong.
-//
-// STALENESS IS THE COST AND IT IS REAL. The app cannot execute
-// default_permissions_for_role() (EXECUTE revoked from `authenticated` by
-// A2.1c step 1a), so nothing here re-checks itself at runtime. If Track S adds
-// a capability or changes a branch, this table is wrong and silent. The fix is
-// a definer RPC returning the matrix — reported, not built.
+// The F5 else branch (`ROLE_DEFAULTS_UNRECOGNISED`) also went. It was a copy
+// of the deriver's answer for a role outside the CHECK constraint — a row that
+// constraint makes impossible. A role the matrix does not list is now reported
+// as UNKNOWN instead of being assumed to get nothing: a sentence this page
+// cannot back with a read should not be on it.
 // ---------------------------------------------------------------------------
-export const ROLE_DEFAULTS: Record<OrgRole, Record<Capability, boolean>> = {
-  owner: {
-    manage_purchasing: true, view_financials: true, view_estimates: true, view_master_work_order: true,
-    manage_catalog: true, edit_leads: true, create_estimates: true,
-    add_notes: true, schedule: true, view_field: true,
-  },
-  admin: {
-    manage_purchasing: true, view_financials: true, view_estimates: true, view_master_work_order: true,
-    manage_catalog: true, edit_leads: true, create_estimates: true,
-    add_notes: true, schedule: true, view_field: true,
-  },
-  agency_admin: {
-    manage_purchasing: true, view_financials: true, view_estimates: true, view_master_work_order: true,
-    manage_catalog: true, edit_leads: true, create_estimates: true,
-    add_notes: true, schedule: true, view_field: true,
-  },
-  office: {
-    manage_purchasing: true, view_financials: true, view_estimates: true, view_master_work_order: true,
-    manage_catalog: true, edit_leads: false, create_estimates: false,
-    add_notes: true, schedule: true, view_field: true,
-  },
-  member: {
-    manage_purchasing: false, view_financials: true, view_estimates: true, view_master_work_order: true,
-    manage_catalog: false, edit_leads: false, create_estimates: false,
-    add_notes: true, schedule: true, view_field: true,
-  },
-  field: {
-    manage_purchasing: false, view_financials: false, view_estimates: false, view_master_work_order: false,
-    manage_catalog: false, edit_leads: false, create_estimates: false,
-    add_notes: true, schedule: true, view_field: true,
-  },
-  client_portal_viewer: {
-    manage_purchasing: false, view_financials: false, view_estimates: false, view_master_work_order: false,
-    manage_catalog: false, edit_leads: false, create_estimates: false,
-    add_notes: true, schedule: true, view_field: true,
-  },
+
+/** A role is whatever the CHECK constraint says it is, read at request time. */
+export type OrgRole = string;
+
+export type RoleMatrixRow = { role: string; capability: string; allowed: boolean };
+
+export type RoleMatrix = {
+  /** Display order: manager tier first (mirror B), then widest grant first. */
+  roles: OrgRole[];
+  /** As the deriver emits them. */
+  capabilities: string[];
+  /** Undefined for a (role, capability) pair the matrix does not contain. */
+  allowed: (role: string, capability: string) => boolean | undefined;
+  hasRole: (role: string) => boolean;
+};
+
+type MatrixClient = {
+  rpc: (fn: "role_capability_matrix") => PromiseLike<{
+    data: RoleMatrixRow[] | null;
+    error: { message: string } | null;
+  }>;
 };
 
 /**
- * The deriver's ELSE branch — what a role NOT in the CHECK constraint gets.
- *
- * RE-DERIVED 2026-09-06 after migration `f5_unrecognised_role_gets_nothing`
- * landed mid-session, by calling the function with a role the constraint does
- * not allow:
- *
- *   select public.default_permissions_for_role('some_future_role');
- *
- * Nine explicit falses — everything denied, and denied by a written value
- * rather than by an absent key, which are different things everywhere else on
- * this page. Before F5 this branch returned the member-like set (six grants),
- * so an unrecognised role silently inherited most of a member's access.
- *
- * WHY THIS ENTRY EXISTS AT ALL, given the CHECK constraint makes it
- * unreachable today: mirror D would otherwise have reported "unchanged" after
- * F5, because all seven roles it enumerates hit a NAMED branch and none of them
- * moved. The thing F5 changed is the only thing mirror D did not cover. A
- * re-derivation that only checks the cases you already listed cannot find a
- * change to the case you did not.
+ * Read the matrix. Called once per request by the page and passed down, so
+ * every component on the page answers from the SAME read — two reads could
+ * straddle a migration and disagree with each other on one screen.
  */
-export const ROLE_DEFAULTS_UNRECOGNISED: Record<Capability, boolean> = {
-  manage_purchasing: false, view_financials: false, view_estimates: false, view_master_work_order: false,
-  manage_catalog: false, edit_leads: false, create_estimates: false,
-  add_notes: false, schedule: false, view_field: false,
-};
-
-/** The nine keys as a stable fingerprint, so identical roles can be grouped. */
-function fingerprint(role: OrgRole): string {
-  return CAPABILITIES.map((c) => (ROLE_DEFAULTS[role][c] ? "1" : "0")).join("");
+export async function fetchRoleMatrix(
+  supabase: MatrixClient
+): Promise<{ matrix: RoleMatrix | null; error: string | null }> {
+  const { data, error } = await supabase.rpc("role_capability_matrix");
+  if (error) return { matrix: null, error: error.message };
+  const rows = (data ?? []) as RoleMatrixRow[];
+  if (rows.length === 0) {
+    // An empty matrix is not "no roles". It is a read that returned nothing,
+    // and building a grid from it would draw a confident empty page.
+    return { matrix: null, error: "role_capability_matrix() returned no rows" };
+  }
+  return { matrix: toMatrix(rows), error: null };
 }
+
+export function toMatrix(rows: RoleMatrixRow[]): RoleMatrix {
+  // Role and capability names are [a-z_]+ (the CHECK constraint and the
+  // deriver's keys), so "|" cannot occur in either and is a safe separator.
+  const key = (r: string, c: string) => `${r}|${c}`;
+  const table = new Map<string, boolean>();
+  const roleSet: string[] = [];
+  const capSet: string[] = [];
+  for (const row of rows) {
+    table.set(key(row.role, row.capability), row.allowed === true);
+    if (!roleSet.includes(row.role)) roleSet.push(row.role);
+    if (!capSet.includes(row.capability)) capSet.push(row.capability);
+  }
+  const grants = (r: string) => capSet.filter((c) => table.get(key(r, c)) === true).length;
+  const roles = [...roleSet].sort((a, b) => {
+    const ma = isManagerRole(a) ? 0 : 1;
+    const mb = isManagerRole(b) ? 0 : 1;
+    if (ma !== mb) return ma - mb;
+    const g = grants(b) - grants(a);
+    return g !== 0 ? g : a.localeCompare(b);
+  });
+  return {
+    roles,
+    capabilities: capSet,
+    allowed: (r, c) => table.get(key(r, c)),
+    hasRole: (r) => roleSet.includes(r),
+  };
+}
+
+/**
+ * MIRROR C STILL COPIES A CAPABILITY LIST, and now it can be CHECKED.
+ *
+ * `CAPABILITIES` keys the enforcement census, which stays a mirror. Before the
+ * matrix nothing could notice if a capability was added or removed without
+ * this file changing. Now the live list is compared on every render, and a
+ * mismatch is shown rather than silently drawn from a stale key set.
+ */
+export function capabilityDrift(matrix: RoleMatrix): {
+  inDatabaseNotInCensus: string[];
+  inCensusNotInDatabase: string[];
+} {
+  return {
+    inDatabaseNotInCensus: matrix.capabilities.filter((c) => !isCapability(c)),
+    inCensusNotInDatabase: CAPABILITIES.filter((c) => !matrix.capabilities.includes(c)),
+  };
+}
+
+function fingerprint(matrix: RoleMatrix, role: string): string {
+  return CAPABILITIES.map((c) => (matrix.allowed(role, c) ? "1" : "0")).join("");
+}
+
 
 /**
  * Seven roles, four distinct answers. Grouping them is the single most useful
@@ -476,12 +518,12 @@ export type RoleGroup = {
   nested: boolean;
 };
 
-export function roleGroups(): RoleGroup[] {
+export function roleGroups(matrix: RoleMatrix): RoleGroup[] {
   // Array of pairs rather than [...map.values()] — the tsconfig target here
   // predates downlevelIteration, so spreading a Map iterator does not compile.
   const groups: { print: string; roles: OrgRole[] }[] = [];
-  for (const r of ORG_ROLES) {
-    const print = fingerprint(r);
+  for (const r of matrix.roles) {
+    const print = fingerprint(matrix, r);
     const existing = groups.find((g) => g.print === print);
     if (existing) existing.roles.push(r);
     else groups.push({ print, roles: [r] });
@@ -490,8 +532,8 @@ export function roleGroups(): RoleGroup[] {
     const head: OrgRole = roles[0];
     return {
       roles,
-      grants: CAPABILITIES.filter((c) => ROLE_DEFAULTS[head][c]),
-      denies: CAPABILITIES.filter((c) => !ROLE_DEFAULTS[head][c]),
+      grants: CAPABILITIES.filter((c) => matrix.allowed(head, c) === true),
+      denies: CAPABILITIES.filter((c) => matrix.allowed(head, c) !== true),
     };
   });
 
@@ -520,8 +562,8 @@ export function roleGroups(): RoleGroup[] {
  * office/member trap as a measured difference rather than as a warning
  * somebody remembered to write.
  */
-export function defaultsDiff(a: OrgRole, b: OrgRole): Capability[] {
-  return CAPABILITIES.filter((c) => ROLE_DEFAULTS[a][c] !== ROLE_DEFAULTS[b][c]);
+export function defaultsDiff(matrix: RoleMatrix, a: OrgRole, b: OrgRole): Capability[] {
+  return CAPABILITIES.filter((c) => matrix.allowed(a, c) !== matrix.allowed(b, c));
 }
 
 /**
@@ -532,18 +574,18 @@ export function defaultsDiff(a: OrgRole, b: OrgRole): Capability[] {
  * therefore never gets seeded. It then looks like a normal member row until
  * somebody tries to do their job.
  */
-export type DriftKind = "matches" | "no-keys" | "differs";
+export type DriftKind = "matches" | "no-keys" | "differs" | "unknown-role";
 export function driftFromRoleDefault(
+  matrix: RoleMatrix,
   role: string,
   permissions: unknown
 ): { kind: DriftKind; missing: Capability[]; extraTrue: Capability[]; extraFalse: Capability[] } {
   const perms = (permissions ?? {}) as Record<string, unknown>;
-  // An unrecognised role used to fall through to "matches", which said the row
-  // agreed with a default this file had no value for. F5 gave that branch a
-  // real answer, so it is compared like any other.
-  const known: Record<Capability, boolean> = ORG_ROLES.includes(role as OrgRole)
-    ? ROLE_DEFAULTS[role as OrgRole]
-    : ROLE_DEFAULTS_UNRECOGNISED;
+  // A role the live matrix does not list has no default this page can READ,
+  // so it is reported as unknown rather than compared against a guess.
+  if (!matrix.hasRole(role)) {
+    return { kind: "unknown-role", missing: [], extraTrue: [], extraFalse: [] };
+  }
   const missing: Capability[] = [];
   const extraTrue: Capability[] = [];
   const extraFalse: Capability[] = [];
@@ -552,22 +594,17 @@ export function driftFromRoleDefault(
 
   for (const c of CAPABILITIES) {
     if (!(c in perms)) missing.push(c);
-    else if (perms[c] === true && !known[c]) extraTrue.push(c);
-    else if (perms[c] !== true && known[c]) extraFalse.push(c);
+    else if (perms[c] === true && matrix.allowed(role, c) !== true) extraTrue.push(c);
+    else if (perms[c] !== true && matrix.allowed(role, c) === true) extraFalse.push(c);
   }
   const differs = missing.length + extraTrue.length + extraFalse.length > 0;
   return { kind: differs ? "differs" : "matches", missing, extraTrue, extraFalse };
 }
 
-/** How many of the nine a role would grant, if the row were seeded properly. */
-export function grantedCountForRole(role: string): number {
-  // No longer nullable. Since F5 the deriver has a defined answer for an
-  // unrecognised role — zero — so returning null would be this file being
-  // vaguer than the database.
-  if (!ORG_ROLES.includes(role as OrgRole)) {
-    return CAPABILITIES.filter((c) => ROLE_DEFAULTS_UNRECOGNISED[c]).length;
-  }
-  return CAPABILITIES.filter((c) => ROLE_DEFAULTS[role as OrgRole][c]).length;
+/** How many capabilities a role grants, READ from the live matrix. Null if unknown. */
+export function grantedCountForRole(matrix: RoleMatrix, role: string): number | null {
+  if (!matrix.hasRole(role)) return null;
+  return CAPABILITIES.filter((c) => matrix.allowed(role, c) === true).length;
 }
 
 /**
@@ -652,7 +689,10 @@ export type Cell = CellState & { capability: Capability; role: OrgRole };
  * shown here would be this file guessing. "No member holds this role" is a
  * smaller claim and a true one.
  */
-export function buildGrid(members: Pick<OrgMemberRow, "role" | "permissions">[]) {
+export function buildGrid(
+  matrix: RoleMatrix,
+  members: Pick<OrgMemberRow, "role" | "permissions">[]
+) {
   const byRole = new Map<string, typeof members>();
   for (const m of members) {
     if (!m.role) continue;
@@ -663,7 +703,7 @@ export function buildGrid(members: Pick<OrgMemberRow, "role" | "permissions">[])
 
   const cells: Cell[] = [];
   for (const capability of CAPABILITIES) {
-    for (const role of ORG_ROLES) {
+    for (const role of matrix.roles) {
       cells.push({ capability, role, ...cellFor(capability, role, byRole.get(role) ?? []) });
     }
   }
@@ -703,10 +743,3 @@ function cellFor(
   return { kind: "observed", value, members: rolesMembers.length, split };
 }
 
-/**
- * Why a cell cannot be changed from this screen. Returned for EVERY cell,
- * because right now the answer is the same for every cell and saying it once
- * per page would let a reader assume the exceptions are the editable ones.
- */
-export const NO_WRITE_PATH_REASON =
-  "No RPC writes org_members.permissions. The only two functions that write org_members at all are add_org_member() (platform-admin only, writes the role default) and accept_invite() (the invitee's own path). Changing one capability for one member has no server action to call.";
