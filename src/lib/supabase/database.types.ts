@@ -1762,6 +1762,9 @@ export type Database = {
           markup: number | null
           name: string
           org_id: string
+          price_method: string | null
+          price_review_reason: string | null
+          price_value: number | null
           sell: number | null
           unit: string | null
           updated_at: string
@@ -1776,6 +1779,9 @@ export type Database = {
           markup?: number | null
           name: string
           org_id: string
+          price_method?: string | null
+          price_review_reason?: string | null
+          price_value?: number | null
           sell?: number | null
           unit?: string | null
           updated_at?: string
@@ -1790,6 +1796,9 @@ export type Database = {
           markup?: number | null
           name?: string
           org_id?: string
+          price_method?: string | null
+          price_review_reason?: string | null
+          price_value?: number | null
           sell?: number | null
           unit?: string | null
           updated_at?: string
@@ -2007,7 +2016,7 @@ export type Database = {
           org_id: string
           promised_date?: string | null
           purchase_order_id: string
-          quantity_ordered?: number
+          quantity_ordered: number
           updated_at?: string
         }
         Update: {
@@ -3235,6 +3244,8 @@ export type Database = {
           p_markup?: number
           p_name: string
           p_org_id: string
+          p_price_method?: string
+          p_price_value?: number
           p_sell?: number
           p_unit?: string
         }
@@ -3253,6 +3264,9 @@ export type Database = {
           markup: number | null
           name: string
           org_id: string
+          price_method: string | null
+          price_review_reason: string | null
+          price_value: number | null
           sell: number | null
           unit: string | null
           updated_at: string
@@ -3276,6 +3290,9 @@ export type Database = {
           markup: number | null
           name: string
           org_id: string
+          price_method: string | null
+          price_review_reason: string | null
+          price_value: number | null
           sell: number | null
           unit: string | null
           updated_at: string

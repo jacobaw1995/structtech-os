@@ -1,6 +1,6 @@
 # A2 ACCEPTANCE — EVIDENCE
 
-> ## ▶ STILL NOT ACCEPTED as of 2026-09-11 (Track S).
+> ## ▶ STILL NOT ACCEPTED as of 2026-09-12 (Track S).
 >
 > **A2.1c's "prices an estimate line with no re-entry" has still not been run.** No result has been
 > reported, and its absence is not a pass. Nothing else is outstanding: every other A2 *Done when*
