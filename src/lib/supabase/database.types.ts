@@ -785,7 +785,7 @@ export type Database = {
           scope_key?: string | null
           sort_order?: number
           unit?: string | null
-          unit_price?: number
+          unit_price: number
           updated_at?: string
         }
         Update: {
