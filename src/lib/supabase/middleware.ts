@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { clientInfoHeaders } from "@/lib/supabase/client-info";
+import { boundGetSession, createBoundedFetch } from "@/lib/supabase/bounded-fetch";
 import { NextResponse, type NextRequest } from "next/server";
 
 /**
@@ -16,7 +17,9 @@ export async function updateSession(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       // See client-info.ts: the shared project's edge log has no tenant column.
-      global: clientInfoHeaders("middleware"),
+      // Bounded fetch: see bounded-fetch.ts — without it a silent auth service
+      // blocks this middleware, and therefore every matched route, forever.
+      global: { ...clientInfoHeaders("middleware"), fetch: createBoundedFetch() },
       cookies: {
         getAll() {
           return request.cookies.getAll();
@@ -33,6 +36,10 @@ export async function updateSession(request: NextRequest) {
       },
     }
   );
+
+  // See server.ts / bounded-fetch.ts: bounds the whole call so a silent auth
+  // service cannot hold this middleware — and every matched route — open.
+  boundGetSession(supabase);
 
   // Required: this triggers a token refresh if the session is stale, and
   // must run before any route-guard logic reads the session.

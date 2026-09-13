@@ -81,10 +81,22 @@ jobs:
           fi
           node --check scripts/monitor/frontdoor-monitor.mjs
           node --check scripts/monitor/schedule-drift.mjs
+          node --check scripts/monitor/browser-auth-tripwire.mjs
           echo "node $(node -v); no shell-outs; no npm install"
 
       - name: run the monitor
         run: node scripts/monitor/frontdoor-monitor.mjs
+
+      # The browser Supabase client has no bound on its session refresh and is
+      # harmless only because nothing imports it — closed by accident (CLAUDE.md
+      # rule 13). This step is the alarm on the one change that would reopen it.
+      # AFTER the doors and `always()`, for the same reason as the drift check:
+      # a source-level alarm must never stop the doors being graded.
+      # It runs on the schedule, so a merge that wires the browser client
+      # unbounded goes red within one delivered interval (~3.5 h measured).
+      - name: browser-auth tripwire — is the unbounded browser client in use?
+        if: always()
+        run: node scripts/monitor/browser-auth-tripwire.mjs
 
       # AFTER the door check on purpose: a real outage must not be masked by a
       # drift complaint, and the door verdict is the more important of the two.
