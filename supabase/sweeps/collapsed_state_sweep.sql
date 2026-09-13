@@ -142,6 +142,9 @@ group by c.relname
 order by c.relname;
 
 -- -----------------------------------------------------------------------------
+-- SUPERSEDED 2026-09-13 FOR 4a: use supabase/sweeps/rowtype_reader_sweep.sql. The query below
+--     graded fetch_work_order_agreement (`select a.*`) as by-name — a false positive — and cannot
+--     see SQL-language bodies or RETURN NEXT. Kept as written because it is what ran on 2026-09-12.
 -- 4 · WHAT THE FIX ITSELF CAN BREAK — run BEFORE applying a change this sweep
 --     motivated. Added 2026-09-12 after the first fix broke three things that
 --     every structural check passed.
