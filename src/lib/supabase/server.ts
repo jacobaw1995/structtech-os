@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import type { Database } from "@/lib/supabase/database.types";
 import { clientInfoHeaders } from "@/lib/supabase/client-info";
-import { createBoundedFetch } from "@/lib/supabase/bounded-fetch";
+import { boundGetSession, createBoundedFetch } from "@/lib/supabase/bounded-fetch";
 
 /**
  * Server-side Supabase client. Use in Server Components, Server Actions, and
@@ -12,9 +12,8 @@ import { createBoundedFetch } from "@/lib/supabase/bounded-fetch";
  */
 export function createClient() {
   const cookieStore = cookies();
-  const bounded = createBoundedFetch();
 
-  return createServerClient<Database>(
+  const client = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -22,18 +21,12 @@ export function createClient() {
       // in the shared project's edge log — see client-info.ts. The bounded
       // fetch is here rather than at the 18 getSession() call sites: a silent
       // auth service otherwise hangs every page indefinitely (bounded-fetch.ts).
-      global: { ...clientInfoHeaders("server"), fetch: bounded.fetch },
+      global: { ...clientInfoHeaders("server"), fetch: createBoundedFetch() },
       cookies: {
         getAll() {
           return cookieStore.getAll();
         },
         setAll(cookiesToSet) {
-          // A refresh we abandoned on time must not LOG THE USER OUT. The
-          // synthetic 400 makes supabase-js clear the session, and writing that
-          // through would destroy a session that may still be perfectly valid —
-          // turning a slow auth service into a forced re-login. Skipping the
-          // write degrades this one request and leaves the cookie for the next.
-          if (bounded.timedOut()) return;
           try {
             cookiesToSet.forEach(({ name, value, options }) =>
               cookieStore.set(name, value, options)
@@ -46,4 +39,16 @@ export function createClient() {
       },
     }
   );
+
+  // Bound the call, not just the socket: a timeout that stays retryable never
+  // clears the session or emits SIGNED_OUT, and this race is what lets the
+  // request proceed anyway. See bounded-fetch.ts for why both halves are needed.
+  //
+  // The cookie-write guard that used to sit in setAll is gone on purpose. It
+  // existed because the synthetic-400 version made supabase-js clear a live
+  // session; the retryable version never does (measured: 0 cookie removals
+  // across a 39 s stall). Keeping a guard whose reason no longer exists is how
+  // code starts protecting against things nobody can remember.
+  boundGetSession(client);
+  return client;
 }

@@ -1,6 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { clientInfoHeaders } from "@/lib/supabase/client-info";
-import { createBoundedFetch } from "@/lib/supabase/bounded-fetch";
+import { boundGetSession, createBoundedFetch } from "@/lib/supabase/bounded-fetch";
 import { NextResponse, type NextRequest } from "next/server";
 
 /**
@@ -11,7 +11,6 @@ import { NextResponse, type NextRequest } from "next/server";
  */
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
-  const bounded = createBoundedFetch();
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -20,14 +19,12 @@ export async function updateSession(request: NextRequest) {
       // See client-info.ts: the shared project's edge log has no tenant column.
       // Bounded fetch: see bounded-fetch.ts — without it a silent auth service
       // blocks this middleware, and therefore every matched route, forever.
-      global: { ...clientInfoHeaders("middleware"), fetch: bounded.fetch },
+      global: { ...clientInfoHeaders("middleware"), fetch: createBoundedFetch() },
       cookies: {
         getAll() {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          // See server.ts: an abandoned refresh must not clear a live session.
-          if (bounded.timedOut()) return;
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value)
           );
@@ -39,6 +36,10 @@ export async function updateSession(request: NextRequest) {
       },
     }
   );
+
+  // See server.ts / bounded-fetch.ts: bounds the whole call so a silent auth
+  // service cannot hold this middleware — and every matched route — open.
+  boundGetSession(supabase);
 
   // Required: this triggers a token refresh if the session is stale, and
   // must run before any route-guard logic reads the session.

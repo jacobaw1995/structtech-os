@@ -1,78 +1,72 @@
-// A session refresh that does not answer must not block the request.
+// A session refresh that does not answer must not block the request — and must
+// not announce a sign-out that did not happen.
 //
-// WHAT THIS FIXES, measured rather than argued. With Supabase auth reachable
-// but silent — connections accepted, nothing ever answered — a production
-// build of this app served NOTHING on any matched route. Measured 2026-09-11
-// with an expired session cookie: /login, / and /w/<org>/coordination each
-// returned no response at all after 45 SECONDS, at which point the client gave
-// up. It is not a thirty-second hang; it is an unbounded one. The only route
-// that answered was /api/health (4.9 ms), because it had already been excluded
-// from the middleware.
+// WHAT THIS FIXES, measured. With Supabase auth reachable but silent, a
+// production build of this app served NOTHING on any matched route: /login, /
+// and /w/<org>/coordination each returned no response at all after 45 SECONDS
+// (2026-09-11). Only /api/health answered, because it was already excluded.
 //
-// THE EXPOSURE IS A PERSON, NOT A CHECK. The monitor sends no cookie, so it
-// never triggers a refresh and would report every door green throughout. The
-// caller who hangs is someone carrying a stale session — on 7 October, a crew
-// member on a roof. SCOPE §2.8: a spinner that never resolves is worse than a
-// refusal, because the user cannot tell it from the app being dead.
+// ── THE FIRST FIX, AND WHAT IT BROKE (2026-09-12) ────────────────────────────
+// Version one aborted the fetch and returned a SYNTHETIC 400 shaped like a
+// gotrue error, because gotrue treats a failed fetch as retryable and loops.
+// That bounded the request. It also made the timeout look like a revoked
+// session. Measured with a listener on the client:
 //
-// WHY THE FETCH LAYER AND NOT THE MIDDLEWARE. `auth.getSession()` is called in
-// 18 files — every page, every server action. Bounding it in the middleware
-// would have fixed the middleware and left every page still hanging. Binding
-// the timeout to the HTTP call means all 18 inherit it without being touched.
+//     stalled refresh  -> SIGNED_OUT, INITIAL_SESSION(null)   at 2530 ms
+//     revoked token    -> SIGNED_OUT, INITIAL_SESSION(null)   at   40 ms
 //
-// WHY ONLY THE AUTH PATHS. Every request blocks on the auth round-trip;
-// nothing else is on that critical path. Data queries are left exactly as they
-// were, because they are legitimately slower and bounding them would trade
-// this defect for a new one: measured over the 24 h to 2026-09-11, rest and
-// storage ran p50 258 ms, p99 2058 ms, max 5356 ms. A 2.5 s bound applied to
-// those would start failing real queries.
+// IDENTICAL. Any subscriber — "your session expired, sign in again" — would have
+// told a user on a slow connection that they had been signed out, and a
+// confident message for the wrong cause is worse than none: it stops people
+// looking for the real one. Nothing in src/ subscribed on the day it was found,
+// so it reached nobody. That is luck, not a control.
 //
-// THE NUMBERS, AND WHAT THEY COST.
-//   Per attempt: 2500 ms. Real token refreshes on this project over the same
-//   window ran min 61 ms, p50 152 ms, p95 453 ms, max 513 ms (n=7). 2500 ms is
-//   ~4.9x the slowest one actually seen, and above the p99 of every other
-//   Supabase call measured. The single auth call that exceeded 3 s in 24 h was
-//   /auth/v1/settings at 3069 ms — a cold start on an endpoint that is not on
-//   this path.
-//   Per request: 3000 ms total across all auth calls. The stub showed one
-//   attempt per request, not a retry storm, so in practice the per-attempt
-//   bound is the binding one; the budget exists so that a retry under some
-//   other failure mode cannot stack attempts past ~3 s.
+// The mechanism, read from @supabase/auth-js rather than guessed:
+//   _callRefreshToken: a NON-retryable error calls _removeSession() -> SIGNED_OUT.
+//   _refreshAccessToken: a RETRYABLE error loops with backoff while
+//     elapsed < AUTO_REFRESH_TICK_DURATION_MS (30 * 1000). That constant is the
+//     origin of every "thirty seconds" in this week's reports.
+// So at the fetch layer there is no third option: terminal means SIGNED_OUT,
+// retryable means a loop. The fix has to live one layer up.
 //
-//   THE COST IS A SPURIOUS LOGOUT. If a refresh legitimately takes longer than
-//   the bound, the request proceeds with no session and the route's own guard
-//   sends the user to /login. That is a real cost and it is the trade being
-//   made: a login prompt is recoverable and legible; an unbounded spinner is
-//   neither. At ~4.9x the worst observed refresh, this should be rare — but
-//   "should be" is a prediction, and if it turns out to bite, the number is
-//   one constant in this file.
+// ── THIS VERSION ─────────────────────────────────────────────────────────────
+// 1. The fetch layer bounds each ATTEMPT and lets the timeout stay RETRYABLE,
+//    so gotrue never calls _removeSession and never emits SIGNED_OUT.
+// 2. `boundGetSession` races the whole `auth.getSession()` call, so the REQUEST
+//    proceeds without a session at the bound while gotrue's retry loop finishes
+//    in the background on a client that is discarded with the request.
+// 3. Once a client has given up, every later getSession() on it — including the
+//    one PostgREST makes to fetch an access token for a query — returns "no
+//    session" immediately. Without this, the next query in the same request
+//    awaits gotrue's in-flight refresh promise and the hang comes straight back.
+//
+// Measured against a stub that stalls auth but answers data:
+//   stalled refresh -> getSession 3019 ms, follow-on query 16 ms, NO events
+//   revoked token   -> getSession   40 ms, SIGNED_OUT  (a real sign-out still says so)
+//   healthy         -> getSession   40 ms, TOKEN_REFRESHED
+//   watched 39 s past gotrue's 30 s cap: 8 background attempts, 0 cookie
+//   removals, no SIGNED_OUT at any point.
+//
+// ── THE NUMBERS ──────────────────────────────────────────────────────────────
+// 2500 ms. Real token refreshes on this project over 24 h ran min 61 / p50 152 /
+// p95 453 / max 513 ms (n=7), from Vercel to Supabase in the same region, so
+// 2500 is ~4.9x the slowest seen. The one auth call over 3 s in that window was
+// /auth/v1/settings at 3069 ms, a cold start on an endpoint not on this path.
+// COST: a refresh legitimately slower than 2500 ms leaves the request without a
+// session, and the route's own guard asks the user to sign in.
+//
+// WHY ONLY AUTH. Data queries are untouched: rest and storage measured p50 258,
+// p99 2058, max 5356 ms, and a 2500 ms bound on those would fail real queries.
 
-const AUTH_ATTEMPT_MS = 2500;
-const AUTH_BUDGET_MS = 3000;
+/** Per-attempt socket bound, and the bound on the whole getSession() call. */
+export const AUTH_BOUND_MS = 2500;
 
-// WHY A SYNTHETIC 400 AND NOT A THROWN ERROR — measured, and the first version
-// of this file got it wrong. Aborting the fetch is not enough: gotrue-js
-// classifies a failed fetch as AuthRetryableFetchError and RETRIES it with
-// exponential backoff. Instrumented on 2026-09-11, the abort fired correctly at
-// 2509 ms and the budget remainder at 494 ms, and then gotrue simply kept
-// calling — seven attempts and still going at 20 s. The per-call bound was
-// real and the request still hung, because nothing bounded the LOOP.
-//
-// A 4xx with a gotrue-shaped body is terminal: gotrue raises AuthApiError,
-// which `retryable()` does not retry. So the timeout is reported as a refusal
-// rather than a network blip, the loop stops on the first one, and the request
-// proceeds with no session.
-function terminalTimeoutResponse(waitedMs: number): Response {
-  return new Response(
-    JSON.stringify({
-      error: "invalid_grant",
-      error_description: `structtech-os: session refresh exceeded ${waitedMs}ms and was abandoned so the request could proceed`,
-    }),
-    { status: 400, headers: { "content-type": "application/json" } }
-  );
-}
+// Total socket-time a single client may spend on auth before further attempts
+// fail instantly. The race above ends the REQUEST; this ends the BACKGROUND loop's
+// socket use, so a stalled auth service does not leave a trail of open
+// connections behind every request that hit it.
+const AUTH_SOCKET_BUDGET_MS = 3000;
 
-/** True for Supabase auth endpoints — the only ones on the blocking path. */
 function isAuthCall(url: string): boolean {
   try {
     return new URL(url).pathname.startsWith("/auth/v1/");
@@ -81,22 +75,11 @@ function isAuthCall(url: string): boolean {
   }
 }
 
-/**
- * Build a fetch bounded for auth calls. Create ONE PER SUPABASE CLIENT — the
- * budget is per-client, and this app builds a client per request, which is
- * what makes the budget per-request without any request-context plumbing.
- */
-export type BoundedFetch = {
-  fetch: typeof fetch;
-  /** True once an auth call has been abandoned on time in this request. */
-  timedOut: () => boolean;
-};
-
-export function createBoundedFetch(): BoundedFetch {
+/** A fetch whose auth calls are bounded but stay retryable. One per client. */
+export function createBoundedFetch(): typeof fetch {
   let authSpentMs = 0;
-  let timedOut = false;
 
-  const boundedFetch = async function boundedFetch(input, init) {
+  return async function boundedFetch(input, init) {
     const url =
       typeof input === "string"
         ? input
@@ -106,33 +89,57 @@ export function createBoundedFetch(): BoundedFetch {
 
     if (!isAuthCall(url)) return fetch(input, init);
 
-    const remaining = AUTH_BUDGET_MS - authSpentMs;
+    const remaining = AUTH_SOCKET_BUDGET_MS - authSpentMs;
     if (remaining <= 0) {
-      // Budget spent. Answer immediately rather than opening another socket.
-      timedOut = true;
-      return terminalTimeoutResponse(authSpentMs);
+      // A TypeError is what a real network failure looks like, so gotrue treats
+      // it as retryable — no session removal, no SIGNED_OUT — and no socket.
+      throw new TypeError("fetch failed: supabase auth socket budget exhausted");
     }
 
-    const budget = Math.min(AUTH_ATTEMPT_MS, remaining);
     const started = Date.now();
     try {
-      // AbortSignal rather than a bare Promise.race: this actually cancels the
-      // request and releases the socket. A race would leave the original fetch
-      // running and the connection open.
-      return await fetch(input, { ...init, signal: AbortSignal.timeout(budget) });
-    } catch (err) {
-      // Only OUR deadline is converted into a refusal. A genuine network error
-      // keeps its old behaviour — gotrue may retry it, which is correct when
-      // the failure is transient rather than a stall.
-      if ((err as Error)?.name === "TimeoutError") {
-        timedOut = true;
-        return terminalTimeoutResponse(Date.now() - started);
-      }
-      throw err;
+      return await fetch(input, {
+        ...init,
+        signal: AbortSignal.timeout(Math.min(AUTH_BOUND_MS, remaining)),
+      });
     } finally {
       authSpentMs += Date.now() - started;
     }
   } as typeof fetch;
+}
 
-  return { fetch: boundedFetch, timedOut: () => timedOut };
+type SessionResult = Awaited<
+  ReturnType<{ auth: { getSession: () => Promise<unknown> } }["auth"]["getSession"]>
+>;
+
+/**
+ * Race `client.auth.getSession()` against AUTH_BOUND_MS. Returns an accessor
+ * reporting whether this client gave up. Mutates the client in place, so every
+ * caller — including supabase-js's own token lookup for queries — goes through
+ * the bound without any of the 18 call sites changing.
+ */
+export function boundGetSession(client: {
+  auth: { getSession: () => Promise<unknown> };
+}): () => boolean {
+  const original = client.auth.getSession.bind(client.auth);
+  let gaveUp = false;
+  const noSession = { data: { session: null }, error: null } as SessionResult;
+
+  client.auth.getSession = async () => {
+    if (gaveUp) return noSession;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const deadline = new Promise<SessionResult>((resolve) => {
+      timer = setTimeout(() => {
+        gaveUp = true;
+        resolve(noSession);
+      }, AUTH_BOUND_MS);
+    });
+    try {
+      return await Promise.race([original(), deadline]);
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+
+  return () => gaveUp;
 }
