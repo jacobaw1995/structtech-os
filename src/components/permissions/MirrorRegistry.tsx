@@ -1,4 +1,4 @@
-import { MIRRORS, MIRROR_COUNT, oldestMirrorDerivation } from "@/lib/permissions/model";
+import { MIRRORS, MIRROR_COUNT, RETIRED_MIRRORS, oldestMirrorDerivation } from "@/lib/permissions/model";
 
 /**
  * The mirror count, rendered where the mirrored values are rendered.
@@ -23,9 +23,10 @@ export function MirrorRegistryPanel() {
           {MIRROR_COUNT} values on this page are copies of the live schema
         </h2>
         <p className="mt-1 text-xs leading-relaxed text-muted">
-          Last derived {oldestMirrorDerivation()}. Nothing here checks itself:
-          the application is not permitted to read any of the four sources, which
-          is why they are copies. Re-derive by running the command against the
+          Last derived {oldestMirrorDerivation()}. These {MIRROR_COUNT} still
+          cannot check themselves — the app cannot read what they copy. There were{" "}
+          {MIRROR_COUNT + RETIRED_MIRRORS.length}; {RETIRED_MIRRORS.length} became live
+          reads on {RETIRED_MIRRORS[0]?.retiredOn} and are listed at the end. Re-derive by running the command against the
           database — <strong className="text-text">re-derive, do not hand-edit</strong>.
           On 2026-09-06 mirror C was found wrong within a day of being written,
           by running its command rather than by reading it.
@@ -53,6 +54,24 @@ export function MirrorRegistryPanel() {
           </li>
         ))}
       </ul>
+      {RETIRED_MIRRORS.length > 0 && (
+        <div className="border-t border-border px-4 py-3">
+          <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted">
+            Retired — now read live
+          </h3>
+          <ul className="mt-1 space-y-1.5">
+            {RETIRED_MIRRORS.map((r) => (
+              <li key={r.id} className="text-xs leading-relaxed text-muted">
+                <span className="mr-1 rounded bg-surface2 px-1.5 py-0.5 text-[11px] font-semibold text-text line-through">
+                  {r.id}
+                </span>
+                <code className="text-text">{r.constant}</code> · retired {r.retiredOn} · now
+                read from {r.nowReadFrom}. {r.evidence}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </section>
   );
 }

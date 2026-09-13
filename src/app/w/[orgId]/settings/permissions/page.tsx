@@ -3,19 +3,26 @@ import { getWorkspaceContext } from "@/lib/workspace/context";
 import { CapabilityGrid, GridLegend } from "@/components/permissions/CapabilityGrid";
 import { RoleReference } from "@/components/permissions/RoleReference";
 import { MirrorRegistryPanel } from "@/components/permissions/MirrorRegistry";
+import { MemberCapabilityEditor } from "@/components/permissions/MemberCapabilityEditor";
 import {
   buildGrid,
   isManagerRole,
   CAPABILITIES,
   ENFORCEMENT,
-  NO_WRITE_PATH_REASON,
   driftFromRoleDefault,
   grantedCountForRole,
+  fetchRoleMatrix,
+  capabilityDrift,
   type OrgMemberRow,
 } from "@/lib/permissions/model";
 
-// G3 · Capability admin surface — READ ONLY, and that is a finding rather than
-// a shortcut. See "WHY THIS IS READ ONLY" below.
+// G3 · Capability admin surface — EDITABLE from 2026-09-12.
+//
+// It was read-only for eight days, and that was a finding rather than a
+// shortcut: no function wrote org_members.permissions. Migration
+// 20260911233218 added set_member_capability() and role_capability_matrix(),
+// so the write now exists and this page offers it — per member, never on a
+// manager-tier row, and with the role-change warning at the controls.
 //
 // NOT under requireModuleAccess(): permissions are not a module, they are org
 // administration, and gating them on `estimating` or `crm` entitlement would be
@@ -24,15 +31,17 @@ import {
 
 export default async function PermissionsPage({
   params,
+  searchParams,
 }: {
   params: { orgId: string };
+  searchParams: { edit?: string; error?: string };
 }) {
   const ctx = await getWorkspaceContext(params.orgId);
 
-  // Visibility gate, mirroring is_org_manager()'s role list. This is NOT the
-  // security boundary and is not pretending to be one — the boundary is that
-  // no write path exists at all (see NO_WRITE_PATH_REASON), plus RLS on every
-  // row this page reads. It is here so a crew member is not shown an
+  // Visibility gate, mirroring is_org_manager()'s role list. It is NOT the
+  // security boundary: set_member_capability() itself refuses a non-manager
+  // caller ("only an owner or admin can change what a member can do in this
+  // workspace"), and RLS scopes every row this page reads. It is here so a crew member is not shown an
   // administration screen that has nothing to do with their job.
   //
   // SCOPE §2.8 is not engaged: §2.8 forbids blocking an action the user is
@@ -58,7 +67,9 @@ export default async function PermissionsPage({
     "user_id" | "full_name" | "role" | "permissions" | "created_at"
   >[];
 
-  const { cells } = buildGrid(members);
+  // ONE read of the matrix per request, passed to every component, so the grid,
+  // the reference and the editors cannot answer from two different reads.
+  const { matrix, error: matrixError } = await fetchRoleMatrix(ctx.supabase);
 
   // Members whose stored row is missing capabilities their role grants. Under
   // A2.0's closed default an absent key grants NOTHING, and A2.0b deliberately
@@ -79,11 +90,14 @@ export default async function PermissionsPage({
   // It now keys on MISSING KEYS, which is the thing that actually matters:
   // under A2.0's closed default an absent key grants nothing, so a row missing
   // any of them is under-provisioned whether it holds zero keys or nine.
-  const underProvisioned = members
-    .map((m) => ({ m, drift: driftFromRoleDefault(m.role, m.permissions) }))
-    .filter(({ m, drift }) => !isManagerRole(m.role) && drift.missing.length > 0);
+  const underProvisioned = matrix
+    ? members
+        .map((m) => ({ m, drift: driftFromRoleDefault(matrix, m.role, m.permissions) }))
+        .filter(({ m, drift }) => !isManagerRole(m.role) && drift.missing.length > 0)
+    : [];
 
   const inert = CAPABILITIES.filter((c) => ENFORCEMENT[c].sites === 0);
+  const capDrift = matrix ? capabilityDrift(matrix) : null;
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-4">
@@ -108,20 +122,45 @@ export default async function PermissionsPage({
         </p>
       ) : (
         <>
-          {/* WHY THIS IS READ ONLY — stated first, at full weight, because a
-              grid that looks editable and is not is worse than one that says
-              so. This is not a decision I made about the UI; it is the state
-              of the schema, measured today. */}
-          <section className="rounded-lg border border-accent bg-accent-soft/50 px-4 py-3">
-            <h2 className="text-sm font-semibold text-text">This grid is read-only, and here is why</h2>
-            <p className="mt-1 text-sm leading-relaxed text-text">{NO_WRITE_PATH_REASON}</p>
-            <p className="mt-2 text-xs leading-relaxed text-muted">
-              Every write on this platform goes through a security-definer RPC. There is no
-              RPC for this one, so there is nothing for a button here to call. Building the
-              write path is a schema change and belongs to whoever owns migrations — not to
-              this screen.
+          {searchParams.error && (
+            <p className="rounded-lg border border-warn bg-warn-soft px-4 py-3 text-sm text-text">
+              {/* Verbatim from set_member_capability — Track S's wording names
+                  the role and the reason, and a paraphrase would lose both. */}
+              {searchParams.error}
             </p>
-          </section>
+          )}
+
+          {matrixError && (
+            <p className="rounded-lg border border-warn bg-warn-soft px-4 py-3 text-sm text-text">
+              Could not read the role matrix, so nothing below is drawn from a guess:{" "}
+              {matrixError}
+            </p>
+          )}
+
+          {capDrift &&
+            (capDrift.inDatabaseNotInCensus.length > 0 ||
+              capDrift.inCensusNotInDatabase.length > 0) && (
+              <section className="rounded-lg border border-warn bg-warn-soft px-4 py-3">
+                <h2 className="text-sm font-semibold text-text">
+                  The capability list here has drifted from the database
+                </h2>
+                <p className="mt-1 text-xs leading-relaxed text-text">
+                  {capDrift.inDatabaseNotInCensus.length > 0 && (
+                    <>
+                      In the database but not in this page&rsquo;s enforcement census:{" "}
+                      <code>{capDrift.inDatabaseNotInCensus.join(", ")}</code>.{" "}
+                    </>
+                  )}
+                  {capDrift.inCensusNotInDatabase.length > 0 && (
+                    <>
+                      In the census but no longer in the database:{" "}
+                      <code>{capDrift.inCensusNotInDatabase.join(", ")}</code>.{" "}
+                    </>
+                  )}
+                  Re-derive mirror C before trusting the enforcement counts.
+                </p>
+              </section>
+            )}
 
           {error && (
             <p className="rounded-lg border border-warn bg-warn-soft px-4 py-3 text-sm text-text">
@@ -151,8 +190,9 @@ export default async function PermissionsPage({
                 Their stored row never had these keys written. Since A2.0 the default
                 is CLOSED — an absent key grants nothing — so they are denied every
                 capability listed above, including ones their role would normally get.
-                Nobody chose that: the row was written by a path that does not seed, and
-                no screen in this app can fix it. This is the case A2.0b recorded as
+                Nobody chose that: the row was written by a path that does not seed.
+                It can be fixed from the member list below — granting or denying each
+                key. This is the case A2.0b recorded as
                 deliberately left &ldquo;failing closed&rdquo;. Note this is different
                 from a key written as <code>false</code>, which is a decision someone
                 made — the grid below draws that distinction per cell.
@@ -180,9 +220,13 @@ export default async function PermissionsPage({
             </section>
           )}
 
-          <CapabilityGrid cells={cells} />
-          <GridLegend />
-          <RoleReference />
+          {matrix && (
+            <>
+              <CapabilityGrid cells={buildGrid(matrix, members).cells} roles={matrix.roles} />
+              <GridLegend />
+              <RoleReference matrix={matrix} />
+            </>
+          )}
           <MirrorRegistryPanel />
 
           <section className="rounded-lg border border-border bg-surface">
@@ -203,12 +247,16 @@ export default async function PermissionsPage({
                 // add_org_member() and so was never seeded — it looks like a
                 // normal member row until somebody tries to do their job. This
                 // is the one place that difference becomes visible.
-                const drift = driftFromRoleDefault(m.role, m.permissions);
+                const drift = matrix
+                  ? driftFromRoleDefault(matrix, m.role, m.permissions)
+                  : null;
                 return (
                   <li
                     key={m.user_id}
-                    className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-border px-4 py-3 last:border-0"
+                    id={`member-${m.user_id}`}
+                    className="border-b border-border px-4 py-3 last:border-0"
                   >
+                   <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
                     <div className="min-w-0">
                       <span className="font-medium text-text">
                         {m.full_name ?? "Unnamed member"}
@@ -220,11 +268,17 @@ export default async function PermissionsPage({
                         <span className="text-muted">
                           manager tier — capabilities come from the role, not these keys
                         </span>
+                      ) : !drift ? (
+                        <span className="text-muted">role matrix unavailable</span>
+                      ) : drift.kind === "unknown-role" ? (
+                        <span className="text-[var(--warn-strong)]">
+                          <code>{m.role}</code> is not a role the database lists
+                        </span>
                       ) : drift.kind === "no-keys" ? (
                         <span className="font-medium text-[var(--warn-strong)]">
                           no permission keys — denied everything, where{" "}
                           <code>{m.role}</code> would grant{" "}
-                          {grantedCountForRole(m.role)} of {CAPABILITIES.length}
+                          {matrix ? grantedCountForRole(matrix, m.role) ?? "?" : "?"} of {CAPABILITIES.length}
                         </span>
                       ) : drift.kind === "differs" ? (
                         <span className="text-[var(--warn-strong)]">
@@ -244,6 +298,15 @@ export default async function PermissionsPage({
                         </span>
                       )}
                     </span>
+                   </div>
+                    {matrix && (
+                      <MemberCapabilityEditor
+                        orgId={params.orgId}
+                        member={m}
+                        matrix={matrix}
+                        open={searchParams.edit === m.user_id}
+                      />
+                    )}
                   </li>
                 );
               })}
@@ -251,12 +314,11 @@ export default async function PermissionsPage({
           </section>
 
           <p className="text-xs leading-relaxed text-muted">
-            The role list, the manager short-circuit and the enforcement counts on this page
-            are mirrored from the live schema as measured on 2026-09-04; the app is not
-            permitted to execute <code>default_permissions_for_role()</code> and so cannot
-            re-derive them at runtime. The queries that produced each mirror are recorded in{" "}
-            <code>src/lib/permissions/model.ts</code> so they can be re-run rather than
-            trusted.
+            The role list and every role&rsquo;s defaults on this page are read live from{" "}
+            <code>role_capability_matrix()</code>. The manager short-circuit and the
+            enforcement counts are still copies of the live schema — the matrix does not
+            contain either — and the queries that re-derive them are in the registry
+            above.
           </p>
         </>
       )}
