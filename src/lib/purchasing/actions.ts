@@ -137,14 +137,31 @@ export async function addPurchaseOrderLine(formData: FormData) {
   const orgId = requireString(formData, "orgId");
   const poId = requireString(formData, "poId");
 
-  const qtyRaw = optionalString(formData, "quantity_ordered");
-  const qty = qtyRaw === undefined ? undefined : Number(qtyRaw);
+  // U-W1.12 — A QUANTITY IS ENTERED, NEVER ASSUMED, AND EACH FAILURE IS NAMED.
+  // This used to turn an empty OR a non-numeric value into `undefined`, which
+  // the RPC's old DEFAULT 1 quietly filled — so "abc" and "" both became one.
+  // Checked here, before the RPC, so it is correct whether or not the RPC's
+  // default has been removed. The empty-field wording is Track S's own refusal,
+  // quoted, so the user sees one sentence for one cause wherever it is caught.
+  const qtyText = (formData.get("quantity_ordered") ?? "").toString().trim();
+  if (qtyText === "") {
+    redirect(
+      poHref(orgId, poId, "enter a quantity to order — a supplier cannot be sent an order with no quantity")
+    );
+  }
+  const qty = Number(qtyText);
+  if (!Number.isFinite(qty)) {
+    redirect(poHref(orgId, poId, `“${qtyText}” isn’t a quantity. Enter a number, such as 12.`));
+  }
 
   const supabase = await client();
   const { error } = await supabase.rpc("add_purchase_order_line", {
     p_po_id: poId,
     p_material_item_id: requireString(formData, "material_item_id"),
-    p_quantity_ordered: Number.isFinite(qty as number) ? qty : undefined,
+    // A finite number, always. Zero and negatives are passed through so the
+    // RPC's accurate refusal for them ("quantity ordered must be greater than
+    // zero") is the one the user reads.
+    p_quantity_ordered: qty,
     // A line with no promised date SAVES — the migration says so explicitly
     // ("SCOPE 2.8: a line with no promised_date saves"). You order first and
     // learn the date later, which is the order the real conversation happens

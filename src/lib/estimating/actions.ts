@@ -270,11 +270,44 @@ export async function addEstimateDocumentLineItem(formData: FormData) {
   // why a later catalog price change cannot move a quote already given to a
   // homeowner. update_estimate_line_item has no product_id parameter, so
   // overriding the price on a line cannot disturb the provenance either.
+  // U-W1.12 — THE PRICE MUST BE PRESENT, AND A MISSING ONE IS NAMED.
+  // Controller ruling 2026-09-13: $0 stays legal and stops being assumed.
+  // Checked HERE, before the RPC, rather than left to add_estimate_line_item:
+  // today that RPC still carries p_unit_price DEFAULT 0 and has no price guard,
+  // so an omitted price would silently save at $0. Refusing it in this action
+  // is correct against the permissive RPC now and against Track S's narrowed
+  // one later — it never depends on which is live.
+  //
+  // The narrowing LANDED MID-SESSION (20260913140631
+  // add_estimate_line_item_price_no_default: p_unit_price DEFAULT NULL), with
+  // the refusal "enter a unit price for this line — 0 is allowed for a free
+  // line, but it has to be entered". The empty-price wording below and in
+  // LineItemsEditor is that sentence, QUOTED, so one cause reads as one
+  // sentence whichever layer catches it. It is therefore a prose copy of
+  // server text, and is reported as one.
+  const rawPrice = formData.get("unit_price");
+  const priceText = typeof rawPrice === "string" ? rawPrice.trim() : "";
+  if (priceText === "") {
+    redirect(
+      estimateDocumentHref(orgId, estimateId, {
+        error: "enter a unit price for this line — 0 is allowed for a free line, but it has to be entered",
+      })
+    );
+  }
+  const unitPrice = Number(priceText);
+  if (!Number.isFinite(unitPrice)) {
+    redirect(
+      estimateDocumentHref(orgId, estimateId, {
+        error: `“${priceText}” isn’t a price. Enter a number, such as 19.20.`,
+      })
+    );
+  }
+
   const { error } = await supabase.rpc("add_estimate_line_item", {
     p_estimate_id: estimateId,
     p_description: description,
     p_quantity: optionalNumber(formData, "quantity"),
-    p_unit_price: optionalNumber(formData, "unit_price"),
+    p_unit_price: unitPrice,
     p_product_id: optionalString(formData, "product_id"),
     p_sort_order: optionalNumber(formData, "sort_order"),
     p_unit: optionalString(formData, "unit"),
