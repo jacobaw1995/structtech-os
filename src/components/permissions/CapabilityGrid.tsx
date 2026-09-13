@@ -1,17 +1,19 @@
 import {
   CAPABILITIES,
   ENFORCEMENT,
-  ORG_ROLES,
   isManagerRole,
   type Cell,
-  type OrgRole,
 } from "@/lib/permissions/model";
 
 // Roles are abbreviated in the column heads because `client_portal_viewer` is
 // 20 characters and there are seven of them. The full name is on the <abbr>
 // title and spelled out in the legend under the grid — an abbreviation a reader
 // cannot expand is worse than a scrollbar.
-const ROLE_SHORT: Record<OrgRole, string> = {
+// Presentation only. Roles now arrive from the database, so a role this map has
+// never heard of renders under its FULL name rather than being dropped or
+// crashing the grid — a new role added to the CHECK constraint appears here the
+// next time the page loads, before anyone edits this file.
+const ROLE_SHORT: Record<string, string> = {
   owner: "owner",
   admin: "admin",
   agency_admin: "agency",
@@ -21,9 +23,11 @@ const ROLE_SHORT: Record<OrgRole, string> = {
   client_portal_viewer: "portal",
 };
 
-const COLS = "grid-cols-[minmax(0,1fr)_repeat(7,3.75rem)]";
 
-export function CapabilityGrid({ cells }: { cells: Cell[] }) {
+export function CapabilityGrid({ cells, roles }: { cells: Cell[]; roles: string[] }) {
+  const shortName = (r: string) => ROLE_SHORT[r] ?? r;
+  // Column count follows the live role list instead of a hard-coded 7.
+  const cols = { gridTemplateColumns: `minmax(0,1fr) repeat(${roles.length}, 3.75rem)` };
   const at = (c: string, r: string) =>
     cells.find((x) => x.capability === c && x.role === r)!;
 
@@ -35,10 +39,11 @@ export function CapabilityGrid({ cells }: { cells: Cell[] }) {
           only works at 1200px is a matrix nobody checks. */}
       <div className="hidden lg:block">
         <div
-          className={`grid ${COLS} gap-x-2 border-b border-border px-4 py-2 text-xs uppercase tracking-wide text-muted`}
+          style={cols}
+          className="grid gap-x-2 border-b border-border px-4 py-2 text-xs uppercase tracking-wide text-muted"
         >
           <span>Capability</span>
-          {ORG_ROLES.map((r) => (
+          {roles.map((r) => (
             <abbr
               key={r}
               title={r}
@@ -46,7 +51,7 @@ export function CapabilityGrid({ cells }: { cells: Cell[] }) {
                 isManagerRole(r) ? "text-accent-strong" : ""
               }`}
             >
-              {ROLE_SHORT[r]}
+              {shortName(r)}
             </abbr>
           ))}
         </div>
@@ -58,7 +63,8 @@ export function CapabilityGrid({ cells }: { cells: Cell[] }) {
             return (
               <li
                 key={cap}
-                className={`grid ${COLS} items-center gap-x-2 border-b border-border px-4 py-3 last:border-0 ${
+                style={cols}
+                className={`grid items-center gap-x-2 border-b border-border px-4 py-3 last:border-0 ${
                   inert ? "bg-warn-soft/40" : ""
                 }`}
               >
@@ -80,7 +86,7 @@ export function CapabilityGrid({ cells }: { cells: Cell[] }) {
                     <p className="mt-1 text-[11px] text-[var(--warn-strong)]">{e.constraint}</p>
                   )}
                 </div>
-                {ORG_ROLES.map((r) => (
+                {roles.map((r) => (
                   <div key={r} className="flex justify-center">
                     <Mark cell={at(cap, r)} />
                   </div>
@@ -121,7 +127,7 @@ export function CapabilityGrid({ cells }: { cells: Cell[] }) {
                 <p className="mt-1 text-[11px] text-[var(--warn-strong)]">{e.constraint}</p>
               )}
               <div className="mt-2 flex flex-wrap gap-1.5">
-                {ORG_ROLES.map((r) => {
+                {roles.map((r) => {
                   const cell = at(cap, r);
                   return (
                     <span
@@ -174,7 +180,7 @@ function Mark({ cell }: { cell: Cell }) {
       /* EMPTY, and dashed. A denial is a filled circle because somebody made
          a decision; this is the absence of any observation and must not be
          mistaken for one. */
-      <Dot title="No member of this tenant holds this role, so nothing has been observed. The app cannot execute default_permissions_for_role(), so no default is shown rather than a guessed one."
+      <Dot title="No member of this tenant holds this role, so nothing has been observed. This grid shows what members HAVE; what a role would get is in the reference below, read live."
            className="border border-dashed border-border">
         {""}
       </Dot>
@@ -262,8 +268,9 @@ export function GridLegend() {
           <Dot title="" className="border border-dashed border-border">{""}</Dot>
           <span>
             <strong className="text-text">No member.</strong> Empty and dashed. Nobody here holds that role, so nothing
-            was observed. No default is shown, because the app is not permitted to execute
-            <code> default_permissions_for_role()</code> and would be guessing.
+            was observed. This grid shows what members have, not what a role would
+            get — that is the reference below, read live from{" "}
+            <code>role_capability_matrix()</code>.
           </span>
         </li>
       </ul>

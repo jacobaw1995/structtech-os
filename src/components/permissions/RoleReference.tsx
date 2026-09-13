@@ -1,11 +1,9 @@
 import {
   CAPABILITIES,
   ENFORCEMENT,
-  ROLE_DEFAULTS,
-  ORG_ROLES,
   roleGroups,
   defaultsDiff,
-  type OrgRole,
+  type RoleMatrix,
 } from "@/lib/permissions/model";
 
 /**
@@ -24,12 +22,23 @@ import {
  * and "these differ by exactly one key" — are invisible in a seven-row matrix
  * and unmissable once grouped.
  */
-export function RoleReference() {
-  const groups = roleGroups();
+export function RoleReference({ matrix }: { matrix: RoleMatrix }) {
+  // LIVE since 2026-09-12. This used to render from ROLE_DEFAULTS, a constant
+  // copied by hand from default_permissions_for_role(). It now renders from
+  // role_capability_matrix(), read once by the page. The ladder, the rungs and
+  // the office/member banner all move the moment the deriver changes.
+  const groups = roleGroups(matrix);
   // Measured, not asserted: ask the model which keys actually differ rather
   // than hard-coding "manage_catalog" into a sentence that could go stale
   // independently of the table above it.
-  const officeVsMember = defaultsDiff("office", "member");
+  // Only claimed when BOTH roles exist in the live matrix. Before this read
+  // was live, the comparison assumed both roles existed because a constant said
+  // so; if either is ever removed from the CHECK constraint the banner goes
+  // rather than comparing against nothing.
+  const officeVsMember =
+    matrix.hasRole("office") && matrix.hasRole("member")
+      ? defaultsDiff(matrix, "office", "member")
+      : [];
 
   return (
     <section className="rounded-lg border border-border bg-surface">
@@ -38,9 +47,9 @@ export function RoleReference() {
           What each role grants when you add someone
         </h2>
         <p className="mt-1 text-xs leading-relaxed text-muted">
-          Seven roles, four distinct answers. This is the output of{" "}
-          <code>default_permissions_for_role()</code> — what a new member is seeded
-          with. It is not what anyone currently has; the grid above is that.
+          {matrix.roles.length} roles, {groups.length} distinct answers — read live from{" "}
+          <code>role_capability_matrix()</code>, which is what a new member is
+          seeded with. It is not what anyone currently has; the grid above is that.
         </p>
       </div>
 
@@ -183,8 +192,3 @@ function CapList({
     </div>
   );
 }
-
-/** Sanity: every role in the vocabulary has a defaults entry. */
-export const ROLE_DEFAULTS_COVER_ALL_ROLES: boolean = ORG_ROLES.every(
-  (r: OrgRole) => ROLE_DEFAULTS[r] !== undefined
-);
