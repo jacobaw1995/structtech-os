@@ -1,6 +1,5 @@
 import {
   CAPABILITIES,
-  ENFORCEMENT,
   roleGroups,
   defaultsDiff,
   type RoleMatrix,
@@ -70,13 +69,20 @@ export function RoleReference({ matrix }: { matrix: RoleMatrix }) {
             ))}
             , which <code>office</code> gets and <code>member</code> does not.
           </p>
+          {/* 2026-09-14 — this sentence used to put a size on the loss ("N
+              enforcement sites' worth of access — the product catalog"), from
+              retired mirror C. The size was a hand count nothing could check at
+              runtime, so it is gone. What is left is read from the matrix. */}
           <p className="mt-1.5 text-xs leading-relaxed text-muted">
-            An office hire added as <code>member</code> keeps everything else and
-            silently loses{" "}
-            {officeVsMember.map((c) => ENFORCEMENT[c].sites).reduce((a, b) => a + b, 0)}{" "}
-            enforcement sites&rsquo; worth of access — the product catalog. Nothing
-            in the application asks for a role, so this is decided wherever the row
-            is written by hand.
+            An office hire added as <code>member</code> is not given{" "}
+            {officeVsMember.map((c, i) => (
+              <span key={c}>
+                {i > 0 && ", "}
+                <code>{c}</code>
+              </span>
+            ))}
+            . Nothing in the application asks for a role, so this is decided wherever
+            the row is written by hand.
           </p>
         </div>
       )}
@@ -165,28 +171,19 @@ function CapList({
         <p className="text-xs text-muted">nothing</p>
       ) : (
         <ul className="mt-0.5 space-y-0.5">
-          {caps.map((c) => {
-            const inert = ENFORCEMENT[c as keyof typeof ENFORCEMENT].sites === 0;
-            return (
-              <li key={c} className="flex items-baseline gap-1.5 text-xs">
-                <span
-                  aria-hidden="true"
-                  className={tone === "grant" ? "text-accent-strong" : "text-muted"}
-                >
-                  {tone === "grant" ? "✓" : "–"}
-                </span>
-                <span className={tone === "grant" ? "text-text" : "text-muted"}>{c}</span>
-                {/* A capability nothing reads is worth marking HERE too. A
-                    reader choosing a role should not weigh a key that decides
-                    nothing against one that gates twelve enforcement sites. */}
-                {inert && (
-                  <span className="text-[10px] uppercase tracking-wide text-muted">
-                    inert
-                  </span>
-                )}
-              </li>
-            );
-          })}
+          {/* No "inert" marker since 2026-09-14: whether anything reads a key
+              is not something this page can see (retired mirror C). */}
+          {caps.map((c) => (
+            <li key={c} className="flex items-baseline gap-1.5 text-xs">
+              <span
+                aria-hidden="true"
+                className={tone === "grant" ? "text-accent-strong" : "text-muted"}
+              >
+                {tone === "grant" ? "✓" : "–"}
+              </span>
+              <span className={tone === "grant" ? "text-text" : "text-muted"}>{c}</span>
+            </li>
+          ))}
         </ul>
       )}
     </div>

@@ -20,16 +20,19 @@ export function MirrorRegistryPanel() {
     <section className="rounded-lg border border-border bg-surface">
       <div className="border-b border-border px-4 py-3">
         <h2 className="text-sm font-semibold text-text">
-          {MIRROR_COUNT} values on this page are copies of the live schema
+          {MIRROR_COUNT === 1
+            ? "1 value on this page is a copy of the live schema"
+            : `${MIRROR_COUNT} values on this page are copies of the live schema`}
         </h2>
         <p className="mt-1 text-xs leading-relaxed text-muted">
-          Last derived {oldestMirrorDerivation()}. These {MIRROR_COUNT} still
-          cannot check themselves — the app cannot read what they copy. There were{" "}
-          {MIRROR_COUNT + RETIRED_MIRRORS.length}; {RETIRED_MIRRORS.length} became live
-          reads on {RETIRED_MIRRORS[0]?.retiredOn} and are listed at the end. Re-derive by running the command against the
-          database — <strong className="text-text">re-derive, do not hand-edit</strong>.
-          On 2026-09-06 mirror C was found wrong within a day of being written,
-          by running its command rather than by reading it.
+          Last derived {oldestMirrorDerivation()}.{" "}
+          {MIRROR_COUNT === 1 ? "It still cannot check itself" : `These ${MIRROR_COUNT} still cannot check themselves`}{" "}
+          — the app cannot read what {MIRROR_COUNT === 1 ? "it copies" : "they copy"}. There were{" "}
+          {MIRROR_COUNT + RETIRED_MIRRORS.length}; {RETIRED_MIRRORS.length} are retired and
+          listed at the end. Re-derive by running the command against the database —{" "}
+          <strong className="text-text">re-derive, do not hand-edit</strong>. On 2026-09-06
+          the retired mirror C was found wrong within a day of being written, by running
+          its command rather than by reading it.
         </p>
       </div>
       <ul>
@@ -57,7 +60,7 @@ export function MirrorRegistryPanel() {
       {RETIRED_MIRRORS.length > 0 && (
         <div className="border-t border-border px-4 py-3">
           <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted">
-            Retired — now read live
+            Retired
           </h3>
           <ul className="mt-1 space-y-1.5">
             {RETIRED_MIRRORS.map((r) => (
@@ -65,8 +68,8 @@ export function MirrorRegistryPanel() {
                 <span className="mr-1 rounded bg-surface2 px-1.5 py-0.5 text-[11px] font-semibold text-text line-through">
                   {r.id}
                 </span>
-                <code className="text-text">{r.constant}</code> · retired {r.retiredOn} · now
-                read from {r.nowReadFrom}. {r.evidence}
+                <code className="text-text">{r.constant}</code> · retired {r.retiredOn} ·{" "}
+                {r.resolution}. {r.evidence}
               </li>
             ))}
           </ul>

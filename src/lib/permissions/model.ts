@@ -49,12 +49,12 @@ export type OrgMemberRow = Database["public"]["Tables"]["org_members"]["Row"];
 // It now has one, and the count is rendered on the permissions page rather
 // than only living here.
 //
-// THIS IS NOT A STALENESS DETECTOR FOR THE MIRRORS THAT REMAIN. B and C copy
-// things that are still unreachable through PostgREST (pg_proc, pg_policies)
-// and nothing in the running app can tell you they have drifted. What changed
-// on 2026-09-12 is that A and D stopped being mirrors at all — they are READ —
-// and C's capability KEY list is now checked against the live matrix on every
-// render (capabilityDrift), even though its site counts still cannot be. What it gives you is the DENOMINATOR and the COMMANDS —
+// THIS IS NOT A STALENESS DETECTOR FOR THE MIRROR THAT REMAINS. B copies
+// something still unreachable through PostgREST (pg_proc) and nothing in the
+// running app can tell you it has drifted. On 2026-09-12 A and D stopped being
+// mirrors at all — they are READ. On 2026-09-14 C was retired by ruling: its
+// site counts could not be checked at runtime, so the page stopped showing
+// them. What the registry gives you is the DENOMINATOR and the COMMANDS —
 // so re-deriving is a mechanical five-minute job rather than an archaeology
 // problem, and so a person can see how old the answers are.
 //
@@ -70,7 +70,7 @@ export type OrgMemberRow = Database["public"]["Tables"]["org_members"]["Row"];
 // ===========================================================================
 export type MirrorEntry = {
   /** Stable id, used in the UI. */
-  id: "B" | "C";
+  id: "B";
   /** The TypeScript constant that holds the copy. */
   constant: string;
   /** The database object it is a copy of. */
@@ -94,66 +94,11 @@ export const MIRRORS: MirrorEntry[] = [
     // returns what each role is GRANTED, not which roles is_org_manager()
     // short-circuits. A manager's grant and a manager's bypass are different
     // facts — the matrix shows owner=true for every key either way.
-    derivedOn: "2026-09-12",
+    //
+    // 2026-09-14: re-derived at the closing check, NO MOVEMENT — the body still
+    // reads role in ('owner', 'admin', 'agency_admin').
+    derivedOn: "2026-09-14",
     rederive: String.raw`select prosrc from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.proname = 'is_org_manager';`,
-  },
-  {
-    id: "C",
-    constant: "ENFORCEMENT",
-    mirrors:
-      "every has_capability() literal in pg_proc bodies and pg_policies expressions, plus the two thin wrappers",
-    unreachableBecause:
-      "pg_proc and pg_policies are not reachable through PostgREST.",
-    // 2026-09-07: re-derived after a2_3_purchase_orders landed mid-session.
-    // ENFORCEMENT itself did not move; what moved is that a TENTH key now has
-    // 13 enforcement sites and is not in the derived set at all — see
-    // ENFORCED_BUT_UNDERIVED.
-    //
-    // KEPT, and why: the matrix says what a role is GRANTED, never where a
-    // capability is ENFORCED. Site counts still come from pg_proc and
-    // pg_policies. Its capability KEY list, though, is now checked against the
-    // live matrix on every render (capabilityDrift).
-    //
-    // 2026-09-12: re-derived at the closing check (see report).
-    //
-    // 2026-09-11: re-derived at the closing check, NO MOVEMENT.
-    //
-    // AND THE REGISTRY IS ABOUT TO SHRINK. `role_capability_matrix()` landed
-    // this evening (migration 20260911233218), is EXECUTE-granted to
-    // `authenticated`, and returns 7 roles x 10 capabilities. Measured, not
-    // assumed: it derives its role list from the org_members_role_check
-    // CHECK CONSTRAINT and its capability list from
-    // default_permissions_for_role('owner'), and it agrees with the deriver on
-    // all 70 pairs with zero disagreements. That retires TWO mirrors — A
-    // (ORG_ROLES) and D (ROLE_DEFAULTS) — because both are now readable at
-    // runtime. C (ENFORCEMENT) is NOT retired: the matrix says what a role is
-    // granted, never where a capability is enforced, and site counts still
-    // come from pg_proc and pg_policies. B (MANAGER_ROLES) is not retired
-    // either — is_org_manager()'s short-circuit list is not in the matrix.
-    //
-    // The swap is deliberately NOT done here. It is the same edit as making
-    // the grid editable (G3, Monday): both rewire how this page gets role
-    // data, and doing half of it at the end of a Friday session is how the two
-    // halves disagree.
-    //
-    // 2026-09-10: re-derived at the closing check, NO MOVEMENT — the day's
-    // migration (po_org_explicit_and_attach) changed function signatures, not
-    // any has_capability() literal, and the census confirms it.
-    //
-    // 2026-09-09: re-derived at the closing check, NO MOVEMENT — same nine
-    // counts plus manage_purchasing=13, which joined the derived set the
-    // previous evening. All four mirrors were checked; none moved.
-    //
-    // 2026-09-08: re-derived again, NO MOVEMENT. view_financials=12,
-    // view_estimates=10, edit_leads=6, manage_catalog=6, schedule=6,
-    // view_master_work_order=5, add_notes=1, create_estimates=1, and
-    // view_field absent from the census entirely, which is the 0 it has always
-    // been. `derivedOn` advances on a no-change run too: the field records
-    // WHEN SOMEONE LAST LOOKED, not when the answer last changed, and a date
-    // that only moves on change cannot distinguish "still true" from
-    // "nobody has checked since".
-    derivedOn: "2026-09-12",
-    rederive: String.raw`with fn as (select 'function' kind, proname site, prosrc body from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and proname not in ('has_capability','can_view_financials','can_view_master_work_order')), pol as (select case when permissive = 'RESTRICTIVE' then 'restrictive policy' else 'policy' end, tablename || '.' || policyname, coalesce(qual,'') || ' ' || coalesce(with_check,'') from pg_policies where schemaname = 'public'), s as (select * from fn union all select * from pol), hits as (select kind, site, (regexp_matches(body, 'has_capability\s*\([^,]+,\s*''([a-z_]+)''', 'g'))[1] cap from s union all select kind, site, 'view_financials' from s where body ~ 'can_view_financials' union all select kind, site, 'view_master_work_order' from s where body ~ 'can_view_master_work_order') select cap, kind, count(distinct site) from hits group by 1, 2 order by 1, 2;`,
   },
 ];
 
@@ -165,17 +110,18 @@ export const MIRROR_COUNT = MIRRORS.length;
  * "2" means nothing without knowing it was 4.
  */
 export const RETIRED_MIRRORS: {
-  id: "A" | "D";
+  id: "A" | "C" | "D";
   constant: string;
   retiredOn: string;
-  nowReadFrom: string;
+  /** What replaced the copy — rendered after "retired <date> ·". */
+  resolution: string;
   evidence: string;
 }[] = [
   {
     id: "A",
     constant: "ORG_ROLES",
     retiredOn: "2026-09-12",
-    nowReadFrom: "role_capability_matrix() — its role list",
+    resolution: "now read from role_capability_matrix() — its role list",
     evidence:
       "The function body derives roles from pg_get_constraintdef(org_members_role_check), the exact object this mirror copied.",
   },
@@ -183,9 +129,17 @@ export const RETIRED_MIRRORS: {
     id: "D",
     constant: "ROLE_DEFAULTS",
     retiredOn: "2026-09-12",
-    nowReadFrom: "role_capability_matrix() — its allowed column",
+    resolution: "now read from role_capability_matrix() — its allowed column",
     evidence:
       "The function body reads default_permissions_for_role(role) ->> capability for every pair, and agreed with the deriver on all 70 pairs when checked.",
+  },
+  {
+    id: "C",
+    constant: "ENFORCEMENT",
+    retiredOn: "2026-09-14",
+    resolution: "no longer shown — this page no longer says where, or whether, a capability is checked",
+    evidence:
+      "It was a hand count of has_capability() references in function bodies and policies, which the application cannot read. A count nothing can check at runtime stopped being rendered as a current fact. The capability key list it was keyed on is still compared with role_capability_matrix() on every render.",
   },
 ];
 
@@ -215,58 +169,26 @@ export function isManagerRole(role: string): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// MIRROR 3 — the capability set and where each one is actually ENFORCED.
+// THE CAPABILITY KEYS — and, until 2026-09-14, where each was ENFORCED.
 //
-// The KEYS are the nine emitted by default_permissions_for_role(), confirmed
-// against the live function body AND against every key stored on a real member
-// row (jsonb_each over org_members.permissions) — the two agree, 9 = 9.
+// The KEYS below are compared with role_capability_matrix() on every render
+// (capabilityDrift), so a key added or removed in the database shows as a
+// banner rather than being silently drawn from a stale list.
 //
-// The SITES were counted 2026-09-04 by this query, which folds in the two thin
-// wrappers because view_financials and view_master_work_order are enforced
-// through can_view_financials()/can_view_master_work_order(), never by a direct
-// has_capability() literal:
+// MIRROR C (`ENFORCEMENT`) IS GONE, BY RULING. It held, per key, a count of the
+// function bodies and policies that consult it, a sentence describing them, and
+// a "not enforced anywhere" flag for keys that counted zero. Every one of those
+// was a copy of pg_proc and pg_policies, which PostgREST does not expose, so the
+// page asserted enforcement it could not verify. It was wrong once already
+// (`schedule`: shipped 2026-09-05 as read by nothing, wired 2026-09-06) and the
+// running application could not have noticed.
 //
-//   with fn as (select 'function' kind, proname site, prosrc body
-//                 from pg_proc p join pg_namespace n on n.oid=p.pronamespace
-//                where n.nspname='public'
-//                  and proname not in ('has_capability','can_view_financials',
-//                                      'can_view_master_work_order')),
-//        pol as (select case when permissive='RESTRICTIVE'
-//                            then 'restrictive policy' else 'policy' end,
-//                       tablename||'.'||policyname,
-//                       coalesce(qual,'')||' '||coalesce(with_check,'')
-//                  from pg_policies where schemaname='public'),
-//        s as (select * from fn union all select * from pol)
-//   select (regexp_matches(body,'has_capability\s*\([^,]+,\s*''([a-z_]+)''','g'))[1], ...
-//   -- plus: select ... from s where body ~ 'can_view_financials'
-//   -- plus: select ... from s where body ~ 'can_view_master_work_order'
-//
-// ONE OF THE NINE COMES BACK WITH ZERO SITES. `view_field` is derived by the
-// deriver, stored on every seeded member row, and consulted by NOTHING — no
-// function body, no policy, no RESTRICTIVE policy, and nothing in src/. It is a
-// name. The grid says so on its own row rather than drawing a tick that implies
-// a control, because a tick beside an unenforced key is the same defect as a
-// label standing in for a check.
-//
-// It was TWO until 2026-09-06. `schedule` was wired that morning and this line
-// is only correct because the census was re-run — the count is derived from
-// ENFORCEMENT below, so the UI cannot disagree with the data even when this
-// prose goes stale.
+// Controller ruling, 2026-09-14: THE SURFACE STOPS ASSERTING ENFORCEMENT IT
+// CANNOT VERIFY AT RUNTIME. The replacement says what the page cannot see —
+// which stays true however the database changes — and nothing about what the
+// database does. Incomplete, never wrong. The last census query and its counts
+// are in git history before this change; re-run it, do not restore it.
 // ---------------------------------------------------------------------------
-export type Enforcement = {
-  /** Distinct DB objects that consult this capability. 0 means it is inert. */
-  sites: number;
-  /** Human sentence for the grid. */
-  summary: string;
-  /** The objects themselves, so a reader can go and look. */
-  where: string[];
-  /**
-   * Set when denying this capability is a stated product constraint rather
-   * than an accident — SCOPE constraint 7, "no dollars in the field".
-   */
-  constraint?: string;
-};
-
 export const CAPABILITIES = [
   "view_financials",
   "manage_purchasing",
@@ -281,107 +203,6 @@ export const CAPABILITIES = [
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
-
-export const ENFORCEMENT: Record<Capability, Enforcement> = {
-  manage_purchasing: {
-    // Re-derived 2026-09-08 at the closing check. 13 sites since the PO
-    // migration; the key joined the DERIVED set the same evening.
-    sites: 13,
-    summary:
-      "6 RPCs + 7 policies across purchase_orders, purchase_order_lines and purchase_order_line_promises. Gates the WRITE path only — reading a purchase order is org-scoped and needs no capability.",
-    where: [
-      "rpc: create_purchase_order, update_purchase_order, delete_purchase_order",
-      "rpc: add_purchase_order_line, update_purchase_order_line, delete_purchase_order_line",
-      "policy: purchase_orders (insert/update/delete)",
-      "policy: purchase_order_lines (insert/update/delete)",
-      "policy: purchase_order_line_promises (insert)",
-    ],
-  },
-  view_financials: {
-    sites: 12,
-    summary:
-      "8 RPCs + 4 RESTRICTIVE policies, all through can_view_financials(). A RESTRICTIVE policy ANDs with every other policy, so this key is what actually keeps money off a crew screen.",
-    where: [
-      "restrictive policy: deals · estimates · estimate_line_items · products",
-      "rpc: fetch_deal, fetch_estimate, fetch_product, list_products",
-      "rpc: create_product, update_product, generate_take_off, update_deal_fields",
-    ],
-    constraint: "SCOPE constraint 7 — no dollars in the field.",
-  },
-  view_estimates: {
-    sites: 10,
-    summary:
-      "9 policies across estimates, estimate_line_items and signatures, plus generate_take_off(). Also gates whether the Estimating module appears in the sidebar at all.",
-    where: [
-      "policy: estimates (read/insert/update)",
-      "policy: estimate_line_items (read/insert/update/delete)",
-      "policy: signatures (read/insert)",
-      "rpc: generate_take_off",
-      "app: getWorkspaceContext() hides the module when false",
-    ],
-    constraint: "SCOPE constraint 7 — no dollars in the field.",
-  },
-  view_master_work_order: {
-    sites: 5,
-    summary:
-      "3 RESTRICTIVE policies + 2 RPCs, through can_view_master_work_order(). work_orders is partially exempt: a row with kind='trade' is readable regardless.",
-    where: [
-      "restrictive policy: work_orders, work_order_activity, work_order_agreements",
-      "rpc: fetch_work_order, fetch_work_order_tree",
-    ],
-    constraint: "SCOPE constraint 7 — a crew sees its trade, not the master.",
-  },
-  manage_catalog: {
-    sites: 6,
-    summary:
-      "3 RPCs + 3 policies on products. Both layers moved off manager-tier onto this key in A2.1c so an office hire can maintain the item list.",
-    where: [
-      "rpc: create_product, update_product, delete_product",
-      "policy: products (insert/update/delete)",
-    ],
-  },
-  edit_leads: {
-    sites: 6,
-    summary: "5 RPCs + 1 policy on deals.",
-    where: [
-      "rpc: update_deal_fields, update_deal_stage, update_intake_checklist_field",
-      "rpc: archive_deal, restore_deal",
-      "policy: deals (update)",
-    ],
-  },
-  create_estimates: {
-    sites: 1,
-    summary: "One RPC: create_estimate_from_deal().",
-    where: ["rpc: create_estimate_from_deal"],
-  },
-  add_notes: {
-    sites: 1,
-    summary: "One RPC: add_deal_note().",
-    where: ["rpc: add_deal_note"],
-  },
-  schedule: {
-    // RE-DERIVED 2026-09-06, and it MOVED: 0 sites -> 6. Track S wired it
-    // (migration `wire_schedule_capability`) between yesterday's derivation
-    // and today's. This is the exact failure this file's registry exists to
-    // make visible: the mirror was shipped on 09-05 saying "nothing reads this
-    // key", was false within a day, and nothing in the running application
-    // could have noticed. It was caught by re-running the census, not by the
-    // code.
-    sites: 6,
-    summary:
-      "3 RPCs + 3 policies on schedule_blocks. Wired 2026-09-06; before that this key was derived onto every member row and read by nothing.",
-    where: [
-      "rpc: add_schedule_block, update_schedule_block, delete_schedule_block",
-      "policy: schedule_blocks (insert/update/delete)",
-    ],
-  },
-  view_field: {
-    sites: 0,
-    summary:
-      "NOTHING READS THIS KEY. Field access is decided by modulesVisibleForRole(role) in the app and by org-scoped RLS, neither of which looks at this permission.",
-    where: [],
-  },
-};
 
 // ---------------------------------------------------------------------------
 // RETIRED 2026-09-12 — MIRROR D (`ROLE_DEFAULTS`) AND MIRROR A (`ORG_ROLES`).
@@ -480,12 +301,11 @@ export function toMatrix(rows: RoleMatrixRow[]): RoleMatrix {
 }
 
 /**
- * MIRROR C STILL COPIES A CAPABILITY LIST, and now it can be CHECKED.
+ * `CAPABILITIES` IS A HAND-WRITTEN KEY LIST, AND IT IS CHECKED.
  *
- * `CAPABILITIES` keys the enforcement census, which stays a mirror. Before the
- * matrix nothing could notice if a capability was added or removed without
- * this file changing. Now the live list is compared on every render, and a
- * mismatch is shown rather than silently drawn from a stale key set.
+ * Before the matrix nothing could notice if a capability was added or removed
+ * without this file changing. Now the live list is compared on every render,
+ * and a mismatch is shown rather than silently drawn from a stale key set.
  */
 export function capabilityDrift(matrix: RoleMatrix): {
   inDatabaseNotInCensus: string[];
@@ -625,7 +445,8 @@ export function grantedCountForRole(matrix: RoleMatrix, role: string): number | 
  * closed it. Re-derived at the closing check: all seven roles plus the else
  * branch now carry ten keys, `office` is TRUE, and every stored org_members row
  * was backfilled. The two sets are one set again, so `manage_purchasing` is now
- * an ordinary member of CAPABILITIES / ROLE_DEFAULTS / ENFORCEMENT above —
+ * an ordinary member of CAPABILITIES / ROLE_DEFAULTS / ENFORCEMENT (the last two
+ * since retired) —
  * added BY RE-DERIVATION, never by hand.
  *
  * WHAT THIS COST, AND WHY THE EMPTY ARRAY STAYS: the state was findable only

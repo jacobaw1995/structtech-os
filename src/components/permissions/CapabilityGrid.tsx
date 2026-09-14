@@ -1,6 +1,5 @@
 import {
   CAPABILITIES,
-  ENFORCEMENT,
   isManagerRole,
   type Cell,
 } from "@/lib/permissions/model";
@@ -23,6 +22,12 @@ const ROLE_SHORT: Record<string, string> = {
   client_portal_viewer: "portal",
 };
 
+// 2026-09-14 — EACH ROW USED TO CARRY "N enforcement sites", a sentence naming
+// the functions and policies, and a "not enforced anywhere" badge. All three
+// were hand copies of pg_proc / pg_policies (retired mirror C). Under the ruling
+// that the surface stops asserting enforcement it cannot verify, a row now says
+// only what this page READ: the key, and each role's cell. What the page cannot
+// see is said once, above the grid, in a sentence no migration can falsify.
 
 export function CapabilityGrid({ cells, roles }: { cells: Cell[]; roles: string[] }) {
   const shortName = (r: string) => ROLE_SHORT[r] ?? r;
@@ -33,6 +38,12 @@ export function CapabilityGrid({ cells, roles }: { cells: Cell[]; roles: string[
 
   return (
     <div className="rounded-lg border border-border bg-surface">
+      <p data-grid-scope className="border-b border-border px-4 py-3 text-xs leading-relaxed text-muted">
+        The grid shows what this workspace&rsquo;s members hold, role by role. It does not
+        show which parts of the product check a capability, or whether anything does —
+        this page cannot see that.
+      </p>
+
       {/* DESKTOP — a real grid. Below lg it is replaced by the stacked cards
           further down rather than being scrolled sideways: this page is read
           on a phone by an owner deciding whether to hire, and a matrix that
@@ -57,92 +68,47 @@ export function CapabilityGrid({ cells, roles }: { cells: Cell[]; roles: string[
         </div>
 
         <ul>
-          {CAPABILITIES.map((cap) => {
-            const e = ENFORCEMENT[cap];
-            const inert = e.sites === 0;
-            return (
-              <li
-                key={cap}
-                style={cols}
-                className={`grid items-center gap-x-2 border-b border-border px-4 py-3 last:border-0 ${
-                  inert ? "bg-warn-soft/40" : ""
-                }`}
-              >
-                <div className="min-w-0 pr-4">
-                  <div className="flex flex-wrap items-baseline gap-x-2">
-                    <span className="font-medium text-text">{cap}</span>
-                    {inert ? (
-                      <span className="rounded bg-warn-soft px-1.5 py-0.5 text-[11px] font-medium text-[var(--warn-strong)]">
-                        not enforced anywhere
-                      </span>
-                    ) : (
-                      <span className="text-[11px] text-muted">
-                        {e.sites} enforcement {e.sites === 1 ? "site" : "sites"}
-                      </span>
-                    )}
-                  </div>
-                  <p className="mt-0.5 text-xs leading-relaxed text-muted">{e.summary}</p>
-                  {e.constraint && (
-                    <p className="mt-1 text-[11px] text-[var(--warn-strong)]">{e.constraint}</p>
-                  )}
+          {CAPABILITIES.map((cap) => (
+            <li
+              key={cap}
+              style={cols}
+              className="grid items-center gap-x-2 border-b border-border px-4 py-3 last:border-0"
+            >
+              <div className="min-w-0 pr-4">
+                <span className="font-medium text-text">{cap}</span>
+              </div>
+              {roles.map((r) => (
+                <div key={r} className="flex justify-center">
+                  <Mark cell={at(cap, r)} />
                 </div>
-                {roles.map((r) => (
-                  <div key={r} className="flex justify-center">
-                    <Mark cell={at(cap, r)} />
-                  </div>
-                ))}
-              </li>
-            );
-          })}
+              ))}
+            </li>
+          ))}
         </ul>
       </div>
 
       {/* MOBILE / TABLET — one card per capability. Same data, same states,
           no sideways scroll. */}
       <ul className="lg:hidden">
-        {CAPABILITIES.map((cap) => {
-          const e = ENFORCEMENT[cap];
-          const inert = e.sites === 0;
-          return (
-            <li
-              key={cap}
-              className={`border-b border-border px-4 py-3 last:border-0 ${
-                inert ? "bg-warn-soft/40" : ""
-              }`}
-            >
-              <div className="flex flex-wrap items-baseline gap-x-2">
-                <span className="font-medium text-text">{cap}</span>
-                {inert ? (
-                  <span className="rounded bg-warn-soft px-1.5 py-0.5 text-[11px] font-medium text-[var(--warn-strong)]">
-                    not enforced anywhere
+        {CAPABILITIES.map((cap) => (
+          <li key={cap} className="border-b border-border px-4 py-3 last:border-0">
+            <span className="font-medium text-text">{cap}</span>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {roles.map((r) => {
+                const cell = at(cap, r);
+                return (
+                  <span
+                    key={r}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-border px-2 py-1 text-xs"
+                  >
+                    <span className="text-muted">{r}</span>
+                    <Mark cell={cell} />
                   </span>
-                ) : (
-                  <span className="text-[11px] text-muted">
-                    {e.sites} enforcement {e.sites === 1 ? "site" : "sites"}
-                  </span>
-                )}
-              </div>
-              <p className="mt-0.5 text-xs leading-relaxed text-muted">{e.summary}</p>
-              {e.constraint && (
-                <p className="mt-1 text-[11px] text-[var(--warn-strong)]">{e.constraint}</p>
-              )}
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {roles.map((r) => {
-                  const cell = at(cap, r);
-                  return (
-                    <span
-                      key={r}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-border px-2 py-1 text-xs"
-                    >
-                      <span className="text-muted">{r}</span>
-                      <Mark cell={cell} />
-                    </span>
-                  );
-                })}
-              </div>
-            </li>
-          );
-        })}
+                );
+              })}
+            </div>
+          </li>
+        ))}
       </ul>
     </div>
   );
