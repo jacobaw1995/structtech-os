@@ -38,8 +38,8 @@
 //   3. THE LIFECYCLE. The browser client refreshes on a timer, not per
 //      request, so "race the call and discard the client" does not map onto it.
 //
-// exit 0  the browser client is unused, or used and bounded
-// exit 1  the browser client is imported and NOT bounded — the gap reopened
+// exit 0  no browser-capable Supabase client path, or every one is bounded
+// exit 1  at least one unbounded browser-capable client path — the gap reopened
 // exit 2  UNDETERMINED — could not read the source tree
 
 import { readdirSync, readFileSync, statSync } from 'node:fs';
@@ -71,43 +71,73 @@ try {
 
 // Matches `@/lib/supabase/client` and relative forms ending in `supabase/client`
 // or `./client` from inside lib/supabase — and deliberately NOT `client-info`.
+// ── WHAT IS WATCHED (second version, 2026-09-13) ─────────────────────────────
+// The first version watched ONE thing: imports of src/lib/supabase/client.ts.
+// Measured on 2026-09-13, three changes that put an unbounded Supabase auth
+// client into the browser WITHOUT importing that file all passed it, each with
+// the message "OK: the browser Supabase client is unused":
+//   (b) a new `createBrowserClient<T>(...)` in a client component
+//   (c) `createClient()` from @supabase/supabase-js in a client component
+//   (d) `createBrowserClient(...)` in a helper that a client component imports
+// A confident message for the wrong cause. The check watched a file's import
+// graph instead of the property, which is "a browser-capable Supabase client
+// exists outside the one place its bound decision is recorded". It now watches
+// the property, and the OK line states what was counted rather than asserting
+// "unused".
+//
+// Three ways in, each graded the same way (FAIL unless the file that constructs
+// the client also carries bounding code):
+//   1. an import of src/lib/supabase/client.ts (alias, relative or dynamic);
+//   2. a `createBrowserClient(` construction ANYWHERE but client.ts — it has no
+//      server use, so there is no legitimate place for a second one;
+//   3. a runtime import of `createClient` from @supabase/supabase-js. CLAUDE.md
+//      mandatory pattern 2 routes every server context through
+//      @/lib/supabase/server, so a direct supabase-js client is not another
+//      track doing its job correctly — it is exactly the path this watches.
+// Type-only imports (`import type ... from "@supabase/..."`) are erased at compile
+// and ship zero bytes, so they are ignored.
+
 const IMPORT = /(?:from\s*|import\s*\(\s*)['"]((?:@\/lib\/supabase|(?:\.\.?\/)+(?:lib\/)?supabase|\.)\/client)['"]/g;
+const BROWSER_CONSTRUCT = /createBrowserClient\s*(?:<[^>]*>)?\s*\(/;
+const SUPABASE_JS_RUNTIME = /^\s*import\s+(?!type\b)[^;]*\bcreateClient\b[^;]*from\s*['"]@supabase\/supabase-js['"]/m;
 
-const importers = [];
+// Comments are stripped before any matching. An earlier version passed on a file
+// whose only mention of a bound was `// uses boundGetSession(client)`.
+const stripComments = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+const hasBound = (t) => /boundGetSession|createBoundedFetch|AbortSignal\.timeout/.test(t);
+
+const findings = [];
 for (const f of files) {
-  if (f === CLIENT) continue;
-  const text = readFileSync(f, 'utf8');
-  for (const m of text.matchAll(IMPORT)) {
-    const spec = m[1];
-    // `./client` only means the browser client when written from lib/supabase.
-    if (spec === './client' && !f.startsWith(join(SRC, 'lib', 'supabase'))) continue;
-    importers.push(`${relative(ROOT, f)}  (${spec})`);
+  const code = stripComments(readFileSync(f, 'utf8'));
+  const rel = relative(ROOT, f);
+  if (f !== CLIENT) {
+    for (const m of code.matchAll(IMPORT)) {
+      const spec = m[1];
+      // `./client` only means the browser client when written from lib/supabase.
+      if (spec === './client' && !f.startsWith(join(SRC, 'lib', 'supabase'))) continue;
+      findings.push({ kind: 'imports client.ts', where: `${rel}  (${spec})`, bounded: hasBound(stripComments(clientSrc)) });
+    }
+    if (BROWSER_CONSTRUCT.test(code)) findings.push({ kind: 'new createBrowserClient', where: rel, bounded: hasBound(code) });
   }
+  if (SUPABASE_JS_RUNTIME.test(code)) findings.push({ kind: 'supabase-js createClient', where: rel, bounded: hasBound(code) });
 }
 
-// Comments are stripped before matching. The first version of this check passed
-// on a file whose only mention of a bound was `// uses boundGetSession(client)`
-// — a comment could have silenced the alarm. It detects bounding CODE, and it
-// still cannot tell whether that code's number was measured; the exit message
-// asks for that, because a script cannot.
-const codeOnly = clientSrc.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
-const bounded = /boundGetSession|createBoundedFetch|AbortSignal\.timeout/.test(codeOnly);
-
+const open = findings.filter((x) => !x.bounded);
 console.log('------------------------------------------------------------------------');
-console.log(`browser client importers : ${importers.length}`);
-for (const i of importers) console.log(`  ${i}`);
-console.log(`browser client bounded   : ${bounded}`);
+console.log(`source files scanned          : ${files.length}`);
+console.log(`browser-capable client paths  : ${findings.length}`);
+for (const x of findings) console.log(`  [${x.bounded ? 'bounded' : 'UNBOUNDED'}] ${x.kind} — ${x.where}`);
 console.log('------------------------------------------------------------------------');
 
-if (importers.length === 0) {
-  console.log('OK: the browser Supabase client is unused, so no browser session refresh can stall.');
+if (findings.length === 0) {
+  console.log(`OK: 0 browser-capable Supabase client paths in ${files.length} source files — no import of client.ts, no createBrowserClient outside it, no runtime supabase-js createClient.`);
   process.exit(0);
 }
-if (bounded) {
-  console.log('OK: the browser client is in use and carries a bound. Confirm the number was derived from client-side timing, not copied from the server.');
+if (open.length === 0) {
+  console.log('OK: every browser-capable client path carries bounding code. Confirm each number was derived from client-side timing, not copied from the server.');
   process.exit(0);
 }
-console.log('GAP REOPENED: the browser Supabase client is imported and has NO bound on its session refresh.');
+console.log(`GAP REOPENED: ${open.length} unbounded browser-capable Supabase client path(s).`);
 console.log('A stalled refresh in the browser now has no limit. Before bounding it, read the header of');
 console.log('scripts/monitor/browser-auth-tripwire.mjs: the server number does not transfer, and a bound');
 console.log('that reports a stall as a terminal auth error will emit a false SIGNED_OUT.');

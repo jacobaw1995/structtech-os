@@ -67,12 +67,38 @@ export const AUTH_BOUND_MS = 2500;
 // connections behind every request that hit it.
 const AUTH_SOCKET_BUDGET_MS = 3000;
 
-function isAuthCall(url: string): boolean {
+// ── AUTH CALLS THAT SEND EMAIL GET THEIR OWN BOUND (2026-09-14) ───────────────
+// GoTrue sends the message INSIDE the request for these endpoints: the response
+// only comes back after its SMTP handoff. The 2500 ms above was derived from token
+// refreshes (max 513 ms observed), which send nothing, so applying it here would
+// abort requests whose mail was already on its way and report a failure that did
+// not happen. A bound borrowed from a different call is a habit, not a bound.
+//
+// THIS NUMBER IS NOT DERIVED, AND CANNOT BE YET. The thing it bounds — GoTrue's
+// SMTP handoff — does not exist on this project until custom SMTP is configured.
+// The only measurement available is a floor: /auth/v1/recover for an address with
+// no account (so nothing sent) answered in 0.72 s on 2026-09-14. 10 s is a ceiling
+// on how long a person is asked to wait, the same ceiling send.ts uses for its own
+// handoff. Callers must treat a timeout here as UNCONFIRMED, never as failed, so a
+// bound that proves too short produces an honest sentence rather than a false one.
+// Re-derive from edge_logs origin_time on /auth/v1/recover once SMTP is live.
+//
+// These calls are also excluded from the per-client socket budget below, which
+// exists to cap a stalled REFRESH loop; spending it here would starve the refresh
+// a later call in the same request needs.
+export const AUTH_EMAIL_BOUND_MS = 10_000;
+const EMAIL_SENDING_AUTH_PATHS = ["/auth/v1/recover", "/auth/v1/otp", "/auth/v1/magiclink", "/auth/v1/invite"];
+
+function authPath(url: string): string | null {
+  let path: string;
   try {
-    return new URL(url).pathname.startsWith("/auth/v1/");
+    path = new URL(url).pathname;
   } catch {
-    return url.includes("/auth/v1/");
+    const i = url.indexOf("/auth/v1/");
+    if (i < 0) return null;
+    path = url.slice(i).split("?")[0];
   }
+  return path.startsWith("/auth/v1/") ? path : null;
 }
 
 /** A fetch whose auth calls are bounded but stay retryable. One per client. */
@@ -87,7 +113,12 @@ export function createBoundedFetch(): typeof fetch {
           ? input.toString()
           : input.url;
 
-    if (!isAuthCall(url)) return fetch(input, init);
+    const path = authPath(url);
+    if (!path) return fetch(input, init);
+
+    if (EMAIL_SENDING_AUTH_PATHS.includes(path)) {
+      return fetch(input, { ...init, signal: AbortSignal.timeout(AUTH_EMAIL_BOUND_MS) });
+    }
 
     const remaining = AUTH_SOCKET_BUDGET_MS - authSpentMs;
     if (remaining <= 0) {
@@ -118,6 +149,17 @@ type SessionResult = Awaited<
  * caller — including supabase-js's own token lookup for queries — goes through
  * the bound without any of the 18 call sites changing.
  */
+// Which clients gave up on their session. Keyed by the client object so any code
+// holding a client can ask, without createClient() changing shape for its callers.
+// A page that finds no session needs this to tell "your link expired" from "the
+// sign-in service did not answer" — two causes that want opposite advice.
+const GAVE_UP = new WeakMap<object, () => boolean>();
+
+/** True if this client's session lookup was abandoned at the bound. */
+export function authGaveUp(client: object): boolean {
+  return GAVE_UP.get(client)?.() ?? false;
+}
+
 export function boundGetSession(client: {
   auth: { getSession: () => Promise<unknown> };
 }): () => boolean {
@@ -141,5 +183,7 @@ export function boundGetSession(client: {
     }
   };
 
-  return () => gaveUp;
+  const accessor = () => gaveUp;
+  GAVE_UP.set(client, accessor);
+  return accessor;
 }

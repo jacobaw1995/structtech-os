@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { parseLeadControlCenterConfig } from "@/lib/crm/command-center";
 import { parseScopeLineItemsConfig, generateScopeLineItems } from "@/lib/estimating/scope-line-items";
+import { sendSignedCopy, type SignedCopyState } from "@/lib/estimating/signed-copy";
 
 // Same conventions as src/lib/crm/actions.ts: server actions redirect(),
 // never return data (CLAUDE.md rule 6); every mutation goes through a
@@ -95,7 +96,7 @@ export async function signEstimate(formData: FormData) {
   } = await supabase.auth.getSession();
   if (!session) redirect("/login");
 
-  const { error } = await supabase.rpc("sign_estimate", {
+  const { data: signatureId, error } = await supabase.rpc("sign_estimate", {
     p_estimate_id: estimateId,
     p_signer_name: requireString(formData, "signer_name"),
     p_signer_role: requireString(formData, "signer_role"),
@@ -108,7 +109,53 @@ export async function signEstimate(formData: FormData) {
 
   revalidatePath(`/w/${orgId}/estimating/${estimateId}/present`);
   revalidateEstimateDocument(orgId, estimateId);
-  redirect(estimatePresentHref(orgId, estimateId));
+
+  // X-W1.14 — the signed copy. Runs only AFTER sign_estimate returned a
+  // signature id, i.e. after its transaction committed, and in this same request
+  // so it does not depend on anyone viewing the page afterwards. It cannot undo
+  // the signature: signed-copy.ts writes nothing and never throws. The outcome is
+  // a named state on the redirect, never an error in place of "signed".
+  let copy: SignedCopyState = "render_failed";
+  try {
+    copy = await sendSignedCopy(supabase, { orgId, estimateId, signatureId });
+  } catch {
+    // sendSignedCopy returns every failure; this only guards the redirect below.
+  }
+  redirect(`${estimatePresentHref(orgId, estimateId)}?copy=${copy}`);
+}
+
+// "Send again" for a copy that was not confirmed. Resends the copy of the most
+// recent signature; the idempotency key is per signature, so a copy that did go
+// out the first time is not delivered twice.
+export async function resendSignedCopy(formData: FormData) {
+  const orgId = requireString(formData, "orgId");
+  const estimateId = requireString(formData, "estimateId");
+
+  const supabase = createClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) redirect("/login");
+
+  const { data: rows } = await supabase
+    .from("signatures")
+    .select("id")
+    .eq("estimate_id", estimateId)
+    .eq("org_id", orgId)
+    .order("signed_at", { ascending: false })
+    .limit(1);
+  const signatureId = rows?.[0]?.id;
+  // No signature: every copy state opens "The signature is saved", which would be
+  // false here. Say nothing rather than something untrue.
+  if (!signatureId) redirect(estimatePresentHref(orgId, estimateId));
+
+  let copy: SignedCopyState = "render_failed";
+  try {
+    copy = await sendSignedCopy(supabase, { orgId, estimateId, signatureId });
+  } catch {
+    // see signEstimate
+  }
+  redirect(`${estimatePresentHref(orgId, estimateId)}?copy=${copy}`);
 }
 
 export async function voidEstimate(formData: FormData) {

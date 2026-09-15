@@ -45,15 +45,17 @@ its free tier has no card and its grace period is configurable to the minute.
      after the in-workflow drift check went red at 366 min against a 360 min
      threshold with every door green — a live demonstration that a grace
      narrower than the observed worst gap alarms on the platform, not on us.
-3. Copy the check's **Ping URL** (it looks like `https://hc-ping.com/<uuid>`).
-   **Do not paste it into a chat, a commit, or any file in this repo** — it is
-   a capability: anyone holding it can silence the alarm.
-4. Go to the repo's secret settings:
-   **https://github.com/jacobaw1995/structtech-os/settings/secrets/actions**
-   → **New repository secret**
-   - Name: `DEADMAN_PING_URL` (exactly this — the workflow reads that name)
-   - Secret: paste the ping URL
-   - **Add secret**
+3. **Put the ping URL straight into the repository secret, from a terminal.**
+   The value goes from the Healthchecks page to a hidden prompt and nowhere
+   else — not a chat, not a file, not an argument, not shell history.
+   Run, then leave the prompt waiting:
+   `gh secret set DEADMAN_PING_URL --repo jacobaw1995/structtech-os`
+   (With no `--body`, `gh` reads the value from an interactive paste prompt —
+   `gh secret set --help`. Never add `--body`: that puts the value in history.)
+4. On the check's page, use the copy button beside its **Ping URL**
+   (`https://hc-ping.com/…`), paste at the prompt, press Enter, then clear the
+   clipboard with `pbcopy < /dev/null`. The URL is a capability: anyone holding
+   it can silence the alarm.
 5. Confirm the alert destination on the Healthchecks side (email is on by
    default for the account address).
 
@@ -61,16 +63,25 @@ its free tier has no card and its grace period is configurable to the minute.
 
 A dead-man's switch you have not seen fire is a belief, not a control.
 
-1. **Prove the ping arrives.** In the repo's **Actions** tab, open
-   *front-door monitor* → **Run workflow**. Note: a manual run is
-   `workflow_dispatch`, not `schedule`, and the step is scoped to `schedule`,
-   so **it will not ping**. To see it fire, wait for the next scheduled run
-   (up to ~4 h) and check that Healthchecks shows the check as **up** with a
-   recent ping.
-2. **Prove the alarm fires.** On Healthchecks, use **Pause** on the check, or
-   simply wait: if no ping arrives within period + grace, it alerts. Confirm
-   you receive that email. Until you have seen this email once, the control is
-   unproven.
+1. **Prove the switch is ARMED — delivery, not presence.** The ping step only
+   runs on `schedule` (a manual "Run workflow" never pings), so wait for the next
+   scheduled run (~3.7 h apart on average), then:
+   `GITHUB_TOKEN="$(gh auth token)" DEADMAN_ARMED_SINCE=<the time you set it, ISO-8601> node scripts/monitor/verify-deadman.mjs`
+   `ARMED` (exit 0) means a scheduled run delivered a ping and the URL answered
+   2xx. `NOT ARMED` (exit 1) means the step ran and the secret was absent or the
+   URL was refused. `UNDETERMINED` (exit 2) means no scheduled run has exercised
+   it yet. The script ignores the step's echoed script text on purpose: the log
+   of a run with NO secret contains the words "ping delivered" (see its header).
+2. **Prove the alarm FIRES — only after step 1 says ARMED**, so the check has
+   received a real ping. On Healthchecks, edit the check's schedule and set
+   **Period and Grace to the smallest values the form allows**. The docs define
+   grace as "the additional time to wait before sending an alert when a check is
+   late", so with no ping due for hours the check goes late, then down, within
+   minutes — confirm the email arrives, then **restore Period 1 hour / Grace 7
+   hours**. Until you have seen that email once, the control is unproven.
+   **Do not use Pause for this.** An earlier version of this file said to. The
+   docs describe pausing as the way "to avoid unwanted alerts about a known
+   issue" — it is the one action most likely to prove nothing.
 
 ## What this does not cover
 
