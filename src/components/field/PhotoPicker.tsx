@@ -3,8 +3,9 @@
 import { useRef, useState, useTransition } from "react";
 import { addCheckInPhoto, removeCheckInPhoto } from "@/lib/field/actions";
 import { TwoTapDelete } from "@/components/field/TwoTapDelete";
+import { preparePhoto } from "@/lib/field/photo";
 
-// Reads the picked file client-side into a base64 data URI and submits it
+// Reads the picked file client-side, shrinks it to fit (lib/field/photo.ts), into a base64 data URI and submits it
 // via FormData (same manual-FormData-in-startTransition pattern as
 // StepSign's signature capture) — no separate upload endpoint needed since
 // check_ins.photos stores the data URI directly (migration header note 1).
@@ -25,30 +26,27 @@ export function PhotoPicker({
   const [isPending, startTransition] = useTransition();
   const [pendingError, setPendingError] = useState<string | null>(null);
 
-  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result;
-      if (typeof dataUrl !== "string") {
-        setPendingError("Could not read that photo — try again.");
-        return;
-      }
-      setPendingError(null);
-      const formData = new FormData();
-      formData.set("orgId", orgId);
-      formData.set("workOrderId", workOrderId);
-      formData.set("checkInId", checkInId);
-      formData.set("photo_data_url", dataUrl);
-      startTransition(() => {
-        addCheckInPhoto(formData);
-      });
-    };
-    reader.onerror = () => setPendingError("Could not read that photo — try again.");
-    reader.readAsDataURL(file);
+    // See lib/field/photo.ts: a data URL over 1 MiB is silently truncated in
+    // transit, so the photo is shrunk to fit first or refused in words.
+    const prepared = await preparePhoto(file);
+    if (!prepared.ok) {
+      setPendingError(prepared.reason);
+      return;
+    }
+    setPendingError(null);
+    const formData = new FormData();
+    formData.set("orgId", orgId);
+    formData.set("workOrderId", workOrderId);
+    formData.set("checkInId", checkInId);
+    formData.set("photo_data_url", prepared.dataUrl);
+    startTransition(() => {
+      addCheckInPhoto(formData);
+    });
   }
 
   function handleRemove(photoDataUrl: string) {
