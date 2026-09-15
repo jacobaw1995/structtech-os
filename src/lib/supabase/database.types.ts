@@ -849,6 +849,73 @@ export type Database = {
           },
         ]
       }
+      estimate_sign_links: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          document_hash: string
+          estimate_id: string
+          expires_at: string
+          id: string
+          org_id: string
+          revoked_at: string | null
+          revoked_by: string | null
+          signature_id: string | null
+          token_hash: string
+          used_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          document_hash: string
+          estimate_id: string
+          expires_at: string
+          id?: string
+          org_id: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+          signature_id?: string | null
+          token_hash: string
+          used_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          document_hash?: string
+          estimate_id?: string
+          expires_at?: string
+          id?: string
+          org_id?: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+          signature_id?: string | null
+          token_hash?: string
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "estimate_sign_links_estimate_id_fkey"
+            columns: ["estimate_id"]
+            isOneToOne: false
+            referencedRelation: "estimates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "estimate_sign_links_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "estimate_sign_links_signature_id_fkey"
+            columns: ["signature_id"]
+            isOneToOne: false
+            referencedRelation: "signatures"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       estimates: {
         Row: {
           build_mode: string
@@ -2293,7 +2360,7 @@ export type Database = {
           id: string
           org_id: string
           pdf_url: string | null
-          sign_token: string | null
+          sign_link_id: string | null
           signature_data: string
           signed_at: string
           signer_name: string
@@ -2305,7 +2372,7 @@ export type Database = {
           id?: string
           org_id: string
           pdf_url?: string | null
-          sign_token?: string | null
+          sign_link_id?: string | null
           signature_data: string
           signed_at?: string
           signer_name: string
@@ -2317,13 +2384,20 @@ export type Database = {
           id?: string
           org_id?: string
           pdf_url?: string | null
-          sign_token?: string | null
+          sign_link_id?: string | null
           signature_data?: string
           signed_at?: string
           signer_name?: string
           signer_role?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "signatures_sign_link_id_fkey"
+            columns: ["sign_link_id"]
+            isOneToOne: false
+            referencedRelation: "estimate_sign_links"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "signatures_estimate_id_fkey"
             columns: ["estimate_id"]
@@ -3718,6 +3792,11 @@ export type Database = {
         }[]
       }
       materialize_take_off: { Args: { p_job_id: string }; Returns: Json }
+      create_estimate_sign_link: {
+        Args: { p_estimate_id: string; p_valid_days: number }
+        Returns: Json
+      }
+      revoke_estimate_sign_link: { Args: { p_link_id: string }; Returns: undefined }
       set_take_off_decision: {
         Args: {
           p_disposition: string
@@ -3744,6 +3823,17 @@ export type Database = {
         }
         Returns: string
       }
+      sign_estimate_by_link: {
+        Args: {
+          p_document_version: string
+          p_signature_data: string
+          p_signer_name: string
+          p_signer_role: string
+          p_token: string
+        }
+        Returns: Json
+      }
+      signing_link_view: { Args: { p_token: string }; Returns: Json }
       sign_estimate: {
         Args: {
           p_estimate_id: string
