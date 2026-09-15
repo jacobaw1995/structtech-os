@@ -82,6 +82,7 @@ jobs:
           node --check scripts/monitor/frontdoor-monitor.mjs
           node --check scripts/monitor/schedule-drift.mjs
           node --check scripts/monitor/browser-auth-tripwire.mjs
+          node --check scripts/monitor/verify-deadman.mjs
           echo "node $(node -v); no shell-outs; no npm install"
 
       - name: run the monitor

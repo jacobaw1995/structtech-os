@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { login } from "./actions";
@@ -62,6 +63,14 @@ export default async function LoginPage({
             Sign in
           </button>
         </form>
+
+        {/* X-W1.14: before this, nothing on the page led anywhere if the password
+            was forgotten — measured 2026-09-14, 0 occurrences of "forgot" or "reset". */}
+        <p className="mt-4 text-sm">
+          <Link href="/forgot-password" className="text-accent-strong underline">
+            Forgot your password?
+          </Link>
+        </p>
       </div>
     </main>
   );

@@ -3,6 +3,8 @@ import { requireModuleAccess } from "@/lib/workspace/context";
 import { parseEstimateBranding } from "@/lib/estimating/branding";
 import { EstimateDocument } from "@/components/estimating/EstimateDocument";
 import { EstimateOutdoorShell } from "@/components/estimating/EstimateOutdoorShell";
+import { SignedCopyStatus } from "@/components/estimating/SignedCopyStatus";
+import { isSignedCopyState } from "@/lib/estimating/signed-copy";
 import type { Database } from "@/lib/supabase/database.types";
 
 type Estimate = Database["public"]["Tables"]["estimates"]["Row"];
@@ -20,8 +22,10 @@ type Signature = Database["public"]["Tables"]["signatures"]["Row"];
 // Mode, at the kitchen table, on the tablet (Jacob's Chunk 5 correction).
 export default async function EstimatePresentPage({
   params,
+  searchParams,
 }: {
   params: { orgId: string; estimateId: string };
+  searchParams: { copy?: string };
 }) {
   const ctx = await requireModuleAccess(params.orgId, "estimating");
   const supabase = ctx.supabase;
@@ -71,6 +75,16 @@ export default async function EstimatePresentPage({
   // render even if that ever changes.
   return (
     <div className="min-h-dvh bg-bg px-4 py-6 sm:px-8">
+      {/* X-W1.14: shown only for a signed estimate, so a crafted ?copy= on an
+          unsigned one cannot claim a copy went out. */}
+      {estimate.status === "signed" && isSignedCopyState(searchParams.copy) ? (
+        <SignedCopyStatus
+          state={searchParams.copy}
+          email={estimate.email}
+          orgId={params.orgId}
+          estimateId={estimate.id}
+        />
+      ) : null}
       <EstimateOutdoorShell>
         <EstimateDocument
           orgId={params.orgId}
