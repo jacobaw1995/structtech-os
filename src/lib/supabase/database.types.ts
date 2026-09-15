@@ -781,7 +781,7 @@ export type Database = {
           line_total?: number | null
           org_id: string
           product_id?: string | null
-          quantity?: number
+          quantity: number
           scope_key?: string | null
           sort_order?: number
           unit?: string | null
@@ -1322,6 +1322,9 @@ export type Database = {
           ready_by: string | null
           ready_by_source: string
           sort_order: number
+          take_off_description: string | null
+          take_off_quantity: number | null
+          take_off_unit: string | null
           unit: string | null
           updated_at: string
           work_order_id: string
@@ -1337,6 +1340,9 @@ export type Database = {
           ready_by?: string | null
           ready_by_source?: string
           sort_order?: number
+          take_off_description?: string | null
+          take_off_quantity?: number | null
+          take_off_unit?: string | null
           unit?: string | null
           updated_at?: string
           work_order_id: string
@@ -1352,6 +1358,9 @@ export type Database = {
           ready_by?: string | null
           ready_by_source?: string
           sort_order?: number
+          take_off_description?: string | null
+          take_off_quantity?: number | null
+          take_off_unit?: string | null
           unit?: string | null
           updated_at?: string
           work_order_id?: string
@@ -2412,6 +2421,64 @@ export type Database = {
         }
         Relationships: []
       }
+      take_off_decisions: {
+        Row: {
+          decided_at: string
+          decided_by: string | null
+          disposition: string
+          estimate_line_item_id: string
+          item_removed_at: string | null
+          item_removed_by: string | null
+          org_id: string
+          source: string
+          work_order_id: string | null
+        }
+        Insert: {
+          decided_at?: string
+          decided_by?: string | null
+          disposition: string
+          estimate_line_item_id: string
+          item_removed_at?: string | null
+          item_removed_by?: string | null
+          org_id: string
+          source: string
+          work_order_id?: string | null
+        }
+        Update: {
+          decided_at?: string
+          decided_by?: string | null
+          disposition?: string
+          estimate_line_item_id?: string
+          item_removed_at?: string | null
+          item_removed_by?: string | null
+          org_id?: string
+          source?: string
+          work_order_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "take_off_decisions_estimate_line_item_id_fkey"
+            columns: ["estimate_line_item_id"]
+            isOneToOne: true
+            referencedRelation: "estimate_line_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "take_off_decisions_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "take_off_decisions_work_order_id_fkey"
+            columns: ["work_order_id"]
+            isOneToOne: false
+            referencedRelation: "work_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenant_modules: {
         Row: {
           config: Json
@@ -2911,7 +2978,28 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      take_off_lines: {
+        Row: {
+          description: string | null
+          disposition: string | null
+          disposition_source: string | null
+          estimate_id: string | null
+          estimate_line_item_id: string | null
+          estimate_status: string | null
+          item_state: string | null
+          job_id: string | null
+          material_item_id: string | null
+          material_work_order_id: string | null
+          org_id: string | null
+          quantity: number | null
+          scope_key: string | null
+          sort_order: number | null
+          trade_state: string | null
+          trade_work_order_id: string | null
+          unit: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       accept_invite: {
@@ -3628,6 +3716,15 @@ export type Database = {
           capability: string
           allowed: boolean
         }[]
+      }
+      materialize_take_off: { Args: { p_job_id: string }; Returns: Json }
+      set_take_off_decision: {
+        Args: {
+          p_disposition: string
+          p_estimate_line_item_id: string
+          p_work_order_id?: string
+        }
+        Returns: Json
       }
       set_member_capability: {
         Args: {
