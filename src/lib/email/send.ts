@@ -34,7 +34,13 @@ import "server-only";
 // BOUNDED. A send is awaited inside a server action; an unbounded one would hang
 // the request exactly as the auth refresh did (bounded-fetch.ts). 10 s.
 
-const RESEND_URL = "https://api.resend.com/emails";
+// RESEND_API_BASE exists for tests only — the same override verify-email-send.mjs
+// takes — so the send path can be exercised against a stub without a real key.
+// It is read per call and never NEXT_PUBLIC_; the env store is already the trust
+// boundary for the key it would be sent with.
+function resendUrl(): string {
+  return `${(process.env.RESEND_API_BASE || "https://api.resend.com").replace(/\/+$/, "")}/emails`;
+}
 const SEND_TIMEOUT_MS = 10_000;
 
 export type SendEmailInput = {
@@ -49,6 +55,8 @@ export type SendEmailInput = {
    * the email IS — e.g. `signed-copy:<signature id>` — never from a timestamp.
    */
   idempotencyKey?: string;
+  /** Resend `attachments`: content is base64. Added 2026-09-14 for the signed copy. */
+  attachments?: { filename: string; content: string }[];
 };
 
 export type SendEmailResult =
@@ -88,7 +96,7 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
 
   let res: Response;
   try {
-    res = await fetch(RESEND_URL, {
+    res = await fetch(resendUrl(), {
       method: "POST",
       headers,
       body: JSON.stringify({
@@ -98,6 +106,7 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
         html: input.html,
         text: input.text,
         ...(input.replyTo ? { reply_to: input.replyTo } : {}),
+        ...(input.attachments?.length ? { attachments: input.attachments } : {}),
       }),
       signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
       cache: "no-store",
