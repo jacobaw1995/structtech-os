@@ -76,13 +76,27 @@ outcome, and a drain would retry `pending` and `unconfirmed` rows.
    that retries after 24 hours can deliver a second copy. The retry window should
    be shorter than that, or the record of a send has to be the outbox row rather
    than Resend's key.
-3. **Remote signing.** Track X stopped at this line (directive 2c). The schema has
-   two token shapes that disagree: `signatures.sign_token` (plaintext, UNIQUE,
-   commented "reserved") and `work_order_agreements.sign_token_hash` (hashed).
-   `sign_estimate()` requires `my_org_ids()` membership, so a customer on their own
-   device can't call it. Whatever S chooses, `sendSignedCopy()` takes a signature
-   id, not a token. It needs one thing from S's model: **an id for the signature it
-   commits**. It also needs an answer to one question: is the remote signer's
-   address the estimate's `email`, or one captured with the token?
+3. **Remote signing.** Track X stopped at this line (directive 2c).
+   *Corrected the same evening.* The first version of this item said the token
+   model was undecided. Track S's spine (`792601b`, migration `20260915004736`)
+   landed while this was being written: hashed per-document links in
+   `estimate_sign_links`, `signatures.sign_token` dropped, and
+   `sign_estimate_by_link(token, …)` as the anon surface. **Read from the migration
+   file only; not checked against the live database.** It leaves two gaps for the
+   signed copy:
+   - `sign_estimate_by_link` returns `{state, business, signed_at}` with **no
+     signature id**, so the send can't be keyed to the signature it's for.
+   - Its caller is `anon`. `sendSignedCopy()` loads the estimate, lines, signature
+     and branding through member-only reads, so it **can't run from that path**.
+
+   What the send path would need from S, in either order: (a) the signature id
+   returned from `sign_estimate_by_link`, or the outbox row above written by the
+   `signatures_after_insert` trigger, which covers both paths in one place; and
+   (b) a way to load the signed document outside a member session.
+   One question is also open: should the copy go to the estimate's `email`, or to
+   an address captured when the link is issued? `estimate_signing_document()`
+   deliberately carries no email.
+   No app code calls the remote surface yet (`git grep` of src on main, excluding
+   generated types, found nothing).
 4. **Invites.** Nothing in the app creates invites (`RoleReference.tsx:13`). No
    invite email was built, because there's no event to send it from.

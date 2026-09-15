@@ -21,12 +21,15 @@ import "server-only";
 // a sender that drains it — schema, so Track S's; proposed, not built here.
 //
 // ── WHAT IS DELIBERATELY NOT HERE ────────────────────────────────────────────
-// Remote signing — a customer signing from a link on their own device — has no
-// path yet: sign_estimate requires my_org_ids() membership, and the token model is
-// undecided in schema (signatures.sign_token is plaintext and UNIQUE;
-// work_order_agreements.sign_token_hash is hashed). This module takes a signature
-// id, not a token, and stops there. Whatever S's model is, the signature it
-// commits is what this sends.
+// Remote signing. Track S's spine (20260915004736, merged 2026-09-14 ~20:55 EDT,
+// after this module was written) records a link signature as the SAME signatures
+// row, via sign_estimate_by_link(token, …) called as anon. This module cannot be
+// called from that path as it stands, and was deliberately not adapted:
+//   · sign_estimate_by_link returns {state, business, signed_at} — no signature id;
+//   · its caller is anon, and every read below (fetch_estimate, signatures,
+//     tenant_modules) needs a member session.
+// Both are S's model to extend (directive 2c: report and stop). What this needs is
+// written in supabase/proposals/20260914_x_w1_14_signed_copy_outbox.md.
 //
 // IDEMPOTENT PER SIGNATURE — FOR 24 HOURS. The Resend Idempotency-Key is
 // `signed-copy:<signature id>`. Per Resend's docs (read 2026-09-14; not measured
