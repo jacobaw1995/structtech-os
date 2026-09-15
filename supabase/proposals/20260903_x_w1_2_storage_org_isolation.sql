@@ -53,6 +53,13 @@ drop policy if exists "anon deal files all" on storage.objects;
 -- ----------------------------------------------------------------------------
 -- SECTION 2 — THE ISOLATION POLICY FOR `org-files`
 -- ----------------------------------------------------------------------------
+-- SUPERSEDED 2026-09-15 by 20260915_x_w1_15_org_files_policies.sql — DO NOT APPLY.
+-- Two defects, both measured on a local fixture: (1) the ::uuid cast raises
+-- "invalid input syntax for type uuid" for every org-files reader once one
+-- malformed name exists, and the "regex guard placed BEFORE the cast
+-- short-circuits" claim below is not a SQL guarantee; (2) a prefix check alone
+-- lets an org read an object under its own prefix that names another org's
+-- work order. Kept as written for the record.
 -- The bucket already exists (Track X created it 2026-09-03; see
 -- SECTION 3 for the literal statement that ran). It is private and carries
 -- ZERO policies, which was asserted rather than assumed: with a real BMR
