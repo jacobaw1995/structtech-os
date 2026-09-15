@@ -4,6 +4,9 @@ import { requireModuleAccess } from "@/lib/workspace/context";
 import { parseEstimateBranding } from "@/lib/estimating/branding";
 import { EstimateDocument } from "@/components/estimating/EstimateDocument";
 import { EstimateOutdoorShell } from "@/components/estimating/EstimateOutdoorShell";
+import { SignatureStatusPanel } from "@/components/signing/SignatureStatusPanel";
+import { signingState } from "@/lib/signing/remote";
+import { emailSetup } from "@/lib/signing/email-setup";
 import type { Database } from "@/lib/supabase/database.types";
 
 type Estimate = Database["public"]["Tables"]["estimates"]["Row"];
@@ -73,6 +76,16 @@ export default async function EstimatePage({
   const catalog = (catalogRows ?? []) as Product[];
   const canViewFinancials = financials === true;
   const signature = (signaturesData?.[0] ?? null) as Signature | null;
+  // U-W1.15 — send for signature, office side. `sendRecords: null` because no
+  // table records a send yet (measured 2026-09-14); the panel says so instead of
+  // rendering "not sent" as if it knew.
+  const signing = signingState({
+    estimateStatus: estimate.status,
+    signedAt: signature?.signed_at ?? estimate.signed_at ?? null,
+    signerName: signature?.signer_name ?? null,
+    sendRecords: null,
+    now: Date.now(),
+  });
   const branding = parseEstimateBranding(
     moduleRow?.[0]?.config ?? null,
     orgRows?.[0]?.name ?? "Estimate"
@@ -83,6 +96,7 @@ export default async function EstimatePage({
       <Link href={`/w/${params.orgId}/estimating`} className="text-sm text-muted">
         ← Estimates
       </Link>
+      <SignatureStatusPanel state={signing} email={emailSetup()} customerEmail={estimate.email} />
       <EstimateOutdoorShell>
         <EstimateDocument
           orgId={params.orgId}

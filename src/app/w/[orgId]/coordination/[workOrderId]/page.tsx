@@ -14,6 +14,8 @@ import { WorkOrderDangerZone } from "@/components/coordination/WorkOrderDangerZo
 import { AddTradeWorkOrderForm } from "@/components/coordination/AddTradeWorkOrderForm";
 import { TakeOffPanel, type TakeOffLine } from "@/components/coordination/TakeOffPanel";
 import { MasterTakeOffCard } from "@/components/coordination/MasterTakeOffCard";
+import { TakeOffReview } from "@/components/takeoff/TakeOffReview";
+import { buildReview, type DecisionRow, type TakeOffLineRow } from "@/lib/takeoff/review";
 import type { Database } from "@/lib/supabase/database.types";
 
 type WorkOrder = Database["public"]["Tables"]["work_orders"]["Row"];
@@ -54,7 +56,7 @@ export default async function WorkOrderPage({
   searchParams,
 }: {
   params: { orgId: string; workOrderId: string };
-  searchParams: { error?: string; notice?: string };
+  searchParams: { error?: string; notice?: string; takeoffError?: string; takeoffNotice?: string; line?: string };
 }) {
   const ctx = await requireModuleAccess(params.orgId, "coordination");
   const supabase = ctx.supabase;
@@ -158,6 +160,50 @@ export default async function WorkOrderPage({
   const purchaseOrders = (poRows ?? []) as PurchaseOrder[];
 
   const tree = (treeData ?? null) as WorkOrderTree | null;
+
+  // U-W1.14 — THE TAKE-OFF REVIEW, on the job (the master). Both decision RPCs
+  // refuse a caller without view_financials AND view_estimates, and
+  // take_off_lines runs as the caller, so the capability is read FIRST and the
+  // view is only queried when both are held. Measured 2026-09-14 in a
+  // rolled-back transaction: a field member reading this view sees the job's
+  // one real taken-off material as `line_not_on_job_estimate`, because it
+  // cannot see the estimate line that proves otherwise. Querying the view for
+  // such a caller would render that as fact. Reported to Track S; not papered
+  // over here.
+  const { data: canViewEstimatesData } =
+    isMasterKind && jobIdForPos
+      ? await supabase.rpc("has_capability", { p_org_id: params.orgId, p_capability: "view_estimates" })
+      : { data: null };
+  const canReviewTakeOff = canViewFinancials === true && canViewEstimatesData === true;
+  let takeOffReview: ReturnType<typeof buildReview> | null = null;
+  let takeOffReadError: string | null = null;
+  if (isMasterKind && jobIdForPos && canReviewTakeOff) {
+    const linesRes = await supabase
+      .from("take_off_lines")
+      .select("*", { count: "exact" })
+      .eq("job_id", jobIdForPos);
+    const rows = (linesRes.data ?? []) as TakeOffLineRow[];
+    const lineIds = rows.map((r) => r.estimate_line_item_id).filter((id): id is string => id !== null);
+    const decisionsRes = lineIds.length
+      ? await supabase
+          .from("take_off_decisions")
+          .select("estimate_line_item_id, source, decided_by, decided_at, item_removed_at, item_removed_by", { count: "exact" })
+          .in("estimate_line_item_id", lineIds)
+      : { data: [] as DecisionRow[], error: null, count: 0 };
+    // A read that came back short is not a read (PostgREST max_rows).
+    if (
+      linesRes.error || linesRes.count !== rows.length ||
+      decisionsRes.error || decisionsRes.count !== (decisionsRes.data ?? []).length
+    ) {
+      takeOffReadError = "The take-off could not be read in full, so it is not shown. Reload to try again.";
+    } else {
+      takeOffReview = buildReview(
+        rows,
+        (decisionsRes.data ?? []) as DecisionRow[],
+        ((treeData as WorkOrderTree | null)?.trades ?? []).map((t) => ({ id: t.id, trade: t.trade, voided_at: t.voided_at }))
+      );
+    }
+  }
   const isMaster = workOrder.kind === "master";
   const trades = tree?.trades ?? [];
   const masterId = tree?.master_id ?? null;
@@ -311,7 +357,7 @@ export default async function WorkOrderPage({
       {/* Master only — trades do not nest, so a trade page offers no way to
           create another trade and shows no trade list. */}
       {isMaster && (
-        <div className="rounded-lg border border-border bg-surface p-3">
+        <div id="add-trade" className="scroll-mt-4 rounded-lg border border-border bg-surface p-3">
           <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
             Trade work orders
           </h2>
@@ -386,6 +432,32 @@ export default async function WorkOrderPage({
           liveTradeCount={liveTrades.length}
         />
       )}
+
+      {isMaster &&
+        jobIdForPos &&
+        (takeOffReview ? (
+          <TakeOffReview
+            orgId={params.orgId}
+            masterWorkOrderId={workOrder.id}
+            review={takeOffReview}
+            trades={trades.map((t) => ({ id: t.id, trade: t.trade, voided_at: t.voided_at }))}
+            memberName={(id) =>
+              id
+                ? members.find((m: { user_id: string; full_name: string | null }) => m.user_id === id)?.full_name ?? null
+                : null
+            }
+            error={searchParams.takeoffError ?? null}
+            unchanged={searchParams.takeoffNotice === "unchanged"}
+            focusLineId={searchParams.line ?? null}
+          />
+        ) : takeOffReadError ? (
+          <p className="rounded-lg border border-warn bg-warn-soft px-4 py-3 text-sm text-text">{takeOffReadError}</p>
+        ) : !canReviewTakeOff ? (
+          // §7.1: restricted, never "none".
+          <p className="rounded-lg border border-border bg-surface px-4 py-3 text-sm text-muted">
+            The take-off review reads this job&rsquo;s estimate lines, which your role cannot see.
+          </p>
+        ) : null)}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <div className="flex flex-col gap-4">

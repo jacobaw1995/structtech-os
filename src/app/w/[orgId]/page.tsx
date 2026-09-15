@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { getWorkspaceContext } from "@/lib/workspace/context";
 import { moduleLabel } from "@/lib/workspace/modules";
+import { loadHome } from "@/lib/home/load";
+import { HiddenSections, HomeSectionCard, HomeSummary } from "@/components/home/HomeSections";
 
 export default async function WorkspaceHomePage({
   params,
@@ -8,6 +10,7 @@ export default async function WorkspaceHomePage({
   params: { orgId: string };
 }) {
   const ctx = await getWorkspaceContext(params.orgId);
+  const home = await loadHome(ctx);
 
   return (
     <div className="flex flex-col gap-6">
@@ -16,9 +19,21 @@ export default async function WorkspaceHomePage({
           {ctx.active.org_name}
         </h1>
         <p className="text-sm text-muted">
-          {ctx.active.tenant_type} workspace · role: {ctx.active.role}
+          {ctx.active.tenant_type} workspace · role: {ctx.active.role} ·{" "}
+          <span className="font-mono tabular-nums">{home.today}</span>
         </p>
       </div>
+
+      {/* U-W1.13 — THE HOME SCREEN. What needs this person today, on the page
+          they land on. Every gate and every count is in lib/home/load.ts; this
+          page only arranges it. The module links stay, below, as navigation. */}
+      <HomeSummary data={home} />
+      <div className="grid gap-3 lg:grid-cols-2">
+        {home.sections.map((s) => (
+          <HomeSectionCard key={s.id} section={s} />
+        ))}
+      </div>
+      <HiddenSections hidden={home.hidden} />
 
       {/* U-W1.10 — measured at 375x812 as a `field` member: this whole screen
           was ONE tile, 46px tall, under §2.4's 56dp floor. A crew member opens

@@ -38,7 +38,8 @@ export function PoLineRow({
   itemQuantity: number | null;
   trade: string | null;
   readyBy: string | null;
-  readyBySource: string;
+  /** material_items.ready_by_source, or null when the item row could not be read. */
+  readyBySource: string | null;
   history: { id: string; promised_date: string | null; recorded_at: string }[];
   timesMoved: number;
   canPurchase: boolean;
@@ -76,9 +77,7 @@ export function PoLineRow({
               <span className="font-medium tabular-nums text-text">
                 {formatDateOnly(readyBy)}
               </span>
-              {readyBySource === "purchase_order"
-                ? " — from the promised dates on this and any other order"
-                : " — set by hand; no live promise is driving it"}
+              {readyBySourceText(readyBySource)}
             </p>
           )}
         </div>
@@ -238,4 +237,71 @@ function recordedOn(iso: string): string {
     month: "short",
     day: "numeric",
   });
+}
+
+/**
+ * WHERE THE READY-BY DATE CAME FROM — one explicit branch per value, and no
+ * `else` that lends a confident label to a value it does not recognise.
+ *
+ * U-W1.12 (2026-09-13). This used to be a two-way ternary: `purchase_order`, and
+ * everything else rendered "set by hand". Migration 20260913012939
+ * (collapsed_state) added a third value, `orphaned`, and it fell into the
+ * "else" — so the one state that means NOBODY SET THIS DATE was labelled as a
+ * person having set it deliberately. A wrong, plausible cause is worse than
+ * none: the reader stops investigating.
+ *
+ * WHAT EACH VALUE MEANS, derived from the writing path rather than the name,
+ * and checked against the LIVE function bodies on 2026-09-13:
+ *
+ *   purchase_order  recompute_material_item_ready_by() found at least one PO
+ *                   line for this item that is on a NON-CANCELLED order and
+ *                   has a non-null promised_date, and set ready_by to the max.
+ *
+ *   orphaned        Written by exactly ONE function (recompute, else-branch),
+ *                   and only when the promise set is EMPTY and the previous
+ *                   value was purchase_order or orphaned. The date is KEPT —
+ *                   nulling it would silently unblock a schedule — so ready_by
+ *                   is the last date some order promised, and no live promise
+ *                   stands behind it. It arises when the order carrying the
+ *                   promise is cancelled, the line is deleted, or a draft order
+ *                   is deleted (the six callers of recompute). A human did not
+ *                   type it, and nothing about it was a decision.
+ *                   It still GATES WORK: add_schedule_block,
+ *                   update_schedule_block and schedule_blocks_ready_by_gate all
+ *                   read material_items.ready_by.
+ *                   It is left only two ways: a live dated promise appears
+ *                   again (-> purchase_order), or someone saves a DIFFERENT date
+ *                   on the material item (-> manual). Resending the same date
+ *                   does not count — the third collapsed_state corrective made
+ *                   update_material_item stamp only on a changed date.
+ *
+ *   manual          A human saved a date that differed from the stored one,
+ *                   and no live promise governs it. This — and only this — is
+ *                   "set by hand".
+ *
+ *   null            The item row was not readable here (RLS, or deleted). The
+ *                   page used to default this to "manual", which invented a
+ *                   person again. It is now said plainly.
+ *
+ *   anything else   A value this code has never seen — a future migration.
+ *                   Shown verbatim rather than mapped to the nearest familiar
+ *                   story.
+ */
+function readyBySourceText(source: string | null): string {
+  switch (source) {
+    case "purchase_order":
+      return " — from the promised dates on this and any other live order";
+    case "orphaned":
+      return (
+        " — the last date an order promised, but that order has since been cancelled or removed." +
+        " Nobody set this date and nothing currently backs it, yet the schedule still uses it." +
+        " Record a new promise on a live order, or set the date on the material item."
+      );
+    case "manual":
+      return " — set by hand on the material item; no live order promise governs it";
+    case null:
+      return " — where this date came from could not be read";
+    default:
+      return ` — source not recognised by this page ("${source}")`;
+  }
 }

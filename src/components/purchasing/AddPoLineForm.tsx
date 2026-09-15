@@ -9,10 +9,10 @@ import { addPurchaseOrderLine } from "@/lib/purchasing/actions";
  * schema exists to support. Items are grouped by trade so the crossing is
  * visible while you pick.
  *
- * QUANTITY IS REQUIRED even though the RPC parameter has a default:
- * `add_purchase_order_line` raises "quantity ordered must be greater than
- * zero" when it arrives null, so an optional-looking field would be a control
- * the backend refuses. A PROMISED DATE IS NOT required — the migration says so
+ * QUANTITY IS REQUIRED AND STARTS EMPTY. Since 20260913012939 the RPC has
+ * no quantity default and refuses null with its own named cause. The form
+ * used to pre-fill 1, which answered for the user and kept that refusal from
+ * ever being seen. A PROMISED DATE IS NOT required — the migration says so
  * explicitly ("SCOPE 2.8: a line with no promised_date saves"), because you
  * order first and learn the date later.
  */
@@ -72,15 +72,22 @@ export function AddPoLineForm({
 
       <label className="flex flex-col gap-1">
         <span className="text-[11px] font-medium uppercase tracking-wide text-muted">
-          Quantity
+          Quantity <span className="text-[var(--warn-strong)]">· required</span>
         </span>
+        {/* U-W1.12 — NO defaultValue. It used to be pre-filled with 1, which
+            made the field `required` in name only: a user who never touched it
+            ordered one of everything, and the RPC's own named refusal ("enter
+            a quantity to order — a supplier cannot be sent an order with no
+            quantity") could never fire, because the box was never empty.
+            Track S removed the RPC's DEFAULT 1 in 20260913012939; the form was
+            still supplying it. */}
         <input
           name="quantity_ordered"
           type="number"
           step="0.001"
           min="0.001"
           inputMode="decimal"
-          defaultValue={1}
+          placeholder="How many?"
           required
           className="min-h-14 w-full rounded-md border border-border bg-bg px-2 text-base tabular-nums text-text outline-none focus:border-accent sm:h-10 sm:w-28 sm:min-h-0 sm:text-sm"
         />

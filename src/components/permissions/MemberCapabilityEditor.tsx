@@ -1,6 +1,5 @@
 import {
   CAPABILITIES,
-  ENFORCEMENT,
   isManagerRole,
   driftFromRoleDefault,
   type RoleMatrix,
@@ -117,6 +116,17 @@ export function MemberCapabilityEditor({
           </p>
         </div>
 
+        {/* 2026-09-14 — one row used to say "not enforced — changing it has no
+            effect", from a hand count of database checks (retired mirror C).
+            The page cannot see those checks, so it no longer predicts the
+            effect of a change. It says what a click DOES, which it can see: the
+            stored value is written, and the chip shows the result. */}
+        <p className="text-xs leading-relaxed text-muted">
+          Grant and Deny change the value stored on {name}&rsquo;s row, and the label
+          beside each capability shows what is stored. This page cannot see what in the
+          product reads that value.
+        </p>
+
         <ul className="flex flex-col">
           {CAPABILITIES.map((cap) => {
             const stored: "granted" | "denied" | "never" = !(cap in perms)
@@ -125,7 +135,6 @@ export function MemberCapabilityEditor({
                 ? "granted"
                 : "denied";
             const roleGets = matrix.allowed(member.role, cap) === true;
-            const inert = ENFORCEMENT[cap].sites === 0;
 
             return (
               <li
@@ -136,11 +145,6 @@ export function MemberCapabilityEditor({
                   <div className="flex flex-wrap items-center gap-2">
                     <code className="text-sm font-medium text-text">{cap}</code>
                     <StateChip state={stored} />
-                    {inert && (
-                      <span className="rounded bg-warn-soft px-1.5 py-0.5 text-[11px] text-[var(--warn-strong)]">
-                        not enforced — changing it has no effect
-                      </span>
-                    )}
                   </div>
                   <p className="mt-0.5 text-xs text-muted">
                     {capitalise(article(member.role))} <code>{member.role}</code> gets

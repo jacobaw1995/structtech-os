@@ -76,6 +76,28 @@ export function LineItemsEditor({
   const [order, setOrder] = useState<string[]>(lineItems.map((li) => li.id));
   const [dragId, setDragId] = useState<string | null>(null);
 
+  // U-W1.12 — THE PRICE IS ASKED, NEVER ANSWERED FOR.
+  // Controller ruling (2026-09-13): $0 remains a legal price and stops being
+  // an ASSUMED one. Before this, "+ Add line item" sent unit_price="0" from
+  // the client and a catalog item with no sell price sent `sell ?? 0` — so a
+  // line saved at $0 without anyone typing $0, and nothing reported it.
+  // Removing add_estimate_line_item's DEFAULT 0 would NOT have caught either:
+  // both paths sent the zero explicitly. The default lived in this file.
+  //
+  // `draft` is the add form. It is correct against the RPC both before and
+  // after Track S's narrowing: a required field in the UI does not depend on
+  // the server refusing an empty one.
+  type Draft = {
+    description: string;
+    unit: string;
+    productId: string | null;
+    unitPrice: string;
+    /** Why the form opened instead of the line simply being added. */
+    reason: string | null;
+  };
+  const [draft, setDraft] = useState<Draft | null>(null);
+  const [draftError, setDraftError] = useState<string | null>(null);
+
   const pickerNeedle = pickerQuery.trim().toLowerCase();
   const pickerResults = pickerNeedle
     ? catalog.filter((p) =>
@@ -125,12 +147,28 @@ export function LineItemsEditor({
   }
 
   function handleAdd() {
+    setPickerOpen(false);
+    setDraftError(null);
+    setDraft({ description: "", unit: "", productId: null, unitPrice: "", reason: null });
+  }
+
+  function submitLine(values: {
+    description: string;
+    unitPrice: number;
+    productId: string | null;
+    unit: string | null;
+  }) {
     const formData = new FormData();
     formData.set("orgId", orgId);
     formData.set("estimateId", estimateId);
-    formData.set("description", "");
+    formData.set("description", values.description);
+    // Quantity is unchanged by this ruling, which names unit_price only. It is
+    // still sent as 1 and still editable on the row — reported as the next
+    // same-class default, not changed here.
     formData.set("quantity", "1");
-    formData.set("unit_price", "0");
+    formData.set("unit_price", String(values.unitPrice));
+    if (values.productId) formData.set("product_id", values.productId);
+    if (values.unit) formData.set("unit", values.unit);
     formData.set("sort_order", String(order.length));
     startTransition(() => {
       addEstimateDocumentLineItem(formData);
@@ -140,20 +178,57 @@ export function LineItemsEditor({
   // A catalog pick sends the product's id ALONGSIDE the values read off it.
   // The values are what the line stores; the id is provenance only. Nothing
   // downstream re-reads a price through it — see addEstimateDocumentLineItem.
+  //
+  // A sell price someone SET on the catalog is a real value, shown next to the
+  // item in the picker, so it is used. A catalog item with NO sell price used
+  // to be added at $0 (`sell ?? 0`). It now opens the add form with the name
+  // and unit filled in and the price empty, and says why.
   function handleAddFromCatalog(product: Product) {
-    const formData = new FormData();
-    formData.set("orgId", orgId);
-    formData.set("estimateId", estimateId);
-    formData.set("description", product.name);
-    formData.set("quantity", "1");
-    formData.set("unit_price", String(product.sell ?? 0));
-    formData.set("product_id", product.id);
-    if (product.unit) formData.set("unit", product.unit);
-    formData.set("sort_order", String(order.length));
     setPickerOpen(false);
-    startTransition(() => {
-      addEstimateDocumentLineItem(formData);
+    const sell = product.sell === null || product.sell === undefined ? null : Number(product.sell);
+    if (sell !== null && Number.isFinite(sell)) {
+      submitLine({ description: product.name, unitPrice: sell, productId: product.id, unit: product.unit });
+      return;
+    }
+    setDraftError(null);
+    setDraft({
+      description: product.name,
+      unit: product.unit ?? "",
+      productId: product.id,
+      unitPrice: "",
+      reason: canViewFinancials
+        ? "This catalog item has no sell price set, so enter the price for this line."
+        : "Prices are not visible to your role, so this catalog item cannot fill one in. Enter the price for this line.",
     });
+  }
+
+  function submitDraft(e: React.FormEvent) {
+    e.preventDefault();
+    if (!draft) return;
+    const raw = draft.unitPrice.trim();
+    // NAMED CAUSES, one per failure. Never "something went wrong", and never a
+    // message that guesses: an empty field is reported as empty, not as zero.
+    if (raw === "") {
+      setDraftError("enter a unit price for this line — 0 is allowed for a free line, but it has to be entered");
+      return;
+    }
+    const n = Number(raw);
+    if (!Number.isFinite(n)) {
+      setDraftError(`“${raw}” isn’t a price. Enter a number, such as 19.20.`);
+      return;
+    }
+    if (n < 0) {
+      setDraftError("A unit price can’t be negative.");
+      return;
+    }
+    submitLine({
+      description: draft.description,
+      unitPrice: n,
+      productId: draft.productId,
+      unit: draft.unit.trim() || null,
+    });
+    setDraft(null);
+    setDraftError(null);
   }
 
   function handleDelete(id: string) {
@@ -433,6 +508,80 @@ export function LineItemsEditor({
               </button>
             )}
           </div>
+
+          {draft && (
+            <form
+              onSubmit={submitDraft}
+              noValidate
+              className="flex flex-col gap-3 rounded-lg border border-accent bg-surface p-3"
+            >
+              <p className="text-sm font-semibold text-text">New line</p>
+              {draft.reason && <p className="text-xs leading-relaxed text-muted">{draft.reason}</p>}
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                <label className="flex min-w-0 flex-1 flex-col gap-1">
+                  <span className="text-[11px] font-medium uppercase tracking-wide text-muted">
+                    Description
+                  </span>
+                  <input
+                    value={draft.description}
+                    onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+                    placeholder="What is this line?"
+                    className="min-h-14 w-full rounded-md border border-border bg-bg px-2 text-base text-text outline-none focus:border-accent sm:h-10 sm:min-h-0 sm:text-sm"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] font-medium uppercase tracking-wide text-muted">
+                    Unit price <span className="text-[var(--warn-strong)]">· required</span>
+                  </span>
+                  {/* No defaultValue, on purpose. An empty box that must be
+                      filled is how a user is ASKED; a box pre-filled with 0 is
+                      how they are answered for. Money in the sans face with
+                      tabular-nums (decision 1.1). */}
+                  <input
+                    value={draft.unitPrice}
+                    onChange={(e) => {
+                      setDraft({ ...draft, unitPrice: e.target.value });
+                      if (draftError) setDraftError(null);
+                    }}
+                    type="number"
+                    inputMode="decimal"
+                    step="0.01"
+                    min="0"
+                    required
+                    autoFocus
+                    aria-invalid={draftError ? true : undefined}
+                    aria-describedby={draftError ? "draft-price-error" : undefined}
+                    placeholder="e.g. 19.20"
+                    className="min-h-14 w-full rounded-md border border-border bg-bg px-2 text-base tabular-nums text-text outline-none focus:border-accent sm:h-10 sm:w-32 sm:min-h-0 sm:text-sm"
+                  />
+                </label>
+              </div>
+              {draftError && (
+                <p id="draft-price-error" role="alert" className="text-sm text-[var(--warn-strong)]">
+                  {draftError}
+                </p>
+              )}
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="submit"
+                  disabled={isPending}
+                  className="min-h-14 rounded-md bg-accent-strong px-4 text-sm font-medium text-white disabled:opacity-60 sm:h-10 sm:min-h-0"
+                >
+                  Add line
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDraft(null);
+                    setDraftError(null);
+                  }}
+                  className="min-h-14 rounded-md border border-border px-4 text-sm text-text sm:h-10 sm:min-h-0"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          )}
 
           {pickerOpen && (
             <div className="rounded-lg border border-border bg-surface">

@@ -311,7 +311,11 @@ export default async function PurchaseOrderPage({
                   itemQuantity={item?.quantity ?? null}
                   trade={tradeOf.get(item?.work_order_id ?? "") ?? null}
                   readyBy={item?.ready_by ?? null}
-                  readyBySource={item?.ready_by_source ?? "manual"}
+                  // null, NOT "manual", when the item row is missing. Defaulting
+                  // to "manual" rendered "set by hand" for an item this page
+                  // could not even read — inventing a person, the same defect
+                  // as the orphaned state falling into the "else".
+                  readyBySource={item?.ready_by_source ?? null}
                   history={history.map((h) => ({
                     id: h.id,
                     promised_date: h.promised_date,

@@ -8,7 +8,6 @@ import {
   buildGrid,
   isManagerRole,
   CAPABILITIES,
-  ENFORCEMENT,
   driftFromRoleDefault,
   grantedCountForRole,
   fetchRoleMatrix,
@@ -96,7 +95,6 @@ export default async function PermissionsPage({
         .filter(({ m, drift }) => !isManagerRole(m.role) && drift.missing.length > 0)
     : [];
 
-  const inert = CAPABILITIES.filter((c) => ENFORCEMENT[c].sites === 0);
   const capDrift = matrix ? capabilityDrift(matrix) : null;
 
   return (
@@ -111,7 +109,7 @@ export default async function PermissionsPage({
       <div>
         <h1 className="text-2xl font-semibold text-text">Roles &amp; permissions</h1>
         <p className="text-sm text-muted">
-          {ctx.active.org_name} · what each role can do, and what actually enforces it
+          {ctx.active.org_name} · what each role is granted, and what each member holds
         </p>
       </div>
 
@@ -147,7 +145,7 @@ export default async function PermissionsPage({
                 <p className="mt-1 text-xs leading-relaxed text-text">
                   {capDrift.inDatabaseNotInCensus.length > 0 && (
                     <>
-                      In the database but not in this page&rsquo;s enforcement census:{" "}
+                      In the database but not in this page&rsquo;s capability list:{" "}
                       <code>{capDrift.inDatabaseNotInCensus.join(", ")}</code>.{" "}
                     </>
                   )}
@@ -157,7 +155,8 @@ export default async function PermissionsPage({
                       <code>{capDrift.inCensusNotInDatabase.join(", ")}</code>.{" "}
                     </>
                   )}
-                  Re-derive mirror C before trusting the enforcement counts.
+                  The grid and the editors below are drawn from this page&rsquo;s list, so
+                  they are missing or showing keys the database does not.
                 </p>
               </section>
             )}
@@ -200,26 +199,13 @@ export default async function PermissionsPage({
             </section>
           )}
 
-          {inert.length > 0 && (
-            <section className="rounded-lg border border-border bg-surface px-4 py-3">
-              <h2 className="text-sm font-semibold text-text">
-                {inert.length} of {CAPABILITIES.length} capabilities are not enforced by anything
-              </h2>
-              <p className="mt-1 text-sm leading-relaxed text-text">
-                {inert.map((c, i) => (
-                  <span key={c}>
-                    {i > 0 && ", "}
-                    <code>{c}</code>
-                  </span>
-                ))}{" "}
-                are derived onto every member row and
-                then read by no RPC, no policy and no page. Turning one on or off would change
-                nothing anyone can observe. They are shown on the grid so that the list of
-                capabilities matches the database rather than a tidier version of it.
-              </p>
-            </section>
-          )}
-
+          {/* 2026-09-14 — here stood "N of 10 capabilities are not enforced by
+              anything … Turning one on or off would change nothing anyone can
+              observe." Every clause was a hand count of database checks (retired
+              mirror C) that this page cannot verify. Ruling: the surface stops
+              asserting enforcement it cannot verify at runtime. Nothing replaces
+              the section; the one sentence that is always true sits above the
+              grid, where the capabilities are. */}
           {matrix && (
             <>
               <CapabilityGrid cells={buildGrid(matrix, members).cells} roles={matrix.roles} />
@@ -315,10 +301,9 @@ export default async function PermissionsPage({
 
           <p className="text-xs leading-relaxed text-muted">
             The role list and every role&rsquo;s defaults on this page are read live from{" "}
-            <code>role_capability_matrix()</code>. The manager short-circuit and the
-            enforcement counts are still copies of the live schema — the matrix does not
-            contain either — and the queries that re-derive them are in the registry
-            above.
+            <code>role_capability_matrix()</code>. The manager short-circuit is still a
+            copy of the live schema — the matrix does not contain it — and the query
+            that re-derives it is in the registry above.
           </p>
         </>
       )}
