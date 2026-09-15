@@ -16,6 +16,8 @@ import { TakeOffPanel, type TakeOffLine } from "@/components/coordination/TakeOf
 import { MasterTakeOffCard } from "@/components/coordination/MasterTakeOffCard";
 import { TakeOffReview } from "@/components/takeoff/TakeOffReview";
 import { buildReview, type DecisionRow, type TakeOffLineRow } from "@/lib/takeoff/review";
+import { WorkOrderFiles } from "@/components/files/WorkOrderFiles";
+import { isFilesState } from "@/lib/storage/work-order-files-states";
 import type { Database } from "@/lib/supabase/database.types";
 
 type WorkOrder = Database["public"]["Tables"]["work_orders"]["Row"];
@@ -56,7 +58,7 @@ export default async function WorkOrderPage({
   searchParams,
 }: {
   params: { orgId: string; workOrderId: string };
-  searchParams: { error?: string; notice?: string; takeoffError?: string; takeoffNotice?: string; line?: string };
+  searchParams: { error?: string; notice?: string; takeoffError?: string; takeoffNotice?: string; line?: string; files?: string };
 }) {
   const ctx = await requireModuleAccess(params.orgId, "coordination");
   const supabase = ctx.supabase;
@@ -565,6 +567,15 @@ export default async function WorkOrderPage({
         </div>
         )}
       </div>
+
+      {/* X-W1.15 (A4.7) — office-side roof data and photos. The controls follow
+          can_view_master_work_order, the capability the storage policy checks. */}
+      <WorkOrderFiles
+        orgId={params.orgId}
+        workOrderId={workOrder.id}
+        canManage={(await supabase.rpc("can_view_master_work_order", { p_org_id: params.orgId })).data === true}
+        state={isFilesState(searchParams.files) ? searchParams.files : null}
+      />
 
       <WorkOrderDangerZone
         orgId={params.orgId}

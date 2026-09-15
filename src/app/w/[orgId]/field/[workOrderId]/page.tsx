@@ -4,6 +4,7 @@ import { FieldShell } from "@/components/field/FieldShell";
 import { CheckInRow } from "@/components/field/CheckInRow";
 import { AddCheckInForm } from "@/components/field/AddCheckInForm";
 import { ProductionPacketView } from "@/components/field/ProductionPacketView";
+import { WorkOrderFiles } from "@/components/files/WorkOrderFiles";
 import type { Database } from "@/lib/supabase/database.types";
 
 type WorkOrder = Database["public"]["Tables"]["work_orders"]["Row"];
@@ -146,6 +147,11 @@ export default async function FieldJobPage({
             />
           ))}
         </div>
+      )}
+
+      {/* X-W1.15 (A4.7) — roof data and photos from the office, view only. */}
+      {tab === "packet" && (
+        <WorkOrderFiles orgId={params.orgId} workOrderId={workOrder.id} canManage={false} state={null} outdoor />
       )}
 
       {tab === "packet" && packet && (

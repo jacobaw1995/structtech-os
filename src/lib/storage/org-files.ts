@@ -32,7 +32,16 @@ import {
 
 export type StorageResult<T> =
   | { ok: true; data: T }
-  | { ok: false; error: string };
+  | { ok: false; error: string; refused?: boolean };
+
+// A row-level-security refusal, told apart from every other failure (2026-09-15).
+// Measured on the fixture and on live 2026-09-03: storage answers an INSERT the
+// policy refuses with "new row violates row-level security policy". A caller
+// needs the difference — "you may not" and "storage did not answer" want
+// different sentences.
+function isRlsRefusal(message: string | undefined): boolean {
+  return typeof message === "string" && /row-level security/i.test(message);
+}
 
 const DEFAULT_SIGNED_URL_TTL_SECONDS = 60 * 60; // one hour
 
@@ -87,8 +96,47 @@ export async function uploadOrgFile(args: {
       contentType: args.contentType,
     });
 
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: error.message, refused: isRlsRefusal(error.message) };
   return { ok: true, data: { path } };
+}
+
+/**
+ * A signed UPLOAD url (X-W1.15, 2026-09-15). The browser PUTs the file straight
+ * to storage with it, because the file cannot travel through a server action or
+ * route handler: Vercel caps a function request body at 4.5 MB and a roof photo
+ * or plan routinely exceeds that.
+ *
+ * Storage decides whether to issue the url with the CALLER's JWT, so the
+ * storage.objects INSERT policy is what refuses a crew member — not this file.
+ * The token binds the exact path, so the browser cannot choose a different one.
+ * Both claims come from storage-api's documented behaviour and are UNVERIFIED on
+ * this project until the policies exist: they are the first two checks in the
+ * post-apply proof (supabase/proposals/20260915_x_w1_15_org_files_policies.md).
+ */
+export async function createOrgFileUploadUrl(args: {
+  orgId: string;
+  category: FileCategory;
+  entityId: string;
+  filename: string;
+}): Promise<StorageResult<{ path: string; signedUrl: string }>> {
+  const { supabase, session } = await authed();
+  if (!session) return { ok: false, error: "not signed in" };
+
+  let path: string;
+  try {
+    path = buildOrgFilePath(args);
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+
+  const { data, error } = await supabase.storage
+    .from(ORG_FILES_BUCKET)
+    .createSignedUploadUrl(path);
+
+  if (error || !data) {
+    return { ok: false, error: error?.message ?? "no upload url returned", refused: isRlsRefusal(error?.message) };
+  }
+  return { ok: true, data: { path, signedUrl: data.signedUrl } };
 }
 
 /**
@@ -164,11 +212,19 @@ export async function deleteOrgFile(args: {
     return { ok: false, error: "path does not belong to this org" };
   }
 
-  const { error } = await supabase.storage
+  const { data, error } = await supabase.storage
     .from(ORG_FILES_BUCKET)
     .remove([args.path]);
 
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: error.message, refused: isRlsRefusal(error.message) };
+  // A DELETE the policy refuses removes nothing and raises nothing: RLS hides the
+  // row (the fixture's T7 and T9). Success is "the object came back as removed",
+  // never "no error".
+  // Counted, not matched by name: storage's delete response carries object rows
+  // whose `name` shape was not verified here, and one path was asked for.
+  if (!data || data.length === 0) {
+    return { ok: false, error: "nothing was removed", refused: true };
+  }
   return { ok: true, data: { path: args.path } };
 }
 
