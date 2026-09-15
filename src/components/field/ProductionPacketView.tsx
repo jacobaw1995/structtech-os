@@ -5,6 +5,7 @@ import {
 import { AddCalloutForm } from "@/components/field/AddCalloutForm";
 import { CalloutRow } from "@/components/field/CalloutRow";
 import { parseCallouts } from "@/lib/field/callouts";
+import { TwoTapDelete } from "@/components/field/TwoTapDelete";
 import type { Database } from "@/lib/supabase/database.types";
 
 type ProductionPacket = Database["public"]["Tables"]["production_packets"]["Row"];
@@ -42,23 +43,23 @@ export function ProductionPacketView({
           {jobTitle} — production packet
         </p>
         {siteAddress && (
-          <p className="text-sm text-muted group-data-[outdoor=true]/field:text-white/60">
+          <p className="text-sm text-muted group-data-[outdoor=true]/field:text-white/80">
             {siteAddress}
           </p>
         )}
         {squares != null && (
-          <p className="font-mono text-xs text-muted group-data-[outdoor=true]/field:text-white/60">
+          <p className="font-mono text-sm text-muted group-data-[outdoor=true]/field:text-white/80">
             {squares} sq{pitch ? ` · ${pitch} pitch` : ""}
           </p>
         )}
       </div>
 
       <div>
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted group-data-[outdoor=true]/field:text-white/60">
+        <p className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted group-data-[outdoor=true]/field:text-white/80">
           Photos
         </p>
         {photos.length === 0 ? (
-          <p className="text-sm text-muted group-data-[outdoor=true]/field:text-white/60">
+          <p className="text-sm text-muted group-data-[outdoor=true]/field:text-white/80">
             No check-in photos yet.
           </p>
         ) : (
@@ -83,7 +84,7 @@ export function ProductionPacketView({
         <input type="hidden" name="orgId" value={orgId} />
         <input type="hidden" name="workOrderId" value={workOrderId} />
         <input type="hidden" name="productionPacketId" value={packet.id} />
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted group-data-[outdoor=true]/field:text-white/60">
+        <p className="text-sm font-semibold uppercase tracking-wide text-muted group-data-[outdoor=true]/field:text-white/80">
           Notes
         </p>
         <textarea
@@ -95,18 +96,18 @@ export function ProductionPacketView({
         />
         <button
           type="submit"
-          className="flex min-h-12 items-center justify-center rounded-lg bg-accent-strong text-sm font-medium text-white"
+          className="flex min-h-14 items-center justify-center rounded-lg bg-accent-strong text-base font-medium text-white"
         >
           Save notes
         </button>
       </form>
 
       <div>
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted group-data-[outdoor=true]/field:text-white/60">
+        <p className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted group-data-[outdoor=true]/field:text-white/80">
           Custom detail callouts
         </p>
         {callouts.length === 0 && (
-          <p className="mb-2 text-sm text-muted group-data-[outdoor=true]/field:text-white/60">
+          <p className="mb-2 text-sm text-muted group-data-[outdoor=true]/field:text-white/80">
             No callouts yet.
           </p>
         )}
@@ -121,22 +122,22 @@ export function ProductionPacketView({
           />
         ))}
         <AddCalloutForm orgId={orgId} workOrderId={workOrderId} productionPacketId={packet.id} />
-        <p className="mt-2 font-mono text-xs text-muted group-data-[outdoor=true]/field:text-white/50">
-          Trim map / boot-vent placement layer — deferred (BACKLOG.md).
+        {/* Was "— deferred (BACKLOG.md)": a build note, in 12px at 5.3:1 in
+            outdoor mode, on a crew screen. Said plainly instead. */}
+        <p className="mt-2 text-sm text-muted group-data-[outdoor=true]/field:text-white/80">
+          This packet has no trim map or boot-vent layer yet.
         </p>
       </div>
 
-      <form action={deleteProductionPacket}>
-        <input type="hidden" name="orgId" value={orgId} />
-        <input type="hidden" name="workOrderId" value={workOrderId} />
-        <input type="hidden" name="productionPacketId" value={packet.id} />
-        <button
-          type="submit"
-          className="flex min-h-12 items-center justify-center rounded-lg border border-warn text-sm font-medium text-warn"
-        >
-          Reset packet
-        </button>
-      </form>
+      {/* U-W1.16 — Reset deletes the packet's notes and every callout. It was a
+          48px button that did that on ONE tap, in text-warn at 4.1:1 on black. */}
+      <TwoTapDelete
+        action={deleteProductionPacket}
+        fields={{ orgId, workOrderId, productionPacketId: packet.id }}
+        label="Reset packet"
+        question="Reset this packet? Its notes and every callout are deleted."
+        confirmLabel="Reset"
+      />
     </div>
   );
 }

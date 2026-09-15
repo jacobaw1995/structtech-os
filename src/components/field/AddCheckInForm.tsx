@@ -33,7 +33,7 @@ export function AddCheckInForm({
       </p>
 
       <label className="flex flex-col gap-1">
-        <span className="text-xs font-medium text-muted group-data-[outdoor=true]/field:text-white/70">Crew</span>
+        <span className="text-sm font-medium text-muted group-data-[outdoor=true]/field:text-white/80">Crew</span>
         <input
           name="crew_name"
           required
@@ -44,19 +44,23 @@ export function AddCheckInForm({
       </label>
 
       <label className="flex flex-col gap-1">
-        <span className="text-xs font-medium text-muted group-data-[outdoor=true]/field:text-white/70">Hours today</span>
+        <span className="text-sm font-medium text-muted group-data-[outdoor=true]/field:text-white/80">Hours today</span>
         <input
           name="hours"
           type="number"
           inputMode="decimal"
           step="any"
-          defaultValue={0}
+          // U-W1.16 — no prefilled 0. Replacing a prefilled number takes a
+          // precise select-and-delete before typing, which is two-handed with
+          // gloves. Blank still saves 0: create_check_in coalesces a null to 0
+          // (reported to Track S as an assumed value).
+          placeholder="e.g. 8"
           className="min-h-14 rounded-lg border border-border bg-bg px-3 text-base text-text outline-none focus:border-accent group-data-[outdoor=true]/field:border-white/40 group-data-[outdoor=true]/field:bg-black group-data-[outdoor=true]/field:text-white"
         />
       </label>
 
       <label className="flex flex-col gap-1">
-        <span className="text-xs font-medium text-muted group-data-[outdoor=true]/field:text-white/70">Materials used</span>
+        <span className="text-sm font-medium text-muted group-data-[outdoor=true]/field:text-white/80">Materials used</span>
         <input
           name="materials_used"
           placeholder="e.g. 18 panels, 2 boxes screws"
@@ -65,7 +69,7 @@ export function AddCheckInForm({
       </label>
 
       <label className="flex flex-col gap-1">
-        <span className="text-xs font-medium text-muted group-data-[outdoor=true]/field:text-white/70">Blockers?</span>
+        <span className="text-sm font-medium text-muted group-data-[outdoor=true]/field:text-white/80">Blockers?</span>
         <input
           name="blockers"
           placeholder="None"

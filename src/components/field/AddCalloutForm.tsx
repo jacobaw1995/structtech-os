@@ -21,16 +21,16 @@ export function AddCalloutForm({
         name="label"
         required
         placeholder="Add detail callout…"
-        className="min-h-12 rounded-lg border border-border bg-bg px-3 text-sm text-text outline-none focus:border-accent group-data-[outdoor=true]/field:border-white/40 group-data-[outdoor=true]/field:bg-black group-data-[outdoor=true]/field:text-white"
+        className="min-h-14 rounded-lg border border-border bg-bg px-3 text-base text-text outline-none focus:border-accent group-data-[outdoor=true]/field:border-white/40 group-data-[outdoor=true]/field:bg-black group-data-[outdoor=true]/field:text-white"
       />
       <input
         name="detail"
         placeholder="Detail (optional)"
-        className="min-h-12 rounded-lg border border-border bg-bg px-3 text-sm text-text outline-none focus:border-accent group-data-[outdoor=true]/field:border-white/40 group-data-[outdoor=true]/field:bg-black group-data-[outdoor=true]/field:text-white"
+        className="min-h-14 rounded-lg border border-border bg-bg px-3 text-base text-text outline-none focus:border-accent group-data-[outdoor=true]/field:border-white/40 group-data-[outdoor=true]/field:bg-black group-data-[outdoor=true]/field:text-white"
       />
       <button
         type="submit"
-        className="flex min-h-12 items-center justify-center rounded-lg bg-accent-strong text-sm font-medium text-white"
+        className="flex min-h-14 items-center justify-center rounded-lg bg-accent-strong text-base font-medium text-white"
       >
         + Add callout
       </button>
