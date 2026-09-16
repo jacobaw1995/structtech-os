@@ -97,3 +97,39 @@ export async function setTakeOffDecision(formData: FormData) {
   }
   redirect(`${back}?line=${encodeURIComponent(lineId)}${anchor}`);
 }
+
+// THE ONE CREATE PATH (Track S, 20260915005153): materialize_take_off(job)
+// creates a material item for every line decided material on a live trade
+// that has none yet, and nothing else — it never updates, never re-creates a
+// deleted one. Its refusals (not accessible, no view_financials, no
+// view_estimates, estimate not signed) are shown verbatim.
+//
+// It is offered only when the review counts at least one such line and the
+// estimate is signed, so the button is never a control that does nothing or
+// one the RPC will refuse.
+export async function materializeTakeOff(formData: FormData) {
+  const orgId = formData.get("orgId");
+  const masterWorkOrderId = formData.get("masterWorkOrderId");
+  const jobId = formData.get("jobId");
+  if (typeof orgId !== "string" || typeof masterWorkOrderId !== "string" || typeof jobId !== "string") {
+    throw new Error("materializeTakeOff: malformed form");
+  }
+  const back = `/w/${orgId}/coordination/${masterWorkOrderId}`;
+
+  const supabase = createClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) redirect("/login");
+
+  const { data, error } = await supabase.rpc("materialize_take_off", { p_job_id: jobId });
+  revalidatePath(back);
+  if (error) {
+    redirect(`${back}?takeoffRunError=${encodeURIComponent(error.message)}#takeoff`);
+  }
+  // The count the function reports, not a count this page predicted.
+  const created = typeof (data as { created?: unknown } | null)?.created === "number"
+    ? (data as { created: number }).created
+    : null;
+  redirect(`${back}?takeoffCreated=${created === null ? "unknown" : created}#takeoff`);
+}

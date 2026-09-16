@@ -6,6 +6,7 @@ import {
   deleteProductionPacketCallout,
 } from "@/lib/field/actions";
 import type { Callout } from "@/lib/field/callouts";
+import { TwoTapDelete } from "@/components/field/TwoTapDelete";
 
 // Same auto-submit-on-blur pattern as coordination's MaterialItemRow.
 // Wireframe 3a shows callouts as a numbered read display ("① Skylight
@@ -33,14 +34,17 @@ export function CalloutRow({
   }
 
   return (
-    <div className="flex items-start gap-2 py-1">
-      <span className="mt-3 text-sm text-muted group-data-[outdoor=true]/field:text-white/60">
+    // U-W1.16 — stacked, not side by side: at 375px the ✕ was 44x44 beside the
+    // inputs and deleted on one tap. Now the inputs are 56dp and full width,
+    // and deleting asks first.
+    <div className="flex flex-col gap-2 border-b border-border py-2 last:border-0 group-data-[outdoor=true]/field:border-white/30">
+      <span className="text-sm font-medium text-muted group-data-[outdoor=true]/field:text-white/80">
         {index + 1}.
       </span>
       <form
         ref={formRef}
         action={updateProductionPacketCallout}
-        className="flex flex-1 flex-col gap-2"
+        className="flex flex-col gap-2"
       >
         <input type="hidden" name="orgId" value={orgId} />
         <input type="hidden" name="workOrderId" value={workOrderId} />
@@ -52,7 +56,7 @@ export function CalloutRow({
           disabled={isPending}
           onBlur={submit}
           placeholder="Skylight flash — copper"
-          className="min-h-12 rounded-lg border border-border bg-bg px-3 text-sm text-text outline-none focus:border-accent disabled:opacity-60 group-data-[outdoor=true]/field:border-white/40 group-data-[outdoor=true]/field:bg-black group-data-[outdoor=true]/field:text-white"
+          className="min-h-14 rounded-lg border border-border bg-bg px-3 text-base text-text outline-none focus:border-accent disabled:opacity-60 group-data-[outdoor=true]/field:border-white/40 group-data-[outdoor=true]/field:bg-black group-data-[outdoor=true]/field:text-white"
         />
         <input
           name="detail"
@@ -60,22 +64,17 @@ export function CalloutRow({
           disabled={isPending}
           onBlur={submit}
           placeholder="Detail (optional)"
-          className="min-h-12 rounded-lg border border-border bg-bg px-3 text-sm text-text outline-none focus:border-accent disabled:opacity-60 group-data-[outdoor=true]/field:border-white/40 group-data-[outdoor=true]/field:bg-black group-data-[outdoor=true]/field:text-white"
+          className="min-h-14 rounded-lg border border-border bg-bg px-3 text-base text-text outline-none focus:border-accent disabled:opacity-60 group-data-[outdoor=true]/field:border-white/40 group-data-[outdoor=true]/field:bg-black group-data-[outdoor=true]/field:text-white"
         />
       </form>
-      <form action={deleteProductionPacketCallout}>
-        <input type="hidden" name="orgId" value={orgId} />
-        <input type="hidden" name="workOrderId" value={workOrderId} />
-        <input type="hidden" name="productionPacketId" value={productionPacketId} />
-        <input type="hidden" name="calloutId" value={callout.id} />
-        <button
-          type="submit"
-          aria-label="Remove callout"
-          className="flex min-h-11 min-w-11 items-center justify-center text-muted hover:text-warn"
-        >
-          ✕
-        </button>
-      </form>
+      <TwoTapDelete
+        action={deleteProductionPacketCallout}
+        fields={{ orgId, workOrderId, productionPacketId, calloutId: callout.id }}
+        label="Remove"
+        ariaLabel={`Remove callout ${index + 1}`}
+        question={`Remove callout ${index + 1}${callout.label ? `, "${callout.label}"` : ""}?`}
+        confirmLabel="Remove"
+      />
     </div>
   );
 }
