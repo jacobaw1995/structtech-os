@@ -155,6 +155,7 @@ export async function sendSignedCopy(
       html: lines.map((l) => `<p>${escapeHtml(l)}</p>`).join(""),
       replyTo: branding.email && EMAIL_RE.test(branding.email) ? branding.email : undefined,
       idempotencyKey: `signed-copy:${signature.id}`,
+      purpose: "signed_copy",
       attachments: [{ filename: safeNumber ? `signed-estimate-${safeNumber}.pdf` : "signed-estimate.pdf", content: pdf }],
     });
 
