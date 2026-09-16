@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { parseLeadControlCenterConfig } from "@/lib/crm/command-center";
 import { parseScopeLineItemsConfig, generateScopeLineItems } from "@/lib/estimating/scope-line-items";
 import { sendSignedCopy, type SignedCopyState } from "@/lib/estimating/signed-copy";
+import { classifySignError, type SignFailure } from "@/lib/estimating/sign-states";
 
 // Same conventions as src/lib/crm/actions.ts: server actions redirect(),
 // never return data (CLAUDE.md rule 6); every mutation goes through a
@@ -59,8 +60,10 @@ export async function createEstimateFromDeal(formData: FormData) {
 // unchanged, still callable from 'draft' or 'presented' per the Chunk 1
 // decision) AND navigate straight into Present Mode, since handing the
 // tablet to the customer is the entire point of clicking it.
-function estimatePresentHref(orgId: string, estimateId: string, error?: string) {
-  const qs = error ? `?error=${encodeURIComponent(error)}` : "";
+// X-W1.16: the present page is customer-facing, so its failure parameter is a
+// CODE (sign-states.ts), never the database's message.
+function estimatePresentHref(orgId: string, estimateId: string, failure?: SignFailure) {
+  const qs = failure ? `?signError=${failure}` : "";
   return `/w/${orgId}/estimating/${estimateId}/present${qs}`;
 }
 
@@ -104,7 +107,7 @@ export async function signEstimate(formData: FormData) {
   });
 
   if (error) {
-    redirect(estimatePresentHref(orgId, estimateId, error.message));
+    redirect(estimatePresentHref(orgId, estimateId, classifySignError(error)));
   }
 
   revalidatePath(`/w/${orgId}/estimating/${estimateId}/present`);
