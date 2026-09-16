@@ -20,7 +20,12 @@
 //
 // WHAT THIS CANNOT PROVE, stated so nobody reads ARMED as more than it is: that the
 // receiving service will ALERT when pings stop. That needs the service's own
-// account. The proof is to pause the check there and watch for the email.
+// account. The proof — after a real ping has landed — is to set Period and Grace to
+// the smallest values the form allows, wait for the alert email, then restore
+// Period 1 hour / Grace 7 hours (README-deadman.md). NOT Pause: Healthchecks
+// documents pausing as the way to AVOID alerts. (Corrected 2026-09-16; this line
+// still said "pause" after the README was fixed on 2026-09-14, and the instruction
+// resurfaced in a report.)
 //
 // exit 0  ARMED        — a scheduled run delivered a ping and the URL answered 2xx
 // exit 1  NOT ARMED    — the step ran and reported the secret absent, or curl was refused
@@ -113,7 +118,7 @@ for (const run of runs) {
     done(1, 'NOT ARMED', `run ${run.id}: the ping step ran and reported DEADMAN_PING_URL is not set.`);
   }
   if (step.conclusion === 'success' && delivered) {
-    done(0, 'ARMED', `run ${run.id} (${run.created_at}) delivered a ping and the receiving URL answered 2xx. This proves delivery, not alerting — pause the check on the service and confirm the email once.`);
+    done(0, 'ARMED', `run ${run.id} (${run.created_at}) delivered a ping and the receiving URL answered 2xx. This proves DELIVERY, not ALERTING. To prove alerting: set Period and Grace to the smallest values the form allows, wait for the alert email, then restore Period 1 hour / Grace 7 hours. Do not use Pause — it suppresses alerts.`);
   }
   done(2, 'UNDETERMINED', `run ${run.id}: the ping step reported ${step.conclusion} with neither a delivery line nor the not-set notice in its output. The step or its log has changed shape; do not trust either verdict until this script is updated.`);
 }
