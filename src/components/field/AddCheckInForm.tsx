@@ -52,8 +52,8 @@ export function AddCheckInForm({
           step="any"
           // U-W1.16 — no prefilled 0. Replacing a prefilled number takes a
           // precise select-and-delete before typing, which is two-handed with
-          // gloves. Blank still saves 0: create_check_in coalesces a null to 0
-          // (reported to Track S as an assumed value).
+          // gloves. Blank saves "hours not recorded" (NULL), not 0 — Track S,
+          // 20260916214356_check_ins_delete_date_hours.
           placeholder="e.g. 8"
           className="min-h-14 rounded-lg border border-border bg-bg px-3 text-base text-text outline-none focus:border-accent group-data-[outdoor=true]/field:border-white/40 group-data-[outdoor=true]/field:bg-black group-data-[outdoor=true]/field:text-white"
         />

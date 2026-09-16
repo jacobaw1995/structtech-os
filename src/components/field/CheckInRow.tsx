@@ -99,7 +99,7 @@ export function CheckInRow({
             type="number"
             inputMode="decimal"
             step="any"
-            defaultValue={checkIn.hours}
+            defaultValue={checkIn.hours ?? ""}
             disabled={isPending}
             onBlur={submit}
             className="min-h-14 rounded-lg border border-border bg-bg px-3 text-base text-text outline-none focus:border-accent disabled:opacity-60 group-data-[outdoor=true]/field:border-white/40 group-data-[outdoor=true]/field:bg-black group-data-[outdoor=true]/field:text-white"
