@@ -259,6 +259,183 @@ export type Database = {
           },
         ]
       }
+      crew_memberships: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          crew_id: string
+          is_lead: boolean
+          org_id: string
+          person_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          crew_id: string
+          is_lead?: boolean
+          org_id: string
+          person_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          crew_id?: string
+          is_lead?: boolean
+          org_id?: string
+          person_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crew_memberships_crew"
+            columns: ["crew_id"]
+            isOneToOne: false
+            referencedRelation: "crews"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crew_memberships_person"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "crew_people"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crew_people: {
+        Row: {
+          archived_at: string | null
+          created_at: string
+          created_by: string | null
+          full_name: string
+          has_vehicle: boolean | null
+          id: string
+          org_id: string
+          phone: string | null
+          preferred_language: string | null
+          skills: string[] | null
+          updated_at: string
+          user_id: string | null
+          vehicle_note: string | null
+        }
+        Insert: {
+          archived_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          full_name: string
+          has_vehicle?: boolean | null
+          id?: string
+          org_id: string
+          phone?: string | null
+          preferred_language?: string | null
+          skills?: string[] | null
+          updated_at?: string
+          user_id?: string | null
+          vehicle_note?: string | null
+        }
+        Update: {
+          archived_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          full_name?: string
+          has_vehicle?: boolean | null
+          id?: string
+          org_id?: string
+          phone?: string | null
+          preferred_language?: string | null
+          skills?: string[] | null
+          updated_at?: string
+          user_id?: string | null
+          vehicle_note?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crew_people_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crew_person_unavailability: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          ends_on: string
+          id: string
+          org_id: string
+          person_id: string
+          reason: string | null
+          starts_on: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          ends_on: string
+          id?: string
+          org_id: string
+          person_id: string
+          reason?: string | null
+          starts_on: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          ends_on?: string
+          id?: string
+          org_id?: string
+          person_id?: string
+          reason?: string | null
+          starts_on?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crew_person_unavailability_person"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "crew_people"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crews: {
+        Row: {
+          archived_at: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          org_id: string
+          updated_at: string
+        }
+        Insert: {
+          archived_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          org_id: string
+          updated_at?: string
+        }
+        Update: {
+          archived_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          org_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crews_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       deal_activity: {
         Row: {
           action: string
@@ -2414,6 +2591,60 @@ export type Database = {
           },
         ]
       }
+      signed_copy_records: {
+        Row: {
+          attempts: number
+          estimate_id: string
+          last_attempt_at: string | null
+          last_attempt_via: string | null
+          org_id: string
+          owed_at: string
+          provider_message_id: string | null
+          sent_at: string | null
+          signature_id: string
+          state: string
+        }
+        Insert: {
+          attempts?: number
+          estimate_id: string
+          last_attempt_at?: string | null
+          last_attempt_via?: string | null
+          org_id: string
+          owed_at?: string
+          provider_message_id?: string | null
+          sent_at?: string | null
+          signature_id: string
+          state: string
+        }
+        Update: {
+          attempts?: number
+          estimate_id?: string
+          last_attempt_at?: string | null
+          last_attempt_via?: string | null
+          org_id?: string
+          owed_at?: string
+          provider_message_id?: string | null
+          sent_at?: string | null
+          signature_id?: string
+          state?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signed_copy_records_signature_id_fkey"
+            columns: ["signature_id"]
+            isOneToOne: false
+            referencedRelation: "signatures"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signed_copy_records_estimate_id_fkey"
+            columns: ["estimate_id"]
+            isOneToOne: false
+            referencedRelation: "estimates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff_invites: {
         Row: {
           accepted_at: string | null
@@ -2960,6 +3191,51 @@ export type Database = {
           },
         ]
       }
+      work_order_crew_assignments: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          crew_id: string
+          id: string
+          org_id: string
+          task: string | null
+          work_order_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          crew_id: string
+          id?: string
+          org_id: string
+          task?: string | null
+          work_order_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          crew_id?: string
+          id?: string
+          org_id?: string
+          task?: string | null
+          work_order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_order_crew_assignments_crew"
+            columns: ["crew_id"]
+            isOneToOne: false
+            referencedRelation: "crews"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_order_crew_assignments_work_order_id_fkey"
+            columns: ["work_order_id"]
+            isOneToOne: false
+            referencedRelation: "work_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       work_orders: {
         Row: {
           assignee_ref: string | null
@@ -3052,6 +3328,26 @@ export type Database = {
       }
     }
     Views: {
+      crew_assignment_states: {
+        Row: {
+          assignment_id: string | null
+          availability_state: string | null
+          crew_id: string | null
+          crew_name: string | null
+          end_date: string | null
+          job_id: string | null
+          members: number | null
+          org_id: string | null
+          schedule_block_id: string | null
+          start_date: string | null
+          task: string | null
+          trade: string | null
+          unavailable_members: number | null
+          vehicle_state: string | null
+          work_order_id: string | null
+        }
+        Relationships: []
+      }
       take_off_lines: {
         Row: {
           description: string | null
@@ -3789,11 +4085,20 @@ export type Database = {
           role: string
           capability: string
           allowed: boolean
+          manager_tier: boolean
         }[]
       }
       materialize_take_off: { Args: { p_job_id: string }; Returns: Json }
       create_estimate_sign_link: {
         Args: { p_estimate_id: string; p_valid_days: number }
+        Returns: Json
+      }
+      record_signed_copy_outcome: {
+        Args: { p_provider_message_id?: string; p_signature_id: string; p_state: string }
+        Returns: Json
+      }
+      record_signed_copy_outcome_by_link: {
+        Args: { p_provider_message_id?: string; p_state: string; p_token: string }
         Returns: Json
       }
       revoke_estimate_sign_link: { Args: { p_link_id: string }; Returns: undefined }
@@ -3834,6 +4139,7 @@ export type Database = {
         Returns: Json
       }
       signing_link_view: { Args: { p_token: string }; Returns: Json }
+      signed_copy_by_link: { Args: { p_token: string }; Returns: Json }
       sign_estimate: {
         Args: {
           p_estimate_id: string
