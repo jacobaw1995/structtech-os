@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireModuleAccess } from "@/lib/workspace/context";
 import { FieldShell } from "@/components/field/FieldShell";
 import { scheduleBlockStatus } from "@/lib/field/today";
+import { todayInNewYork } from "@/lib/home/model";
 
 // More specific than the [moduleKey] placeholder route — see crm/page.tsx's
 // comment for why Next resolves this static segment first.
@@ -44,7 +45,12 @@ export default async function FieldTodayPage({
 }) {
   const ctx = await requireModuleAccess(params.orgId, "field");
   const supabase = ctx.supabase;
-  const todayIso = new Date().toISOString().slice(0, 10);
+  // U-W1.16 — THE PROJECT'S DAY, NOT UTC'S. This read
+  // `new Date().toISOString().slice(0, 10)`, which is the UTC date: from 8 PM
+  // EDT onward a crew's "Today" asked fetch_field_jobs for TOMORROW, so a job
+  // ending today dropped off the list that evening. CLAUDE.md's timezone rule,
+  // on the one screen a crew opens first.
+  const todayIso = todayInNewYork();
 
   // end_date >= today keeps this to in-progress + upcoming jobs; past jobs drop
   // off. Voided work orders are excluded inside the RPC — a cancelled job
@@ -62,10 +68,13 @@ export default async function FieldTodayPage({
           Today
         </p>
         <p className="font-mono text-sm text-muted group-data-[outdoor=true]/field:text-white/80">
-          {new Date(`${todayIso}T00:00:00`).toLocaleDateString("en-US", {
+          {/* Parsed and printed in UTC on purpose: todayIso is already the New
+              York calendar date, so no second timezone shift may touch it. */}
+          {new Date(`${todayIso}T00:00:00Z`).toLocaleDateString("en-US", {
             weekday: "short",
             month: "short",
             day: "numeric",
+            timeZone: "UTC",
           })}
         </p>
       </div>
@@ -75,7 +84,7 @@ export default async function FieldTodayPage({
           <p className="text-sm font-semibold text-text group-data-[outdoor=true]/field:text-white">
             No jobs scheduled
           </p>
-          <p className="text-xs text-muted group-data-[outdoor=true]/field:text-white/60">
+          <p className="text-sm text-muted group-data-[outdoor=true]/field:text-white/80">
             Jobs appear here once coordination schedules a crew.
           </p>
         </div>

@@ -4,14 +4,26 @@ import { FieldShell } from "@/components/field/FieldShell";
 import { CheckInRow } from "@/components/field/CheckInRow";
 import { AddCheckInForm } from "@/components/field/AddCheckInForm";
 import { ProductionPacketView } from "@/components/field/ProductionPacketView";
+import { todayInNewYork } from "@/lib/home/model";
 import { WorkOrderFiles } from "@/components/files/WorkOrderFiles";
 import type { Database } from "@/lib/supabase/database.types";
 
 type WorkOrder = Database["public"]["Tables"]["work_orders"]["Row"];
-type Estimate = Database["public"]["Tables"]["estimates"]["Row"];
 type CheckIn = Database["public"]["Tables"]["check_ins"]["Row"];
 type ProductionPacket = Database["public"]["Tables"]["production_packets"]["Row"];
 
+// U-W1.16 (2026-09-15) — NO MONEY BY CONSTRUCTION, NOT BY FILTERING. What the
+// paragraphs below describe was true and was still filtering: this page called
+// fetch_estimate(), which returns the WHOLE `estimates` row (SETOF estimates)
+// and blanks subtotal, presented_total, tax_rate and tax_amount for a caller
+// without view_financials. The money columns were in the type, in the payload
+// shape, and one changed branch away from being filled — and the row also
+// carried the customer's email, phone and notes_terms, none of which a crew
+// needs. The page no longer calls it. The header now comes from
+// fetch_field_jobs(), whose jsonb has no money key to fill, and from the job's
+// service address. A price cannot arrive here because nothing this page reads
+// has a place to put one.
+//
 // A1.5 — no dollar values reach this page, and that is now enforced below the
 // UI rather than promised by it. fetch_estimate() returns subtotal,
 // presented_total, tax_rate and tax_amount as NULL to any caller who fails
@@ -56,8 +68,19 @@ export default async function FieldJobPage({
     redirect(`/w/${params.orgId}/field`);
   }
 
-  const [{ data: fetchedEstimate }, { data: checkInsData }] = await Promise.all([
-    supabase.rpc("fetch_estimate", { p_estimate_id: workOrder.estimate_id }),
+  const [{ data: fieldJobsData }, { data: jobRows }, { data: checkInsData }] = await Promise.all([
+    // The same money-free read the Today list uses. It covers a work order with
+    // a schedule block ending today or later; a work order with no such block
+    // falls back to the job's address below, and says so rather than guessing
+    // a title.
+    supabase.rpc("fetch_field_jobs", { p_org_id: params.orgId, p_today: todayInNewYork() }),
+    // List query (rule 5), filtered to this job. The job's service address is a
+    // deliberate crew copy (A1.5); nothing on `jobs` is money.
+    supabase
+      .from("jobs")
+      .select("service_address_street, service_address_city, service_address_state, service_address_zip")
+      .eq("id", workOrder.job_id ?? "")
+      .eq("org_id", params.orgId),
     supabase
       .from("check_ins")
       .select("*")
@@ -66,9 +89,17 @@ export default async function FieldJobPage({
       .order("created_at", { ascending: false }),
   ]);
 
-  const estimate = fetchedEstimate?.[0] as Estimate | undefined;
+  type FieldJob = { work_order_id: string; job_title: string | null; site_address: string | null; squares: number | null; pitch: string | null };
+  const header = ((fieldJobsData ?? []) as unknown as FieldJob[]).find((j) => j.work_order_id === workOrder.id);
+  const job = (jobRows ?? [])[0];
+  const jobAddress = job
+    ? [job.service_address_street, job.service_address_city, job.service_address_state, job.service_address_zip]
+        .filter((p): p is string => Boolean(p && p.trim()))
+        .join(", ")
+    : "";
   const checkIns = (checkInsData ?? []) as CheckIn[];
-  const jobTitle = estimate?.company || estimate?.contact_name || "Job";
+  const jobTitle = header?.job_title || "Job";
+  const siteAddress = header?.site_address || jobAddress || null;
   const lastCrewName = checkIns[0]?.crew_name;
 
   // get_or_create is idempotent (migration header note) — only called when
@@ -134,7 +165,7 @@ export default async function FieldJobPage({
             defaultCrewName={lastCrewName}
           />
           {checkIns.length > 0 && (
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted group-data-[outdoor=true]/field:text-white/60">
+            <p className="text-sm font-semibold uppercase tracking-wide text-muted group-data-[outdoor=true]/field:text-white/80">
               Earlier check-ins · {checkIns.length}
             </p>
           )}
@@ -159,9 +190,9 @@ export default async function FieldJobPage({
           orgId={params.orgId}
           workOrderId={workOrder.id}
           jobTitle={jobTitle}
-          siteAddress={estimate?.site_address ?? null}
-          squares={estimate?.squares ?? null}
-          pitch={estimate?.pitch ?? null}
+          siteAddress={siteAddress}
+          squares={header?.squares ?? null}
+          pitch={header?.pitch ?? null}
           photos={allPhotos}
           packet={packet}
         />

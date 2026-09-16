@@ -40,7 +40,7 @@ export function CheckInRow({
     // Same tightened rhythm as AddCheckInForm — see that file's comment.
     <div className="flex flex-col gap-2.5 rounded-xl border border-border bg-surface p-3 group-data-[outdoor=true]/field:border-white/30 group-data-[outdoor=true]/field:bg-black">
       <div className="flex items-center justify-between">
-        <span className="text-xs uppercase tracking-wide text-muted group-data-[outdoor=true]/field:text-white/60">
+        <span className="text-sm uppercase tracking-wide text-muted group-data-[outdoor=true]/field:text-white/80">
           {formatDateOnly(checkIn.check_in_date)}
         </span>
         {confirming ? (
@@ -69,7 +69,7 @@ export function CheckInRow({
             type="button"
             onClick={() => setConfirming(true)}
             aria-label={`Delete the check-in for ${formatDateOnly(checkIn.check_in_date)}`}
-            className="flex min-h-14 min-w-14 items-center justify-center text-muted hover:text-warn group-data-[outdoor=true]/field:text-white/60"
+            className="flex min-h-14 min-w-14 items-center justify-center text-muted hover:text-warn group-data-[outdoor=true]/field:text-white/80"
           >
             ✕
           </button>
@@ -82,7 +82,7 @@ export function CheckInRow({
         <input type="hidden" name="checkInId" value={checkIn.id} />
 
         <label className="flex flex-col gap-1">
-          <span className="text-xs font-medium text-muted group-data-[outdoor=true]/field:text-white/70">Crew</span>
+          <span className="text-sm font-medium text-muted group-data-[outdoor=true]/field:text-white/80">Crew</span>
           <input
             name="crew_name"
             defaultValue={checkIn.crew_name}
@@ -93,7 +93,7 @@ export function CheckInRow({
         </label>
 
         <label className="flex flex-col gap-1">
-          <span className="text-xs font-medium text-muted group-data-[outdoor=true]/field:text-white/70">Hours</span>
+          <span className="text-sm font-medium text-muted group-data-[outdoor=true]/field:text-white/80">Hours</span>
           <input
             name="hours"
             type="number"
@@ -107,7 +107,7 @@ export function CheckInRow({
         </label>
 
         <label className="flex flex-col gap-1">
-          <span className="text-xs font-medium text-muted group-data-[outdoor=true]/field:text-white/70">Materials used</span>
+          <span className="text-sm font-medium text-muted group-data-[outdoor=true]/field:text-white/80">Materials used</span>
           <input
             name="materials_used"
             defaultValue={checkIn.materials_used ?? ""}
@@ -119,7 +119,7 @@ export function CheckInRow({
         </label>
 
         <label className="flex flex-col gap-1">
-          <span className="text-xs font-medium text-muted group-data-[outdoor=true]/field:text-white/70">Blockers</span>
+          <span className="text-sm font-medium text-muted group-data-[outdoor=true]/field:text-white/80">Blockers</span>
           <input
             name="blockers"
             defaultValue={checkIn.blockers ?? ""}

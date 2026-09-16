@@ -12,8 +12,6 @@ import { PurchaseOrderList } from "@/components/purchasing/PurchaseOrderList";
 import type { PurchaseOrder } from "@/lib/purchasing/model";
 import { WorkOrderDangerZone } from "@/components/coordination/WorkOrderDangerZone";
 import { AddTradeWorkOrderForm } from "@/components/coordination/AddTradeWorkOrderForm";
-import { TakeOffPanel, type TakeOffLine } from "@/components/coordination/TakeOffPanel";
-import { MasterTakeOffCard } from "@/components/coordination/MasterTakeOffCard";
 import { TakeOffReview } from "@/components/takeoff/TakeOffReview";
 import { buildReview, type DecisionRow, type TakeOffLineRow } from "@/lib/takeoff/review";
 import { WorkOrderFiles } from "@/components/files/WorkOrderFiles";
@@ -58,7 +56,16 @@ export default async function WorkOrderPage({
   searchParams,
 }: {
   params: { orgId: string; workOrderId: string };
-  searchParams: { error?: string; notice?: string; takeoffError?: string; takeoffNotice?: string; line?: string; files?: string };
+  searchParams: {
+    error?: string;
+    notice?: string;
+    takeoffError?: string;
+    takeoffNotice?: string;
+    takeoffCreated?: string;
+    takeoffRunError?: string;
+    line?: string;
+    files?: string;
+  };
 }) {
   const ctx = await requireModuleAccess(params.orgId, "coordination");
   const supabase = ctx.supabase;
@@ -83,7 +90,7 @@ export default async function WorkOrderPage({
   // above is unchanged and still returns the row itself: its `setof
   // work_orders` shape is what the deployed page reads, and narrowing it would
   // have broken production between the migration and the deploy (rule 5b).
-  const [{ data: fetchedEstimate }, { data: materialsData }, { data: scheduleData }, { data: activityData }, { data: memberRows }, { data: treeData }, { data: tradeNameData }, { data: lineItemData }, { data: canViewFinancials }, { data: canScheduleData }, { data: canPurchaseData }] =
+  const [{ data: fetchedEstimate }, { data: materialsData }, { data: scheduleData }, { data: activityData }, { data: memberRows }, { data: treeData }, { data: tradeNameData }, { data: canViewFinancials }, { data: canScheduleData }, { data: canPurchaseData }] =
     await Promise.all([
       supabase.rpc("fetch_estimate", { p_estimate_id: workOrder.estimate_id }),
       supabase
@@ -111,16 +118,6 @@ export default async function WorkOrderPage({
         .select("trade")
         .eq("org_id", params.orgId)
         .eq("kind", "trade"),
-      // A2.2 — the take-off's source rows. List query, so direct (rule 5), and
-      // the crew gate is the table's own RESTRICTIVE can_view_financials()
-      // policy: a field member gets zero rows here without this page doing
-      // anything. What this page must NOT do is read that zero as "the
-      // estimate has no lines" — see the canViewFinancials branch below.
-      supabase
-        .from("estimate_line_items")
-        .select("id, description, quantity, unit")
-        .eq("estimate_id", workOrder.estimate_id)
-        .order("sort_order", { ascending: true }),
       supabase.rpc("can_view_financials", { p_org_id: params.orgId }),
       // U-W1.6 — Track S wired `schedule` to refuse at RPC and RLS on
       // 2026-09-05 (3 RPCs + 3 policies on schedule_blocks). Until today this
@@ -263,35 +260,13 @@ export default async function WorkOrderPage({
   const nextMaterialSortOrder =
     materials.length === 0 ? 0 : Math.max(...materials.map((m) => m.sort_order)) + 1;
 
-  // A2.2 — provenance drives the panel. material_items.estimate_line_item_id is
-  // the column added with this task, and it is what lets the page distinguish
-  // "not taken off yet" from "already on this trade" without guessing by name.
-  const takenOffLineIds = new Set(
-    materials
-      .map((m) => m.estimate_line_item_id)
-      .filter((id): id is string => id !== null)
-  );
-  const takeOffLines: TakeOffLine[] = (
-    (lineItemData ?? []) as {
-      id: string;
-      description: string;
-      quantity: number;
-      unit: string | null;
-    }[]
-  ).map((l) => ({
-    id: l.id,
-    description: l.description,
-    quantity: l.quantity,
-    unit: l.unit,
-    alreadyTakenOff: takenOffLineIds.has(l.id),
-  }));
-
-  // §7.1 — NEVER INFER "DOES NOT EXIST" FROM "CANNOT SEE". estimate_line_items
-  // carries a RESTRICTIVE can_view_financials() policy, so a crew member's read
-  // above returns zero rows on an estimate that has twenty. Branching on the
-  // capability (which is knowable) rather than on the empty array (which is
-  // ambiguous) is what keeps the empty state from lying.
-  const canSeeEstimateLines = canViewFinancials === true;
+  // U-W1.17 — ONE TAKE-OFF PATH. The trade page's tick panel (TakeOffPanel,
+  // generate_take_off) and the master's "Generate take-off" card are gone.
+  // Track S kept materialize_take_off, fed by set_take_off_decision, because
+  // only it can say "not material", leave a line undecided, or resolve which
+  // trade (20260915005153), and it made generate_take_off a wrapper kept alive
+  // only for these two surfaces. The take-off now lives on the job: the review
+  // on the master page. A trade page points there.
 
   return (
     <div className="flex h-full flex-col gap-4">
@@ -425,15 +400,6 @@ export default async function WorkOrderPage({
         />
       )}
 
-      {/* A2.2 clause (b) lives here — see MasterTakeOffCard for why the button
-          is offered on a level that can never be a valid destination. */}
-      {isMaster && (
-        <MasterTakeOffCard
-          orgId={params.orgId}
-          masterWorkOrderId={workOrder.id}
-          liveTradeCount={liveTrades.length}
-        />
-      )}
 
       {isMaster &&
         jobIdForPos &&
@@ -441,6 +407,8 @@ export default async function WorkOrderPage({
           <TakeOffReview
             orgId={params.orgId}
             masterWorkOrderId={workOrder.id}
+            jobId={jobIdForPos}
+            run={{ created: searchParams.takeoffCreated ?? null, error: searchParams.takeoffRunError ?? null }}
             review={takeOffReview}
             trades={trades.map((t) => ({ id: t.id, trade: t.trade, voided_at: t.voided_at }))}
             memberName={(id) =>
@@ -495,27 +463,21 @@ export default async function WorkOrderPage({
               nextSortOrder={nextMaterialSortOrder}
             />
 
-            {/* A2.2. Three distinct states, and the third is the point: an
-                empty list because the estimate has none, versus an empty list
-                because this viewer is not allowed to see them, are different
-                facts (§7.1). The crew case says "restricted", never "none". */}
-            {canSeeEstimateLines ? (
-              takeOffLines.length > 0 ? (
-                <TakeOffPanel
-                  orgId={params.orgId}
-                  workOrderId={workOrder.id}
-                  lines={takeOffLines}
-                />
+            {/* The take-off is decided and run on the job, not per trade. A
+                role that cannot see estimate lines is told so, never "none". */}
+            {masterId && (
+              canViewFinancials === true ? (
+                <Link
+                  href={`/w/${params.orgId}/coordination/${masterId}#takeoff`}
+                  className="mt-2 flex min-h-14 items-center border-t border-border pt-2 text-sm font-medium text-accent-strong sm:min-h-0"
+                >
+                  Review this job&rsquo;s take-off →
+                </Link>
               ) : (
                 <p className="border-t border-border pt-2 text-xs text-muted">
-                  The estimate has no line items to take off.
+                  The take-off reads this job&rsquo;s estimate lines, which your role cannot see.
                 </p>
               )
-            ) : (
-              <p className="border-t border-border pt-2 text-xs text-muted">
-                Estimate line items are restricted for your role, so the
-                take-off is not available here.
-              </p>
             )}
           </div>
           )}

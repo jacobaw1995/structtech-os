@@ -1,4 +1,5 @@
 import { DecisionForm } from "@/components/takeoff/DecisionForm";
+import { materializeTakeOff } from "@/lib/takeoff/actions";
 import {
   itemStateText,
   nyDate,
@@ -9,12 +10,15 @@ import {
 } from "@/lib/takeoff/review";
 
 // The job-level take-off review (U-W1.14). Server component: the only client
-// piece is the per-line DecisionForm. What it does NOT have is a "take off"
-// button — see the stop note at the bottom.
+// piece is the per-line DecisionForm. The create action (U-W1.17) runs
+// materialize_take_off, the one path Track S kept.
 
 type Props = {
   orgId: string;
   masterWorkOrderId: string;
+  jobId: string;
+  /** From the redirect after a run: the function's own `created`, or its refusal. */
+  run: { created: string | null; error: string | null };
   review: Review;
   trades: TradeRef[];
   memberName: (id: string | null) => string | null;
@@ -23,7 +27,7 @@ type Props = {
   focusLineId: string | null;
 };
 
-export function TakeOffReview({ orgId, masterWorkOrderId, review, trades, memberName, error, unchanged, focusLineId }: Props) {
+export function TakeOffReview({ orgId, masterWorkOrderId, jobId, run, review, trades, memberName, error, unchanged, focusLineId }: Props) {
   const total = review.lines.length;
   const tradeName = (id: string | null) => trades.find((t) => t.id === id)?.trade || "an unnamed trade";
   const tradeHref = (id: string | null) => (id ? `/w/${orgId}/coordination/${id}` : null);
@@ -98,6 +102,19 @@ export function TakeOffReview({ orgId, masterWorkOrderId, review, trades, member
           {review.liveTrades.length === 1 ? "trade" : "trades"}
         </p>
       </header>
+
+      {run.error && (
+        <p className="border-b border-border bg-warn-soft px-4 py-3 text-sm text-text">{run.error}</p>
+      )}
+      {run.created !== null && !run.error && (
+        <p data-run-created={run.created} className="border-b border-border bg-accent-soft px-4 py-3 text-sm text-text">
+          {run.created === "unknown"
+            ? "The take-off ran, but it did not report how many materials it created. The lists below are read fresh."
+            : run.created === "0"
+              ? "The take-off ran and created no materials. The lists below are read fresh."
+              : `The take-off created ${run.created} material${run.created === "1" ? "" : "s"}. The lists below are read fresh.`}
+        </p>
+      )}
 
       {total === 0 && review.leftovers.length === 0 ? (
         <p className="px-4 py-3 text-sm text-muted">This job&rsquo;s estimate has no lines to review.</p>
@@ -202,6 +219,30 @@ export function TakeOffReview({ orgId, masterWorkOrderId, review, trades, member
                 row(l, { withForm: "closed", extra: `Goes on ${tradeName(l.tradeWorkOrderId)}.` })
               )}
             </ul>
+            {review.decidedNotTakenOff.length > 0 &&
+              (review.estimateStatus === "signed" ? (
+                <form action={materializeTakeOff} className="mt-3">
+                  <input type="hidden" name="orgId" value={orgId} />
+                  <input type="hidden" name="masterWorkOrderId" value={masterWorkOrderId} />
+                  <input type="hidden" name="jobId" value={jobId} />
+                  <button
+                    type="submit"
+                    className="flex min-h-14 w-full items-center justify-center rounded-md bg-accent-strong px-4 text-sm font-semibold text-white sm:min-h-10 sm:w-auto"
+                  >
+                    Create {review.decidedNotTakenOff.length} material{review.decidedNotTakenOff.length === 1 ? "" : "s"}
+                  </button>
+                  <p className="mt-1 text-xs text-muted">
+                    Creates a material on its trade for each line above, and only those. Undecided lines, lines
+                    with no trade, and materials a person deleted are left as they are.
+                  </p>
+                </form>
+              ) : (
+                // Not offered as a button the RPC refuses. Said, with the reason.
+                <p className="mt-3 text-sm text-[var(--warn-strong)]">
+                  These can become materials once this job&rsquo;s estimate is signed — it is{" "}
+                  {review.estimateStatus ?? "in more than one state"} now.
+                </p>
+              ))}
           </Block>
 
           {/* 6. LEFTOVERS AND REMOVALS */}
@@ -295,9 +336,6 @@ export function TakeOffReview({ orgId, masterWorkOrderId, review, trades, member
         </div>
       )}
 
-      {/* STOPPED HERE, per the controller's ruling: the materialise action waits
-          for Track S to report whether generate_take_off or materialize_take_off
-          survives. Nothing on this surface creates a material. */}
     </section>
   );
 }

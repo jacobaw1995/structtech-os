@@ -17,6 +17,12 @@
 
   --warn: oklch(0.55 0.15 45);
   --warn-soft: oklch(0.94 0.04 45);
+  /* The warn counterpart of --accent-strong: text on light surfaces, and fills
+     under white text. Twenty-five Track U elements used var(--warn-strong) from
+     U-W1.1 onward and nothing defined it, so every one of them silently rendered
+     in its parent's text colour — a warning that did not look like one. Found
+     2026-09-15 by measuring the field confirm button, not by reading CSS. */
+  --warn-strong: oklch(0.42 0.15 45);
 }
 
 body {
