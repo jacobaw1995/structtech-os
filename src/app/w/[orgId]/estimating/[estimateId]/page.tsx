@@ -5,8 +5,7 @@ import { parseEstimateBranding } from "@/lib/estimating/branding";
 import { EstimateDocument } from "@/components/estimating/EstimateDocument";
 import { EstimateOutdoorShell } from "@/components/estimating/EstimateOutdoorShell";
 import { SignatureStatusPanel } from "@/components/signing/SignatureStatusPanel";
-import { signingState } from "@/lib/signing/remote";
-import { emailSetup } from "@/lib/signing/email-setup";
+import { isSendResult, signingState, type LinkRow } from "@/lib/signing/remote";
 import type { Database } from "@/lib/supabase/database.types";
 
 type Estimate = Database["public"]["Tables"]["estimates"]["Row"];
@@ -23,7 +22,7 @@ export default async function EstimatePage({
   searchParams,
 }: {
   params: { orgId: string; estimateId: string };
-  searchParams: { error?: string; scopeUnmapped?: string; scopeUnparseable?: string };
+  searchParams: { error?: string; scopeUnmapped?: string; scopeUnparseable?: string; send?: string };
 }) {
   const ctx = await requireModuleAccess(params.orgId, "estimating");
   const supabase = ctx.supabase;
@@ -45,6 +44,8 @@ export default async function EstimatePage({
     { data: orgRows },
     { data: catalogRows },
     { data: financials },
+    linksRes,
+    { data: canCreateData },
   ] = await Promise.all([
       supabase
         .from("estimate_line_items")
@@ -70,20 +71,29 @@ export default async function EstimatePage({
       // financials, so this is safe to hand to a client component as-is.
       supabase.rpc("list_products", { p_org_id: params.orgId }),
       supabase.rpc("can_view_financials", { p_org_id: params.orgId }),
+      // U-W1.19 — the link history is the send history (see lib/signing/remote.ts).
+      supabase
+        .from("estimate_sign_links")
+        .select("created_at, expires_at, revoked_at, used_at", { count: "exact" })
+        .eq("estimate_id", params.estimateId),
+      supabase.rpc("has_capability", { p_org_id: params.orgId, p_capability: "create_estimates" }),
     ]);
 
   const lineItems = (lineItemsData ?? []) as LineItem[];
   const catalog = (catalogRows ?? []) as Product[];
   const canViewFinancials = financials === true;
   const signature = (signaturesData?.[0] ?? null) as Signature | null;
-  // U-W1.15 — send for signature, office side. `sendRecords: null` because no
-  // table records a send yet (measured 2026-09-14); the panel says so instead of
-  // rendering "not sent" as if it knew.
+  // U-W1.19 — send for signature, office side. A read that failed or came back
+  // short is `null`, which the panel says rather than rendering "not sent".
+  const links =
+    !linksRes.error && linksRes.data && linksRes.count === linksRes.data.length
+      ? (linksRes.data as LinkRow[])
+      : null;
   const signing = signingState({
     estimateStatus: estimate.status,
     signedAt: signature?.signed_at ?? estimate.signed_at ?? null,
     signerName: signature?.signer_name ?? null,
-    sendRecords: null,
+    links,
     now: Date.now(),
   });
   const branding = parseEstimateBranding(
@@ -96,7 +106,14 @@ export default async function EstimatePage({
       <Link href={`/w/${params.orgId}/estimating`} className="text-sm text-muted">
         ← Estimates
       </Link>
-      <SignatureStatusPanel state={signing} email={emailSetup()} customerEmail={estimate.email} />
+      <SignatureStatusPanel
+        orgId={params.orgId}
+        estimateId={estimate.id}
+        state={signing}
+        result={isSendResult(searchParams.send) ? searchParams.send : null}
+        customerEmail={estimate.email?.trim() || null}
+        canSend={canCreateData === true && canViewFinancials}
+      />
       <EstimateOutdoorShell>
         <EstimateDocument
           orgId={params.orgId}
