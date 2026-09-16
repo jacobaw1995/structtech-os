@@ -1,0 +1,8 @@
+{
+  "_comment": "Copy to pilot.config.json. Ids only, no names, no emails, no secrets. pilotOrgId is the tenant piloting field (BMR). crewUserIds are the auth user ids of the crew who will use the app on pilot day — chosen by Jacob, not derived from a role, so a change to how roles are modelled cannot change who is being checked.",
+  "pilotOrgId": "9d32b5a9-e11e-401b-8fa7-969065b004ce",
+  "productionUrl": "https://os.structtek.com",
+  "vercelScope": "jacob-walkers-projects",
+  "vercelProject": "structtech-os",
+  "crewUserIds": []
+}
