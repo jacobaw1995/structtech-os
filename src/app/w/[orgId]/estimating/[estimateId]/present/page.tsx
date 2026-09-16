@@ -5,6 +5,7 @@ import { EstimateDocument } from "@/components/estimating/EstimateDocument";
 import { EstimateOutdoorShell } from "@/components/estimating/EstimateOutdoorShell";
 import { SignedCopyStatus } from "@/components/estimating/SignedCopyStatus";
 import { isSignedCopyState } from "@/lib/estimating/signed-copy";
+import { SIGN_FAILURE_COPY, isSignFailure } from "@/lib/estimating/sign-states";
 import type { Database } from "@/lib/supabase/database.types";
 
 type Estimate = Database["public"]["Tables"]["estimates"]["Row"];
@@ -25,7 +26,7 @@ export default async function EstimatePresentPage({
   searchParams,
 }: {
   params: { orgId: string; estimateId: string };
-  searchParams: { copy?: string };
+  searchParams: { copy?: string; signError?: string };
 }) {
   const ctx = await requireModuleAccess(params.orgId, "estimating");
   const supabase = ctx.supabase;
@@ -77,6 +78,16 @@ export default async function EstimatePresentPage({
     <div className="min-h-dvh bg-bg px-4 py-6 sm:px-8">
       {/* X-W1.14: shown only for a signed estimate, so a crafted ?copy= on an
           unsigned one cannot claim a copy went out. */}
+      {/* X-W1.16: a failed signature is a code looked up in sign-states.ts. */}
+      {isSignFailure(searchParams.signError) ? (
+        <p
+          role="alert"
+          data-sign-error={searchParams.signError}
+          className="mx-auto mb-4 max-w-3xl rounded-md bg-warn-soft px-3 py-2 text-sm text-text"
+        >
+          {SIGN_FAILURE_COPY[searchParams.signError]}
+        </p>
+      ) : null}
       {estimate.status === "signed" && isSignedCopyState(searchParams.copy) ? (
         <SignedCopyStatus
           state={searchParams.copy}

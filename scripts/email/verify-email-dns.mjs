@@ -1,56 +1,97 @@
 #!/usr/bin/env node
-// Is structtek.com's DNS ready for transactional email?  Track X, X-W1.13, 2026-09-14.
+// Is the sending domain's DNS ready for transactional email?  Track X, X-W1.13.
+// REWRITTEN 2026-09-15 (EDT). It was checking a domain that does not exist, in a
+// record shape Resend did not issue. Both halves were wrong and only one was noticed.
 //
-// Two independent questions, graded separately, because they fail for different
-// people and are fixed by different records:
+// WHAT WAS WRONG, part 1 — THE DOMAIN. This script hardcoded
+// `notify.structtek.com`, because that subdomain was named in the original
+// instructions. Wix does not support MX records on a subdomain, so the domain was
+// deleted and re-added at the APEX, `structtek.com`. Nothing told this script.
+// It went on resolving a hostname that has never existed and reporting the empty
+// answers as missing records — a confident NOT READY about a domain nobody uses.
+// FIXED BY REMOVING THE CONSTANT: the domain is now derived from EMAIL_FROM, the
+// same variable sendEmail() actually sends with, so the two cannot drift apart.
 //
-//   1. APEX SPF — measured 2026-09-14: TWO `v=spf1` TXT records at structtek.com
-//        v=spf1 include:_spf.google.com ~all
-//        v=spf1 include:spf.leadconnectorhq.com include:mailgun.org ~all
-//      RFC 7208 §4.5: more than one record is a PermError. This breaks SPF for mail
-//      sent AS structtek.com by Google Workspace, LeadConnector and Mailgun.
-//      It does NOT gate Resend: Resend's own docs put its SPF on the `send`
-//      subdomain of the sending domain and sign DKIM, so Resend mail aligns for
-//      DMARC without the apex. Repaired anyway, because it is live and cheap.
-//      PASS requires exactly one record, all three existing senders still
-//      included, and ≤10 DNS lookups (RFC 7208 §4.6.4) counted recursively.
+// WHAT WAS WRONG, part 2 — THE RECORD SHAPE, and this one would have survived
+// fixing part 1. The script required, at `send.<domain>`, an `amazonses.com` MX
+// and an SPF `include:amazonses.com`. That is ONE of the two record sets Resend
+// issues. The re-added domain got the other. Measured at structtek.com 2026-09-15:
 //
-//   2. RESEND SENDING DOMAIN — PASS requires, for EMAIL_DOMAIN:
-//        TXT  resend._domainkey.<domain>   starting "p=" or "k=rsa"   (DKIM)
-//        MX   send.<domain>                 an amazonses.com host      (return path)
-//        TXT  send.<domain>                 v=spf1 including amazonses.com
-//      These are public records, so this proves the DNS side; it cannot prove
-//      Resend marked the domain Verified. verify-email-send.mjs checks that.
+//   resend._domainkey.structtek.com  TXT    p=MIGfMA0...           (DKIM)
+//   send.structtek.com               CNAME  send.forge.rmta.net    (return path)
+//     -> resolves to MX feedback.forge.rmta.net, TXT v=spf1 ip4:... ~all
+//   rsend.structtek.com              CNAME  rsend.forge.rmta.net
+//     -> resolves to TXT v=spf1 include:amazonses.com ~all
+//
+// So the live, Resend-VERIFIED, working configuration would have been graded NOT
+// READY by the old checks: the MX is `forge.rmta.net`, not `amazonses.com`, and
+// the SPF at `send.` is ip4 literals, not an include. Pointing the old script at
+// the right domain would have produced the same wrong verdict with more authority.
+//
+// SO THIS GRADES THE FUNCTION, NOT THE VENDOR'S CURRENT HOSTNAMES. A sending
+// domain needs three things to be true, and each is checked as itself:
+//   DKIM         a TXT at resend._domainkey.<domain> carrying a p= public key
+//   RETURN PATH  an MX at send.<domain> that resolves to some host
+//   SPF          exactly one v=spf1 TXT covering that return path
+// The specific hostnames are REPORTED, so drift is visible, but they are not the
+// pass condition. A checker that pins a vendor's internal hostnames fails the day
+// the vendor changes them and blames the operator.
+//
+// The apex SPF check is unchanged and independent: it is about Google Workspace,
+// LeadConnector and Mailgun sending AS structtek.com, and does not gate Resend,
+// which signs DKIM and aligns via its own subdomain.
 //
 // exit 0 both ready · exit 1 at least one not ready · exit 2 could not resolve
 //
-// Usage: EMAIL_DOMAIN=notify.structtek.com node scripts/email/verify-email-dns.mjs
-//        (EMAIL_DOMAIN defaults to notify.structtek.com; APEX defaults to structtek.com)
+// Usage: node scripts/email/verify-email-dns.mjs
+//        EMAIL_DOMAIN=... overrides the domain derived from EMAIL_FROM.
+//        APEX=...         overrides the apex derived from that domain.
 
 import { Resolver } from 'node:dns/promises';
+import { readFileSync } from 'node:fs';
 
-const APEX = process.env.APEX || 'structtek.com';
-const EMAIL_DOMAIN = process.env.EMAIL_DOMAIN || 'notify.structtek.com';
+function fromEnvFile(name) {
+  try {
+    for (const line of readFileSync('.env.local', 'utf8').split('\n')) {
+      const m = line.match(/^\s*([A-Za-z0-9_]+)\s*=\s*(.*?)\s*$/);
+      if (m && m[1] === name) return m[2].replace(/^["']|["']$/g, '').replace(/\r/g, '');
+    }
+  } catch { /* no file */ }
+  return undefined;
+}
+
+// THE DOMAIN IS DERIVED, NEVER DECLARED. EMAIL_FROM is what sendEmail() puts in
+// the From header; checking anything else checks a domain the product does not use.
+const EMAIL_FROM = process.env.EMAIL_FROM || fromEnvFile('EMAIL_FROM');
+const derived = EMAIL_FROM ? (EMAIL_FROM.match(/@([^>\s]+)>?\s*$/) || [])[1] : undefined;
+const EMAIL_DOMAIN = process.env.EMAIL_DOMAIN || derived;
+
+if (!EMAIL_DOMAIN) {
+  console.log('UNDETERMINED: no sending domain. Set EMAIL_FROM (in the environment or .env.local),');
+  console.log('              or pass EMAIL_DOMAIN=<domain> explicitly.');
+  process.exit(2);
+}
+// Registrable-domain guess: the last two labels. Correct for structtek.com and for
+// every domain this project uses. It is WRONG for multi-part public suffixes
+// (example.co.uk), which is why APEX stays overridable rather than being trusted.
+const APEX = process.env.APEX || EMAIL_DOMAIN.split('.').slice(-2).join('.');
 const REQUIRED_SENDERS = ['_spf.google.com', 'spf.leadconnectorhq.com', 'mailgun.org'];
 
 const r = new Resolver();
 r.setServers(['1.1.1.1', '8.8.8.8']);
 
+const soft = (e) => (e.code === 'ENOTFOUND' || e.code === 'ENODATA' ? null : undefined);
 const txt = async (name) => {
-  try {
-    return (await r.resolveTxt(name)).map((chunks) => chunks.join(''));
-  } catch (e) {
-    if (e.code === 'ENOTFOUND' || e.code === 'ENODATA') return [];
-    throw e;
-  }
+  try { return (await r.resolveTxt(name)).map((chunks) => chunks.join('')); }
+  catch (e) { if (soft(e) === null) return []; throw e; }
 };
 const mx = async (name) => {
-  try {
-    return (await r.resolveMx(name)).map((m) => m.exchange);
-  } catch (e) {
-    if (e.code === 'ENOTFOUND' || e.code === 'ENODATA') return [];
-    throw e;
-  }
+  try { return (await r.resolveMx(name)).map((m) => m.exchange); }
+  catch (e) { if (soft(e) === null) return []; throw e; }
+};
+const cname = async (name) => {
+  try { return await r.resolveCname(name); }
+  catch (e) { if (soft(e) === null) return []; throw e; }
 };
 
 /** Recursive DNS-lookup count for an SPF record's terms (RFC 7208 §4.6.4). */
@@ -73,15 +114,12 @@ async function lookups(record, seen = new Set(), depth = 0) {
   return n;
 }
 
-const lines = [];
-const say = (s) => { lines.push(s); console.log(s); };
+const say = (s) => console.log(s);
 let notReady = 0;
 
 try {
+  // ------------------------------------------------------------------ apex SPF
   say(`APEX ${APEX}`);
-  // SPF_RECORDS_OVERRIDE (JSON array of strings) replaces ONLY the apex fetch, so the
-  // READY branch can be exercised before the real record exists. Lookups inside the
-  // override are still resolved live. Never set in production use.
   const spf = (process.env.SPF_RECORDS_OVERRIDE ? JSON.parse(process.env.SPF_RECORDS_OVERRIDE) : await txt(APEX))
     .filter((t) => t.startsWith('v=spf1'));
   if (process.env.SPF_RECORDS_OVERRIDE) say('  (apex records from SPF_RECORDS_OVERRIDE — test mode)');
@@ -99,18 +137,44 @@ try {
     else say('  READY — one record, all three existing senders kept, under the lookup limit');
   }
 
-  say(`RESEND ${EMAIL_DOMAIN}`);
-  const dkim = await txt(`resend._domainkey.${EMAIL_DOMAIN}`);
-  const sendMx = await mx(`send.${EMAIL_DOMAIN}`);
-  const sendSpf = (await txt(`send.${EMAIL_DOMAIN}`)).filter((t) => t.startsWith('v=spf1'));
-  const okDkim = dkim.some((t) => /^(p=|k=rsa)/.test(t) || t.includes('p='));
-  const okMx = sendMx.some((h) => /amazonses\.com$/i.test(h));
-  const okSpf = sendSpf.length === 1 && /include:amazonses\.com/.test(sendSpf[0]);
-  say(`  DKIM  TXT resend._domainkey.${EMAIL_DOMAIN}: ${okDkim ? 'present' : 'MISSING'}`);
-  say(`  MX    send.${EMAIL_DOMAIN}: ${sendMx.length ? sendMx.join(', ') : 'MISSING'}${sendMx.length && !okMx ? ' (not amazonses.com)' : ''}`);
-  say(`  SPF   TXT send.${EMAIL_DOMAIN}: ${sendSpf.length ? sendSpf.join(' | ') : 'MISSING'}${sendSpf.length && !okSpf ? ' (must be exactly one, including amazonses.com)' : ''}`);
-  if (okDkim && okMx && okSpf) say('  READY — DKIM, return-path MX and return-path SPF all published');
-  else { notReady++; say('  NOT READY — add the records Resend shows for this domain'); }
+  // -------------------------------------------------------- Resend sending domain
+  say(`RESEND ${EMAIL_DOMAIN}${derived && !process.env.EMAIL_DOMAIN ? '   (derived from EMAIL_FROM)' : ''}`);
+
+  const dkimName = `resend._domainkey.${EMAIL_DOMAIN}`;
+  const sendName = `send.${EMAIL_DOMAIN}`;
+  const rsendName = `rsend.${EMAIL_DOMAIN}`;
+
+  const dkim = await txt(dkimName);
+  const dkimCname = await cname(dkimName);
+  const sendMx = await mx(sendName);
+  const sendCname = await cname(sendName);
+  const sendSpf = (await txt(sendName)).filter((t) => t.startsWith('v=spf1'));
+  const rsendCname = await cname(rsendName);
+  const rsendSpf = (await txt(rsendName)).filter((t) => t.startsWith('v=spf1'));
+
+  // PASS CONDITIONS — stated as the function each record performs, so that either
+  // record shape Resend issues can satisfy them. The hostnames are shown, not graded.
+  const okDkim = dkim.some((t) => t.includes('p='));
+  const okMx = sendMx.length > 0;
+  const okSpf = sendSpf.length === 1 || rsendSpf.length === 1;
+
+  const shape = sendCname.length || rsendCname.length ? 'CNAME' : 'MX + TXT';
+
+  say(`  record shape: ${shape}${shape === 'CNAME' ? '  (the variant Resend issues when the apex already has MX records)' : ''}`);
+  say(`  DKIM   TXT ${dkimName}: ${okDkim ? `present (${dkim[0].slice(0, 24)}…)` : 'MISSING'}${dkimCname.length ? `  via CNAME ${dkimCname.join(', ')}` : ''}`);
+  say(`  RETURN MX  ${sendName}: ${sendMx.length ? sendMx.join(', ') : 'MISSING'}${sendCname.length ? `  via CNAME ${sendCname.join(', ')}` : ''}`);
+  say(`  SPF    TXT ${sendName}: ${sendSpf.length ? sendSpf.join(' | ') : '(none)'}`);
+  say(`  SPF    TXT ${rsendName}: ${rsendSpf.length ? rsendSpf.join(' | ') : '(none)'}${rsendCname.length ? `  via CNAME ${rsendCname.join(', ')}` : ''}`);
+
+  if (okDkim && okMx && okSpf) {
+    say('  READY — DKIM key published, return path has an MX, and the return path is SPF-covered');
+    say('  NOTE — DNS records are necessary, not sufficient. Only Resend can say the domain is');
+    say('         Verified, and only a send proves it. verify-email-send.mjs determines both.');
+  } else {
+    notReady++;
+    const why = [!okDkim && 'DKIM TXT', !okMx && 'return-path MX', !okSpf && 'return-path SPF'].filter(Boolean).join(', ');
+    say(`  NOT READY — missing: ${why}. Add the records Resend shows for ${EMAIL_DOMAIN} at https://resend.com/domains`);
+  }
 } catch (e) {
   console.log('------------------------------------------------------------------------');
   console.log(`UNDETERMINED: DNS resolution failed (${e.code || e.name}). This says nothing about the records.`);
