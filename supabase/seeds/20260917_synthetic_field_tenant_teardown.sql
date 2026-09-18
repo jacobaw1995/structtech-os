@@ -7,6 +7,7 @@
 -- the prefix e0851ad8-35d6-4e17-b267-6cd35cb6f713/ are NOT rows this can delete (storage refuses direct deletes);
 -- remove them through the Storage API first. The synthetic auth user is deleted separately, in the dashboard.
 with
+  fe  as (delete from public.field_events               where org_id = 'e0851ad8-35d6-4e17-b267-6cd35cb6f713' returning 1),
   ci  as (delete from public.check_ins                  where org_id = 'e0851ad8-35d6-4e17-b267-6cd35cb6f713' returning 1),
   pp  as (delete from public.production_packets         where org_id = 'e0851ad8-35d6-4e17-b267-6cd35cb6f713' returning 1),
   sb  as (delete from public.schedule_blocks            where org_id = 'e0851ad8-35d6-4e17-b267-6cd35cb6f713' returning 1),
