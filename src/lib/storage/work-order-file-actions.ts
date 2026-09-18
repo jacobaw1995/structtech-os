@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { deleteOrgFile } from "@/lib/storage/org-files";
 import { parseOrgFilePath } from "@/lib/storage/paths";
+import { fileRef, recordFieldEvent } from "@/lib/observability/field-events";
 import { orgFilesEnabled, type FilesState } from "@/lib/storage/work-order-files-states";
 
 // Delete one office file from a work order. X-W1.15.
@@ -35,6 +36,13 @@ export async function deleteWorkOrderFile(formData: FormData) {
   if (canManage !== true) back("delete_refused");
 
   const result = await deleteOrgFile({ orgId, path });
+  await recordFieldEvent(supabase, {
+    orgId,
+    event: "file_removed",
+    workOrderId,
+    subjectRef: fileRef(path),
+    outcome: result.ok ? "ok" : result.refused ? "refused" : "unconfirmed",
+  });
   revalidatePath(`/w/${orgId}/coordination/${workOrderId}`);
   revalidatePath(`/w/${orgId}/field/${workOrderId}`);
   back(result.ok ? "deleted" : result.refused ? "delete_refused" : "delete_failed");

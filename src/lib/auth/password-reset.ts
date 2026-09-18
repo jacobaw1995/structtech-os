@@ -68,6 +68,7 @@ export async function requestPasswordReset(formData: FormData) {
       error.code === "over_request_rate_limit"
     ) state = "rate_limited";
     else if (error.code === "email_address_invalid") state = "invalid_email";
+    else if (error.code === "email_address_not_authorized") state = "mailer_restricted";
     else state = "request_rejected";
   } catch {
     // A throw that is not a returned AuthError is still not evidence the mail failed.
