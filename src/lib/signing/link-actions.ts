@@ -92,9 +92,14 @@ async function sendCopyByLink(supabase: ReturnType<typeof createClient>, token: 
       estimate: p.estimate as Estimate,
       lineItems: (p.line_items ?? []) as LineItem[],
       signature: p.signature as Signature,
+      // Track S, 2026-09-17 (20260918003303): the link returns only the copy's
+      // `branding` sub-object, never the tenant config or org row. company_name
+      // already falls back to the org name in the database.
       branding: parseEstimateBranding(
-        (p.estimating_config ?? null) as Database["public"]["Tables"]["tenant_modules"]["Row"]["config"],
-        typeof p.org_name === "string" ? p.org_name : "Estimate"
+        (p.branding && typeof p.branding === "object" ? { branding: p.branding } : null) as Database["public"]["Tables"]["tenant_modules"]["Row"]["config"],
+        typeof (p.branding as { company_name?: unknown } | undefined)?.company_name === "string"
+          ? ((p.branding as { company_name: string }).company_name)
+          : "Estimate"
       ),
     });
 
