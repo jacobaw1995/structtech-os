@@ -125,8 +125,9 @@ export type Database = {
           blockers: string | null
           check_in_date: string
           created_at: string
+          created_by: string | null
           crew_name: string
-          hours: number
+          hours: number | null
           id: string
           materials_used: string | null
           org_id: string
@@ -139,8 +140,9 @@ export type Database = {
           blockers?: string | null
           check_in_date?: string
           created_at?: string
+          created_by?: string | null
           crew_name: string
-          hours?: number
+          hours?: number | null
           id?: string
           materials_used?: string | null
           org_id: string
@@ -153,8 +155,9 @@ export type Database = {
           blockers?: string | null
           check_in_date?: string
           created_at?: string
+          created_by?: string | null
           crew_name?: string
-          hours?: number
+          hours?: number | null
           id?: string
           materials_used?: string | null
           org_id?: string
@@ -3824,6 +3827,10 @@ export type Database = {
         }
       }
       can_view_financials: { Args: { p_org_id: string }; Returns: boolean }
+      can_reach_work_order_files: {
+        Args: { p_org_id: string }
+        Returns: boolean
+      }
       can_view_master_work_order: {
         Args: { p_org_id: string }
         Returns: boolean
@@ -4016,10 +4023,6 @@ export type Database = {
       generate_roadmap_for_lead: {
         Args: { p_lead_id: string }
         Returns: string
-      }
-      generate_take_off: {
-        Args: { p_estimate_line_item_ids: string[]; p_work_order_id: string }
-        Returns: Json
       }
       get_or_create_production_packet: {
         Args: { p_work_order_id: string }
