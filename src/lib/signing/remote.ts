@@ -75,6 +75,7 @@ export type SendResult =
   | "sent"
   | SendFailureReason
   | "no_email"
+  | "no_total"
   | "not_presented"
   | "already_signed"
   | "not_permitted"
@@ -106,6 +107,15 @@ export const SEND_RESULT_COPY: Record<SendResult, { headline: string; detail: st
   no_email: {
     headline: "Nothing was sent",
     detail: "This estimate has no customer email address. Add one, then send.",
+    tone: "warn",
+  },
+  // Track S's refusal at link creation, HINT no_presented_total (20260918003303).
+  // PREVENTION, not a repair: measured 2026-09-17, 0 of 4 live estimates have no
+  // total — only present_estimate() makes an estimate 'presented', and it prices
+  // it. So this names a state that should not occur, and says the one fix.
+  no_total: {
+    headline: "Nothing was sent",
+    detail: "This estimate has no total, so a customer would be signing a document with no price on it. Present it again to price it, then send.",
     tone: "warn",
   },
   not_presented: {

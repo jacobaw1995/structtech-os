@@ -4,12 +4,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { classifyLinkSignError, type SignOutcome } from "@/lib/signing/link-states";
 import { composeAndSendSignedCopy, isSignedCopyState, type SignedCopyState } from "@/lib/estimating/signed-copy";
-import { parseEstimateBranding } from "@/lib/estimating/branding";
-import type { Database } from "@/lib/supabase/database.types";
-
-type Estimate = Database["public"]["Tables"]["estimates"]["Row"];
-type LineItem = Database["public"]["Tables"]["estimate_line_items"]["Row"];
-type Signature = Database["public"]["Tables"]["signatures"]["Row"];
+import { copyInputsFromPayload } from "@/lib/signing/copy-payload";
 
 // THE CUSTOMER SIGNS. Called by a person who is NOT a user of this system: the
 // only authority in the request is the token, and it is checked in the database
@@ -87,21 +82,10 @@ async function sendCopyByLink(supabase: ReturnType<typeof createClient>, token: 
     const { data, error } = await supabase.rpc("signed_copy_by_link", { p_token: token });
     const p = (data ?? {}) as Record<string, unknown>;
     if (error || p.state !== "ready") return null; // already sent, or outside its window: nothing owed from here
+    const inputs = copyInputsFromPayload(p);
+    if (!inputs) return null;
 
-    const result = await composeAndSendSignedCopy({
-      estimate: p.estimate as Estimate,
-      lineItems: (p.line_items ?? []) as LineItem[],
-      signature: p.signature as Signature,
-      // Track S, 2026-09-17 (20260918003303): the link returns only the copy's
-      // `branding` sub-object, never the tenant config or org row. company_name
-      // already falls back to the org name in the database.
-      branding: parseEstimateBranding(
-        (p.branding && typeof p.branding === "object" ? { branding: p.branding } : null) as Database["public"]["Tables"]["tenant_modules"]["Row"]["config"],
-        typeof (p.branding as { company_name?: unknown } | undefined)?.company_name === "string"
-          ? ((p.branding as { company_name: string }).company_name)
-          : "Estimate"
-      ),
-    });
+    const result = await composeAndSendSignedCopy(inputs);
 
     // The record is best-effort: if it fails, the row stays `owed`, which is true.
     await supabase.rpc("record_signed_copy_outcome_by_link", {
