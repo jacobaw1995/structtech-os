@@ -1,4 +1,4 @@
-# Synthetic field tenant: a disposable org and one crew login
+# Synthetic field tenant: a disposable org, a crew login and an office login
 
 **Created:** 2026-09-17 (America/New_York) by Track S, under the controller's ruling of that day.
 **Why it exists:** there was no `field` member in any tenant. That stalled three pieces of work:
@@ -50,6 +50,33 @@ Track S does not create accounts or handle passwords. **The credential never pas
 
    An email address is not a secret. If you'd rather, give Track S the email and it will run the statement. The password stays with you.
 
+### The second login: one synthetic office member (approved 2026-09-17)
+
+The controller approved this so Track X can run §4 check 2 without using Jacob's own account. It lives in the same org, is removed by the same teardown, and follows the same instructions-not-values pattern.
+
+1. **Create the user.** Same dashboard steps as above, with a different email you control (for example a `+office` alias). Generate the password in your password manager.
+2. **Attach it as office.** Run in the SQL editor:
+
+   ```sql
+   insert into public.org_members (org_id, user_id, role, full_name, permissions)
+   select 'e0851ad8-35d6-4e17-b267-6cd35cb6f713', u.id, 'office', 'SYNTHETIC Office',
+          public.default_permissions_for_role('office')
+   from auth.users u
+   where u.email = 'THE-OFFICE-EMAIL-YOU-CHOSE';
+   ```
+
+   It must say **1 row**.
+
+## The moment the logins exist
+
+- **Track U** can sign in as the crew at `/w/e0851ad8-35d6-4e17-b267-6cd35cb6f713/field`. From there it can measure the field view for real: job list, no master, no money, the packet, and check-in create / edit / delete / clear hours. Nothing else blocks it.
+- **Track X** can run `node scripts/storage/org-files-live-proof.mjs` with `.env.proof.local` holding these values:
+  - `PROOF_ORG_ID=e0851ad8-35d6-4e17-b267-6cd35cb6f713`
+  - `PROOF_TRADE_WORK_ORDER_ID=6af911f6-5c60-4041-9a4f-582f5f08434e`
+  - the crew and office emails and passwords, which Jacob puts in himself.
+
+  The org-files policies are already live in production, so nothing else blocks it.
+
 ## What each track needs, and how it gets it
 
 **Track U: the field view, measured instead of derived.**
@@ -60,9 +87,9 @@ Track S does not create accounts or handle passwords. **The credential never pas
 - For scripted runs, Jacob puts `FIELD_TEST_EMAIL` and `FIELD_TEST_PASSWORD` in the Track U worktree's `.env.local`. That file is gitignored. Scripts read the values and never print them.
 
 **Track X: §4 checks 1–2 of the org-files proposal.**
-- **Check 1** (the crew's `createSignedUploadUrl` is refused) uses the crew credential, reached the same way through `.env.local`.
-- **Check 2** (the signed token is bound to its path) needs an **office** signer. Only Jacob's own account holds office rights in this org. Either Jacob runs check 2 signed in as himself, or the controller approves a second synthetic member with the `office` role.
-- Run it against a local or preview deployment with `ORG_FILES_ENABLED=true`. Production stays off until both checks pass.
+- **Check 1** (the crew's `createSignedUploadUrl` is refused) uses the crew credential, read from `.env.proof.local` in the Track X worktree (gitignored; the script never prints it).
+- **Check 2** (the signed token is bound to its path) needs an **office** signer. That is the synthetic office member, approved 2026-09-17 (see above).
+- The script talks to the Storage API directly, so it needs no app deployment. `ORG_FILES_ENABLED` (the app's switch) stays off in production until both checks pass.
 - Files go under the `e0851ad8-35d6-4e17-b267-6cd35cb6f713/` prefix in `org-files`.
 
 ## Removing it
