@@ -1,7 +1,8 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import { updateCheckIn, deleteCheckIn } from "@/lib/field/actions";
+import { updateCheckIn, deleteCheckIn, clearCheckInHours } from "@/lib/field/actions";
+import { TwoTapDelete } from "@/components/field/TwoTapDelete";
 import { PhotoPicker } from "@/components/field/PhotoPicker";
 import { formatDateOnly } from "@/lib/coordination/stage";
 import type { Database } from "@/lib/supabase/database.types";
@@ -136,6 +137,20 @@ export function CheckInRow({
           />
         </label>
       </form>
+
+      {/* Clear is its own action (Track S, clear_check_in_hours): hours go back to
+          "Not recorded", never to 0. Offered only when there is a figure to clear —
+          on an empty value the database writes nothing. Two taps: it removes a
+          payroll figure. */}
+      {checkIn.hours !== null && (
+        <TwoTapDelete
+          action={clearCheckInHours}
+          fields={{ orgId, workOrderId, checkInId: checkIn.id }}
+          label="Clear hours"
+          question={`Clear the ${checkIn.hours} hours on this check-in? It will show as not recorded.`}
+          confirmLabel="Clear"
+        />
+      )}
 
       <PhotoPicker
         orgId={orgId}

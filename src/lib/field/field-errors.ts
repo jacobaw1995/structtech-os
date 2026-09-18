@@ -18,7 +18,8 @@ export type FieldError =
   | "not_accessible"
   | "wrong_level"
   | "delete_not_yours"
-  | "hours_not_cleared"
+  | "change_not_yours"
+  | "hours_use_clear"
   | "save_failed"
   | "save_unconfirmed";
 
@@ -26,10 +27,12 @@ export const FIELD_ERROR_COPY: Record<FieldError, string> = {
   not_accessible: "That item couldn't be found for your account. Nothing was changed.",
   wrong_level: "This is not a trade work order, so it can't take check-ins or a packet. Nothing was changed.",
   delete_not_yours: "Only the person who recorded this check-in, or the office, can delete it. Ask the office to remove it.",
-  // The edit path cannot clear hours yet (update_check_in keeps the old value when
-  // hours are blank). Said, rather than letting a cleared box look saved.
-  hours_not_cleared:
-    "Hours can't be cleared once recorded — the check-in still shows the hours it had. Other changes were saved.",
+  change_not_yours: "Only the person who recorded this check-in, or the office, can change it. Ask the office to correct it.",
+  // update_check_in keeps the old figure when hours are blank; clearing is its own
+  // action (clear_check_in_hours, Track S 2026-09-17). Said, so an emptied box is
+  // never mistaken for a save.
+  hours_use_clear:
+    "Hours weren't changed by emptying the box. To mark them not recorded, use Clear hours. Other changes were saved.",
   save_failed: "That wasn't saved. Nothing was changed — please try again.",
   // No database answer: it may or may not have committed.
   save_unconfirmed: "We couldn't confirm that was saved. Check the check-in below before trying again.",
@@ -43,7 +46,8 @@ export function isFieldError(v: unknown): v is FieldError {
 export function classifyFieldError(error: { code?: string; message?: string }): FieldError {
   const m = error.message ?? "";
   if (!error.code) return "save_unconfirmed";
-  if (/only the person who recorded this check-in/i.test(m)) return "delete_not_yours";
+  if (/only the person who recorded this check-in.*can delete/i.test(m)) return "delete_not_yours";
+  if (/only the person who recorded this check-in.*can change/i.test(m)) return "change_not_yours";
   if (/requires a .* work order/i.test(m)) return "wrong_level";
   if (/not found or not accessible/i.test(m)) return "not_accessible";
   return "save_failed";
