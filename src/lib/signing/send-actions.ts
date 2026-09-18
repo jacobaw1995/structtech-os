@@ -40,7 +40,10 @@ function siteOrigin(): string {
   return `${proto}://${host}`;
 }
 
-function classifyLinkRefusal(message: string): SendResult {
+function classifyLinkRefusal(error: { message: string; hint?: string | null }): SendResult {
+  // Named by its HINT, which Track S set for exactly this (not by its wording).
+  if (error.hint === "no_presented_total") return "no_total";
+  const message = error.message;
   if (/cannot send estimates|cannot view financials|not found or not accessible/i.test(message)) return "not_permitted";
   if (/already signed/i.test(message)) return "already_signed";
   if (/must be presented/i.test(message)) return "not_presented";
@@ -82,7 +85,7 @@ export async function sendForSignature(formData: FormData) {
     p_estimate_id: est.id,
     p_valid_days: LINK_VALID_DAYS,
   });
-  if (linkError) done(classifyLinkRefusal(linkError.message));
+  if (linkError) done(classifyLinkRefusal(linkError));
   const link = (linkData ?? {}) as { token?: unknown; link_id?: unknown };
   if (typeof link.token !== "string" || typeof link.link_id !== "string") done("link_failed");
   const token = link.token as string;
