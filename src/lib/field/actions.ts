@@ -101,16 +101,38 @@ export async function updateCheckIn(formData: FormData) {
   }
 
   revalidateJob(orgId, workOrderId);
-  // U-W1.20 — "NOT RECORDED" IS NOT ZERO, AND A CLEARED BOX IS NOT A SAVE.
+  // "NOT RECORDED" IS NOT ZERO, AND AN EMPTIED BOX IS NOT A CLEAR.
   // update_check_in writes `hours = coalesce(p_hours, hours)`, so a blank hours
-  // field keeps the old figure (measured in its body 2026-09-17). If the row had
-  // hours and the box was submitted empty, the save kept them — say so, instead
-  // of letting the redirect repaint the old number as if nothing happened.
+  // field keeps the old figure; clearing is its own action (clearCheckInHours
+  // below, Track S's clear_check_in_hours). If a recorded figure was submitted
+  // empty, say so rather than let the old number reappear as if it were saved.
   const hoursNow = formData.get("hours");
   const hoursWas = formData.get("hours_was");
   if (hoursNow === "" && typeof hoursWas === "string" && hoursWas !== "") {
-    redirect(jobHref(orgId, workOrderId, "check-in", "hours_not_cleared"));
+    redirect(jobHref(orgId, workOrderId, "check-in", "hours_use_clear"));
   }
+  redirect(jobHref(orgId, workOrderId, "check-in"));
+}
+
+// Hours back to "not recorded" (NULL) — never 0. Track S's clear_check_in_hours:
+// the author or the office tier; on an already-empty value it writes nothing.
+export async function clearCheckInHours(formData: FormData) {
+  const orgId = requireString(formData, "orgId");
+  const workOrderId = requireString(formData, "workOrderId");
+  const checkInId = requireString(formData, "checkInId");
+
+  const supabase = createClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) redirect("/login");
+
+  const { error } = await supabase.rpc("clear_check_in_hours", { p_check_in_id: checkInId });
+  if (error) {
+    redirect(jobHref(orgId, workOrderId, "check-in", classifyFieldError(error)));
+  }
+
+  revalidateJob(orgId, workOrderId);
   redirect(jobHref(orgId, workOrderId, "check-in"));
 }
 
