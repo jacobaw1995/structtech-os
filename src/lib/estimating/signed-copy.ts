@@ -118,12 +118,43 @@ export async function sendSignedCopy(
     if (!signature) return "render_failed";
 
     const branding = parseEstimateBranding(moduleRow?.[0]?.config ?? null, orgRows?.[0]?.name ?? "Estimate");
-    const rendered = await renderEstimatePdf({
-      estimate,
-      lineItems: (lineItemsData ?? []) as LineItem[],
-      signature,
-      branding,
-    });
+    return (
+      await composeAndSendSignedCopy({
+        estimate,
+        lineItems: (lineItemsData ?? []) as LineItem[],
+        signature,
+        branding,
+      })
+    ).state;
+  } catch {
+    return "render_failed";
+  }
+}
+
+/**
+ * The render-and-send half, split out 2026-09-16 (Track U, U-W1.18) so the
+ * customer signing page can send the copy from the payload
+ * signed_copy_by_link() returns — an anon caller cannot make the member reads
+ * above. Behaviour of sendSignedCopy() is unchanged: the same body, moved.
+ * Returns the provider message id when Resend accepted it, so the link path can
+ * record it. Never throws.
+ */
+export async function composeAndSendSignedCopy({
+  estimate,
+  lineItems,
+  signature,
+  branding,
+}: {
+  estimate: Estimate;
+  lineItems: LineItem[];
+  signature: Signature;
+  branding: ReturnType<typeof parseEstimateBranding>;
+}): Promise<{ state: SignedCopyState; providerMessageId: string | null }> {
+  try {
+    const to = (estimate.email ?? "").trim();
+    if (!EMAIL_RE.test(to)) return { state: "no_email", providerMessageId: null };
+
+    const rendered = await renderEstimatePdf({ estimate, lineItems, signature, branding });
 
     const pinned = await PDFDocument.load(rendered, { updateMetadata: false });
     pinned.setCreationDate(new Date(signature.signed_at));
@@ -158,10 +189,10 @@ export async function sendSignedCopy(
       attachments: [{ filename: safeNumber ? `signed-estimate-${safeNumber}.pdf` : "signed-estimate.pdf", content: pdf }],
     });
 
-    if (result.ok) return "sent";
-    if (result.reason === "rejected" && result.status === 409) return "unavailable";
-    return result.reason;
+    if (result.ok) return { state: "sent", providerMessageId: result.id };
+    if (result.reason === "rejected" && result.status === 409) return { state: "unavailable", providerMessageId: null };
+    return { state: result.reason, providerMessageId: null };
   } catch {
-    return "render_failed";
+    return { state: "render_failed", providerMessageId: null };
   }
 }

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { login } from "./actions";
+import { LOGIN_ERROR_COPY, isLoginError } from "@/lib/auth/login-states";
 
 export default async function LoginPage({
   searchParams,
@@ -23,9 +24,12 @@ export default async function LoginPage({
         <h1 className="text-xl font-semibold text-text">StructTech OS</h1>
         <p className="mt-1 text-sm text-muted">Sign in to your workspace.</p>
 
-        {searchParams.error && (
-          <p className="mt-4 rounded-md bg-warn-soft px-3 py-2 text-sm text-text">
-            {searchParams.error}
+        {/* A CODE, looked up (lib/auth/login-states.ts). This page needs no
+            session, so a printed ?error= let anyone put words on our sign-in
+            screen. An unknown value renders nothing. */}
+        {isLoginError(searchParams.error) && (
+          <p role="alert" className="mt-4 rounded-md bg-warn-soft px-3 py-2 text-sm text-text">
+            {LOGIN_ERROR_COPY[searchParams.error]}
           </p>
         )}
 
