@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { classifyFieldError, type FieldError } from "@/lib/field/field-errors";
 
 // Same conventions as src/lib/coordination/actions.ts: server actions
 // redirect(), never return data (CLAUDE.md rule 6); every mutation goes
@@ -26,7 +27,9 @@ function optionalNumber(formData: FormData, key: string): number | undefined {
   return raw === undefined ? undefined : Number(raw);
 }
 
-function jobHref(orgId: string, workOrderId: string, tab: "check-in" | "packet", error?: string) {
+// `error` is a CODE (lib/field/field-errors.ts), never a message: the job page
+// looks it up and renders our sentence, so no URL can put words on a crew screen.
+function jobHref(orgId: string, workOrderId: string, tab: "check-in" | "packet", error?: FieldError) {
   const params = new URLSearchParams({ tab });
   if (error) params.set("error", error);
   return `/w/${orgId}/field/${workOrderId}?${params.toString()}`;
@@ -56,7 +59,7 @@ export async function createCheckIn(formData: FormData) {
   });
 
   if (error) {
-    redirect(jobHref(orgId, workOrderId, "check-in", error.message));
+    redirect(jobHref(orgId, workOrderId, "check-in", classifyFieldError(error)));
   }
 
   revalidateJob(orgId, workOrderId);
@@ -83,10 +86,20 @@ export async function updateCheckIn(formData: FormData) {
   });
 
   if (error) {
-    redirect(jobHref(orgId, workOrderId, "check-in", error.message));
+    redirect(jobHref(orgId, workOrderId, "check-in", classifyFieldError(error)));
   }
 
   revalidateJob(orgId, workOrderId);
+  // U-W1.20 — "NOT RECORDED" IS NOT ZERO, AND A CLEARED BOX IS NOT A SAVE.
+  // update_check_in writes `hours = coalesce(p_hours, hours)`, so a blank hours
+  // field keeps the old figure (measured in its body 2026-09-17). If the row had
+  // hours and the box was submitted empty, the save kept them — say so, instead
+  // of letting the redirect repaint the old number as if nothing happened.
+  const hoursNow = formData.get("hours");
+  const hoursWas = formData.get("hours_was");
+  if (hoursNow === "" && typeof hoursWas === "string" && hoursWas !== "") {
+    redirect(jobHref(orgId, workOrderId, "check-in", "hours_not_cleared"));
+  }
   redirect(jobHref(orgId, workOrderId, "check-in"));
 }
 
@@ -106,7 +119,7 @@ export async function deleteCheckIn(formData: FormData) {
   });
 
   if (error) {
-    redirect(jobHref(orgId, workOrderId, "check-in", error.message));
+    redirect(jobHref(orgId, workOrderId, "check-in", classifyFieldError(error)));
   }
 
   revalidateJob(orgId, workOrderId);
@@ -130,7 +143,7 @@ export async function addCheckInPhoto(formData: FormData) {
   });
 
   if (error) {
-    redirect(jobHref(orgId, workOrderId, "check-in", error.message));
+    redirect(jobHref(orgId, workOrderId, "check-in", classifyFieldError(error)));
   }
 
   revalidateJob(orgId, workOrderId);
@@ -154,7 +167,7 @@ export async function removeCheckInPhoto(formData: FormData) {
   });
 
   if (error) {
-    redirect(jobHref(orgId, workOrderId, "check-in", error.message));
+    redirect(jobHref(orgId, workOrderId, "check-in", classifyFieldError(error)));
   }
 
   revalidateJob(orgId, workOrderId);
@@ -178,7 +191,7 @@ export async function updateProductionPacketNotes(formData: FormData) {
   });
 
   if (error) {
-    redirect(jobHref(orgId, workOrderId, "packet", error.message));
+    redirect(jobHref(orgId, workOrderId, "packet", classifyFieldError(error)));
   }
 
   revalidateJob(orgId, workOrderId);
@@ -201,7 +214,7 @@ export async function deleteProductionPacket(formData: FormData) {
   });
 
   if (error) {
-    redirect(jobHref(orgId, workOrderId, "packet", error.message));
+    redirect(jobHref(orgId, workOrderId, "packet", classifyFieldError(error)));
   }
 
   revalidateJob(orgId, workOrderId);
@@ -226,7 +239,7 @@ export async function addProductionPacketCallout(formData: FormData) {
   });
 
   if (error) {
-    redirect(jobHref(orgId, workOrderId, "packet", error.message));
+    redirect(jobHref(orgId, workOrderId, "packet", classifyFieldError(error)));
   }
 
   revalidateJob(orgId, workOrderId);
@@ -253,7 +266,7 @@ export async function updateProductionPacketCallout(formData: FormData) {
   });
 
   if (error) {
-    redirect(jobHref(orgId, workOrderId, "packet", error.message));
+    redirect(jobHref(orgId, workOrderId, "packet", classifyFieldError(error)));
   }
 
   revalidateJob(orgId, workOrderId);
@@ -278,7 +291,7 @@ export async function deleteProductionPacketCallout(formData: FormData) {
   });
 
   if (error) {
-    redirect(jobHref(orgId, workOrderId, "packet", error.message));
+    redirect(jobHref(orgId, workOrderId, "packet", classifyFieldError(error)));
   }
 
   revalidateJob(orgId, workOrderId);

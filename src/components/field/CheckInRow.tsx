@@ -80,6 +80,9 @@ export function CheckInRow({
         <input type="hidden" name="orgId" value={orgId} />
         <input type="hidden" name="workOrderId" value={workOrderId} />
         <input type="hidden" name="checkInId" value={checkIn.id} />
+        {/* What the hours were when this form rendered — lets the action tell a
+            cleared box (which the database will not clear) from an untouched one. */}
+        <input type="hidden" name="hours_was" value={checkIn.hours ?? ""} />
 
         <label className="flex flex-col gap-1">
           <span className="text-sm font-medium text-muted group-data-[outdoor=true]/field:text-white/80">Crew</span>
@@ -100,6 +103,9 @@ export function CheckInRow({
             inputMode="decimal"
             step="any"
             defaultValue={checkIn.hours ?? ""}
+            // "Not recorded" is its own state (NULL), shown in words — never an
+            // empty box that reads like a blank 0 on a payroll figure.
+            placeholder="Not recorded"
             disabled={isPending}
             onBlur={submit}
             className="min-h-14 rounded-lg border border-border bg-bg px-3 text-base text-text outline-none focus:border-accent disabled:opacity-60 group-data-[outdoor=true]/field:border-white/40 group-data-[outdoor=true]/field:bg-black group-data-[outdoor=true]/field:text-white"
