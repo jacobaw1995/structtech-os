@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { recordFieldEvent } from "@/lib/observability/field-events";
 
 // Same conventions as src/lib/coordination/actions.ts: server actions
 // redirect(), never return data (CLAUDE.md rule 6); every mutation goes
@@ -47,12 +48,22 @@ export async function createCheckIn(formData: FormData) {
   } = await supabase.auth.getSession();
   if (!session) redirect("/login");
 
-  const { error } = await supabase.rpc("create_check_in", {
+  const { data: checkInId, error } = await supabase.rpc("create_check_in", {
     p_work_order_id: workOrderId,
     p_crew_name: requireString(formData, "crew_name"),
     p_hours: optionalNumber(formData, "hours"),
     p_materials_used: optionalString(formData, "materials_used"),
     p_blockers: optionalString(formData, "blockers"),
+  });
+
+  // X-W1.19: the outcome, durably. A code, never the database's message. Bounded
+  // and never throws, so the check-in's own redirect is unaffected either way.
+  await recordFieldEvent(supabase, {
+    orgId,
+    event: error ? "check_in_failed" : "check_in_saved",
+    workOrderId,
+    subjectRef: !error && typeof checkInId === "string" ? checkInId : null,
+    outcome: error ? (error.code ? "refused" : "unconfirmed") : "ok",
   });
 
   if (error) {

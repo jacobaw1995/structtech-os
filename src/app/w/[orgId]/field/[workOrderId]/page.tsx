@@ -6,6 +6,9 @@ import { AddCheckInForm } from "@/components/field/AddCheckInForm";
 import { ProductionPacketView } from "@/components/field/ProductionPacketView";
 import { todayInNewYork } from "@/lib/home/model";
 import { WorkOrderFiles } from "@/components/files/WorkOrderFiles";
+import { FieldReadyBeacon } from "@/components/field/FieldReadyBeacon";
+import { recordFieldEvent } from "@/lib/observability/field-events";
+import { isFilesState } from "@/lib/storage/work-order-files-states";
 import type { Database } from "@/lib/supabase/database.types";
 
 type WorkOrder = Database["public"]["Tables"]["work_orders"]["Row"];
@@ -48,7 +51,7 @@ export default async function FieldJobPage({
   searchParams,
 }: {
   params: { orgId: string; workOrderId: string };
-  searchParams: { tab?: string; error?: string };
+  searchParams: { tab?: string; error?: string; files?: string };
 }) {
   const ctx = await requireModuleAccess(params.orgId, "field");
   const supabase = ctx.supabase;
@@ -67,6 +70,15 @@ export default async function FieldJobPage({
   if (!workOrder || workOrder.org_id !== params.orgId) {
     redirect(`/w/${params.orgId}/field`);
   }
+
+  // X-W1.19: the open, durably — started now, awaited below, bounded at 800 ms and
+  // run alongside the page's own queries, so it adds no latency in the normal case
+  // and can never fail the page.
+  const opened = recordFieldEvent(supabase, {
+    orgId: params.orgId,
+    event: tab === "packet" ? "packet_opened" : "work_order_opened",
+    workOrderId: workOrder.id,
+  });
 
   const [{ data: fieldJobsData }, { data: jobRows }, { data: checkInsData }] = await Promise.all([
     // The same money-free read the Today list uses. It covers a work order with
@@ -118,6 +130,7 @@ export default async function FieldJobPage({
   }
 
   const allPhotos = checkIns.flatMap((c) => c.photos);
+  await opened;
 
   return (
     <FieldShell
@@ -136,6 +149,7 @@ export default async function FieldJobPage({
         },
       ]}
     >
+      <FieldReadyBeacon orgId={params.orgId} workOrderId={workOrder.id} />
       <p className="text-lg font-bold text-text group-data-[outdoor=true]/field:text-white">
         {tab === "check-in" ? `Check-in · ${jobTitle}` : jobTitle}
       </p>
@@ -182,7 +196,14 @@ export default async function FieldJobPage({
 
       {/* X-W1.15 (A4.7) — roof data and photos from the office, view only. */}
       {tab === "packet" && (
-        <WorkOrderFiles orgId={params.orgId} workOrderId={workOrder.id} canManage={false} state={null} outdoor />
+        <WorkOrderFiles
+          orgId={params.orgId}
+          workOrderId={workOrder.id}
+          canManage={false}
+          state={isFilesState(searchParams.files) ? searchParams.files : null}
+          outdoor
+          surface="field"
+        />
       )}
 
       {tab === "packet" && packet && (

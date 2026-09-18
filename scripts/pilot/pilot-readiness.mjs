@@ -99,6 +99,18 @@ if (dbAvailable()) {
   } catch (e) { record('R9', 'UNDETERMINED', 'office uploads', `query failed (${e.name})`); }
 }
 
+// ── R11 field events are being recorded (X-W1.19) ──────────────────────────────
+// Without field_events, the day's opens, load failures and file opens exist only in
+// a runtime log that lasts one hour. The app side is built and records nothing until
+// the table and its RPC exist (supabase/proposals/20260917_x_w1_19_field_events.sql).
+if (dbAvailable()) {
+  try {
+    const present = q(`select (to_regclass('public.field_events') is not null) and (to_regprocedure('public.record_field_event(uuid,text,uuid,text,text,integer,timestamp with time zone)') is not null)`);
+    record('R11', present === 't' ? 'PASS' : 'FAIL', 'field events are durably recorded',
+      present === 't' ? 'field_events and record_field_event() exist' : 'field_events / record_field_event() not applied — opens, load failures and file opens are not recorded');
+  } catch (e) { record('R11', 'UNDETERMINED', 'field events are durably recorded', `query failed (${e.name})`); }
+}
+
 // ── R10 can we still see what happened after the day ends ───────────────────
 // Runtime logs are the only place a page open or a failed load appears today.
 // Vercel docs (read 2026-09-16): Hobby keeps 1 hour, Pro 1 day; drains Pro only.

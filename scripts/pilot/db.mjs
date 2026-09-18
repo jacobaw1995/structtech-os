@@ -26,7 +26,7 @@ function pgEnv() {
     ...process.env,
     PGHOST: u.hostname, PGPORT: u.port || '5432', PGUSER: decodeURIComponent(u.username),
     PGPASSWORD: decodeURIComponent(u.password), PGDATABASE: u.pathname.slice(1) || 'postgres',
-    PGSSLMODE: 'require', PGCONNECT_TIMEOUT: '15',
+    PGSSLMODE: u.searchParams.get('sslmode') || 'require', PGCONNECT_TIMEOUT: '15',
   };
 }
 
