@@ -49,6 +49,19 @@
 --    void_estimate
 --  UNGRADED 0.
 --
+-- ============================== STATUS — SWEEP CLOSED 2026-09-17 ==============================
+--  CLASS A  19: FIXED 6 (the 2 take-off functions, 20260915220533; archive_deal, archive_tracker_item,
+--               archive_tracker_project, present_estimate, 20260916214749), SAFE 13. BREAKS 0.
+--  CLASS B  13: BREAKS 7 — NOT DONE. Scheduled for the week of 2026-09-21 (controller, 2026-09-17), not "pending":
+--               assign_deal_owner, update_deal_fields, restore_deal, complete_site_survey, order_scope,
+--               present_quote, update_material_item. SAFE 6.
+--  CLASS C  31: RULED OUT OF SCOPE (controller, 2026-09-17): updated_at is not provenance — UNLESS a surface
+--               renders it to a human as "last changed by/at". Measured in src/ at f7a8509: TWO surfaces do —
+--               the Build page (roadmap_items updated_by · updated_at; writer update_roadmap_fields) and the
+--               client roadmap page ("Last updated"; writer protect_roadmap_columns). Both BROKE (proved,
+--               synthetic, rolled back) and both are FIXED in 20260918004138. The other 29 are out of scope.
+--               A new surface that renders updated_at to a person reopens this class for its writers.
+--
 -- LIVE EXPOSURE of the class-B BREAKS, measured: 330 owner_assigned rows, 0 with from_value = to_value
 -- (so no no-op assignment has been recorded yet — the UI has not sent one); 21 details_updated rows,
 -- whether any were no-ops is UNANSWERABLE (no before-values are stored); 0 archived / 0 restored rows.
