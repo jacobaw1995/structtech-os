@@ -24,6 +24,7 @@ export type ResetState =
   | "sent"
   | "unconfirmed"
   | "rate_limited"
+  | "mailer_restricted"
   | "invalid_email"
   | "request_rejected"
   | "link_invalid"
@@ -60,6 +61,19 @@ export const RESET_COPY: Record<ResetState, StateCopy> = {
     tone: "warn",
     title: "Too many reset requests",
     body: "Reset emails for this address are paused for a little while. Wait a few minutes, then try again — or use the link from an email you already received.",
+  },
+  // MEASURED 2026-09-16: production reset mail leaves via Supabase's BUILT-IN mailer
+  // (auth log mail_from noreply@mail.app.supabase.io), not custom SMTP. Supabase
+  // documents that mailer as refusing any address outside the Supabase
+  // organization's team, with code email_address_not_authorized. Until custom SMTP
+  // exists that is every crew member and every client, so it gets its own sentence
+  // instead of "refused". The distinct answer reveals an account exists; GoTrue
+  // already gives that same distinct answer to anyone holding the public anon key,
+  // so blurring it here would hide nothing and mislead the person waiting for mail.
+  mailer_restricted: {
+    tone: "warn",
+    title: "Reset emails can't be sent to this address yet",
+    body: "This workspace's email isn't fully set up, so no reset email will arrive. Ask your administrator to reset your password for you.",
   },
   invalid_email: {
     tone: "warn",

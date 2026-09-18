@@ -57,7 +57,23 @@ export type SendEmailInput = {
   idempotencyKey?: string;
   /** Resend `attachments`: content is base64. Added 2026-09-14 for the signed copy. */
   attachments?: { filename: string; content: string }[];
+  /**
+   * What this email is FOR, as a short code (`signed_copy`, `email_check`). It
+   * goes in the runtime log line and nowhere else. Never an address or a name.
+   */
+  purpose?: string;
 };
+
+// ── IS EMAIL SET UP? (2026-09-16) ────────────────────────────────────────────
+// Track S keeps a copy of this check in src/lib/signing/email-setup.ts and asked
+// for its home to be here, next to the send that refuses without it, so the two
+// cannot drift. Presence by NAME only; no value leaves this function.
+export type EmailSetupState = { configured: true } | { configured: false; missing: string[] };
+
+export function emailSetup(): EmailSetupState {
+  const missing = (["RESEND_API_KEY", "EMAIL_FROM"] as const).filter((name) => !process.env[name]);
+  return missing.length === 0 ? { configured: true } : { configured: false, missing: [...missing] };
+}
 
 export type SendEmailResult =
   | { ok: true; id: string }
@@ -80,7 +96,29 @@ function redact(text: string, key: string): string {
     .replace(/Bearer\s+\S+/gi, "Bearer [redacted]");
 }
 
+// ── ONE LOG LINE PER SEND (2026-09-16) ─────────────────────────────────────────
+// Until today a send left no trace in the runtime log: "deployed" could not be
+// told from "exercised", and it never had been. Every call now writes exactly one
+// line, `[email.send] {json}`, carrying the outcome, the purpose code, the Resend
+// id or status, and the elapsed time. It carries NO recipient, subject, body or
+// key — a runtime log is read by more people than an inbox.
 export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult> {
+  const started = Date.now();
+  const result = await deliver(input);
+  console.info(
+    `[email.send] ${JSON.stringify({
+      purpose: input.purpose ?? "unspecified",
+      outcome: result.ok ? "sent" : result.reason,
+      ...(result.ok ? { id: result.id } : {}),
+      ...(!result.ok && result.reason === "rejected" ? { status: result.status } : {}),
+      ...(!result.ok && result.reason === "not_configured" ? { missing: result.missing } : {}),
+      ms: Date.now() - started,
+    })}`
+  );
+  return result;
+}
+
+async function deliver(input: SendEmailInput): Promise<SendEmailResult> {
   const key = process.env.RESEND_API_KEY;
   const from = process.env.EMAIL_FROM;
   const missing = [!key && "RESEND_API_KEY", !from && "EMAIL_FROM"].filter(

@@ -20,7 +20,8 @@ export type FilesState =
   | "wrong_type"
   | "deleted"
   | "delete_refused"
-  | "delete_failed";
+  | "delete_failed"
+  | "open_failed";
 
 export const FILES_COPY: Record<FilesState, { tone: "info" | "warn"; text: string }> = {
   off: {
@@ -40,6 +41,7 @@ export const FILES_COPY: Record<FilesState, { tone: "info" | "warn"; text: strin
   wrong_type: { tone: "warn", text: "Only photos and PDFs can be added here. Nothing was added." },
   deleted: { tone: "info", text: "File removed." },
   delete_refused: { tone: "warn", text: "That file wasn't removed — your role can't delete files in this workspace." },
+  open_failed: { tone: "warn", text: "That file couldn't be opened. Refresh the page and try again." },
   delete_failed: {
     tone: "warn",
     text: "We couldn't confirm the file was removed. Refresh to check whether it's still listed.",

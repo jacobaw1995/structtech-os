@@ -15,12 +15,15 @@ export async function WorkOrderFiles({
   canManage,
   state,
   outdoor = false,
+  surface = "office",
 }: {
   orgId: string;
   workOrderId: string;
   canManage: boolean;
   state: FilesState | null;
   outdoor?: boolean;
+  /** Where the page is, so a file that fails to open returns the user to it. */
+  surface?: "office" | "field";
 }) {
   const heading = "text-xs font-semibold uppercase tracking-wide text-muted group-data-[outdoor=true]/field:text-white/60";
 
@@ -62,7 +65,16 @@ export async function WorkOrderFiles({
                   <img src={url} alt="" className="h-12 w-12 rounded object-cover" />
                 ) : null}
                 {url ? (
-                  <a href={url} target="_blank" rel="noopener noreferrer" className="flex-1 truncate text-sm text-accent-strong underline">
+                  /* X-W1.19: opened through /files/open, which signs at the moment of
+                     opening and records file_opened by a hash of the path. The
+                     thumbnail above still uses the page's signed url: seeing a
+                     thumbnail is not opening the file. */
+                  <a
+                    href={`/w/${orgId}/files/open?path=${encodeURIComponent(f.path)}&from=${surface}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 truncate text-sm text-accent-strong underline"
+                  >
                     {display}
                   </a>
                 ) : (
