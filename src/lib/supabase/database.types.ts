@@ -126,6 +126,7 @@ export type Database = {
           check_in_date: string
           created_at: string
           created_by: string | null
+          crew_id: string | null
           crew_name: string
           hours: number | null
           id: string
@@ -141,6 +142,7 @@ export type Database = {
           check_in_date?: string
           created_at?: string
           created_by?: string | null
+          crew_id?: string | null
           crew_name: string
           hours?: number | null
           id?: string
@@ -156,6 +158,7 @@ export type Database = {
           check_in_date?: string
           created_at?: string
           created_by?: string | null
+          crew_id?: string | null
           crew_name?: string
           hours?: number | null
           id?: string
@@ -2484,6 +2487,7 @@ export type Database = {
           ready_by_conflict: boolean
           ready_by_conflict_reason: string | null
           created_at: string
+          crew_id: string | null
           crew_name: string
           end_date: string
           id: string
@@ -2496,6 +2500,7 @@ export type Database = {
           ready_by_conflict?: boolean
           ready_by_conflict_reason?: string | null
           created_at?: string
+          crew_id?: string | null
           crew_name: string
           end_date: string
           id?: string
@@ -2508,6 +2513,7 @@ export type Database = {
           ready_by_conflict?: boolean
           ready_by_conflict_reason?: string | null
           created_at?: string
+          crew_id?: string | null
           crew_name?: string
           end_date?: string
           id?: string
@@ -3391,6 +3397,14 @@ export type Database = {
         Args: { p_check_in_id: string; p_photo_data_url: string }
         Returns: undefined
       }
+      add_crew_member: {
+        Args: { p_crew_id: string; p_is_lead?: boolean; p_person_id: string }
+        Returns: undefined
+      }
+      add_crew_person_unavailability: {
+        Args: { p_ends_on: string; p_person_id: string; p_reason?: string; p_starts_on: string }
+        Returns: string
+      }
       add_deal_note: {
         Args: { p_content: string; p_deal_id: string }
         Returns: string
@@ -3436,6 +3450,7 @@ export type Database = {
       }
       add_schedule_block: {
         Args: {
+          p_crew_id?: string
           p_crew_name: string
           p_end_date: string
           p_start_date: string
@@ -3448,6 +3463,10 @@ export type Database = {
       archive_tracker_project: {
         Args: { p_project_id: string }
         Returns: undefined
+      }
+      assign_crew_to_work_order: {
+        Args: { p_crew_id: string; p_task?: string; p_work_order_id: string }
+        Returns: Json
       }
       assign_deal_owner: {
         Args: { p_deal_id: string; p_owner_id?: string }
@@ -3470,6 +3489,20 @@ export type Database = {
         }
         Returns: string
       }
+      create_crew: { Args: { p_name: string; p_org_id: string }; Returns: string }
+      create_crew_person: {
+        Args: {
+          p_full_name: string
+          p_has_vehicle?: boolean
+          p_org_id: string
+          p_phone?: string
+          p_preferred_language?: string
+          p_skills?: string[]
+          p_user_id?: string
+          p_vehicle_note?: string
+        }
+        Returns: string
+      }
       create_purchase_order: {
         Args: {
           p_job_id?: string
@@ -3479,6 +3512,12 @@ export type Database = {
         }
         Returns: string
       }
+      delete_crew: { Args: { p_crew_id: string }; Returns: undefined }
+      delete_crew_person: { Args: { p_person_id: string }; Returns: undefined }
+      delete_crew_person_unavailability: {
+        Args: { p_unavailability_id: string }
+        Returns: undefined
+      }
       delete_purchase_order: {
         Args: { p_po_id: string }
         Returns: undefined
@@ -3487,6 +3526,7 @@ export type Database = {
         Args: { p_line_id: string }
         Returns: undefined
       }
+      fetch_crew_roster: { Args: { p_org_id: string }; Returns: Json }
       fetch_purchase_order: {
         Args: { p_po_id: string }
         Returns: Database["public"]["Tables"]["purchase_orders"]["Row"][]
@@ -3494,6 +3534,27 @@ export type Database = {
       list_purchase_orders: {
         Args: { p_org_id: string; p_job_id?: string }
         Returns: Database["public"]["Tables"]["purchase_orders"]["Row"][]
+      }
+      remove_crew_member: {
+        Args: { p_crew_id: string; p_person_id: string }
+        Returns: undefined
+      }
+      rename_crew: { Args: { p_crew_id: string; p_name: string }; Returns: undefined }
+      set_crew_archived: {
+        Args: { p_archived: boolean; p_crew_id: string }
+        Returns: undefined
+      }
+      set_crew_person_archived: {
+        Args: { p_archived: boolean; p_person_id: string }
+        Returns: undefined
+      }
+      unassign_crew_from_work_order: {
+        Args: { p_assignment_id: string }
+        Returns: undefined
+      }
+      update_crew_person: {
+        Args: { p_patch: Json; p_person_id: string }
+        Returns: undefined
       }
       update_purchase_order: {
         Args: {
@@ -3518,6 +3579,7 @@ export type Database = {
         Args: {
           p_blockers?: string
           p_check_in_date?: string
+          p_crew_id?: string
           p_crew_name: string
           p_hours?: number
           p_materials_used?: string
@@ -4251,10 +4313,12 @@ export type Database = {
       }
       update_schedule_block: {
         Args: {
+          p_crew_id?: string
           p_crew_name?: string
           p_end_date?: string
           p_schedule_block_id: string
           p_start_date?: string
+          p_unlink_crew?: boolean
         }
         Returns: undefined
       }

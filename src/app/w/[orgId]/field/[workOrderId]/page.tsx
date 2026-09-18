@@ -5,6 +5,7 @@ import { CheckInRow } from "@/components/field/CheckInRow";
 import { AddCheckInForm } from "@/components/field/AddCheckInForm";
 import { ProductionPacketView } from "@/components/field/ProductionPacketView";
 import { todayInNewYork } from "@/lib/home/model";
+import { FIELD_ERROR_COPY, isFieldError } from "@/lib/field/field-errors";
 import { WorkOrderFiles } from "@/components/files/WorkOrderFiles";
 import { FieldReadyBeacon } from "@/components/field/FieldReadyBeacon";
 import { recordFieldEvent } from "@/lib/observability/field-events";
@@ -154,9 +155,11 @@ export default async function FieldJobPage({
         {tab === "check-in" ? `Check-in · ${jobTitle}` : jobTitle}
       </p>
 
-      {searchParams.error && (
-        <p className="rounded-md bg-warn-soft px-3 py-2 text-sm text-text">
-          {searchParams.error}
+      {/* U-W1.20 — a CODE, looked up; an unknown value renders nothing. Before
+          this, any link could put any words in this banner on a crew screen. */}
+      {isFieldError(searchParams.error) && (
+        <p role="alert" className="rounded-md bg-warn-soft px-3 py-2 text-sm text-text">
+          {FIELD_ERROR_COPY[searchParams.error]}
         </p>
       )}
 

@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { classifyLoginError } from "@/lib/auth/login-states";
 import { recordFieldEvent } from "@/lib/observability/field-events";
 
 export async function login(formData: FormData) {
@@ -9,14 +10,15 @@ export async function login(formData: FormData) {
   const password = formData.get("password");
 
   if (typeof email !== "string" || typeof password !== "string") {
-    redirect("/login?error=Email and password are required.");
+    redirect("/login?error=missing");
   }
 
   const supabase = createClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
-    redirect(`/login?error=${encodeURIComponent(error.message)}`);
+    // A code, never the provider's message (lib/auth/login-states.ts).
+    redirect(`/login?error=${classifyLoginError(error)}`);
   }
 
   // X-W1.19: every sign-in, durably (auth keeps only the last one). One row per
