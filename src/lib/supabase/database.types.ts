@@ -3513,6 +3513,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      clear_check_in_hours: { Args: { p_check_in_id: string }; Returns: undefined }
       create_check_in: {
         Args: {
           p_blockers?: string
