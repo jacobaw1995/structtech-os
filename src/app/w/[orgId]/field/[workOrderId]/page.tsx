@@ -9,6 +9,9 @@ import { FIELD_ERROR_COPY, isFieldError } from "@/lib/field/field-errors";
 import { MaterialsList, type FieldMaterial } from "@/components/field/MaterialsList";
 import { WorkOrderFiles } from "@/components/files/WorkOrderFiles";
 import { FieldReadyBeacon } from "@/components/field/FieldReadyBeacon";
+import { QcPanel } from "@/components/field/QcPanel";
+import { fetchQcRows, photoRef } from "@/lib/field/qc-data";
+import { isQcResult } from "@/lib/field/qc";
 import { recordFieldEvent } from "@/lib/observability/field-events";
 import { isFilesState } from "@/lib/storage/work-order-files-states";
 import type { Database } from "@/lib/supabase/database.types";
@@ -53,7 +56,7 @@ export default async function FieldJobPage({
   searchParams,
 }: {
   params: { orgId: string; workOrderId: string };
-  searchParams: { tab?: string; error?: string; files?: string };
+  searchParams: { tab?: string; error?: string; files?: string; qc?: string };
 }) {
   const ctx = await requireModuleAccess(params.orgId, "field");
   const supabase = ctx.supabase;
@@ -147,6 +150,12 @@ export default async function FieldJobPage({
   }
 
   const allPhotos = checkIns.flatMap((c) => c.photos);
+
+  // X-W1.20 (A4.3) — the required checks. The photo references are computed from
+  // the photos that exist on this job right now, so a QC row whose photo was
+  // deleted reads "photo removed" instead of "done".
+  const qc = tab === "check-in" ? await fetchQcRows(supabase, workOrder.id) : null;
+  const photoRefs = new Set(qc ? allPhotos.map((p) => photoRef(p)) : []);
   await opened;
 
   return (
@@ -197,6 +206,18 @@ export default async function FieldJobPage({
            using, never the FACTS you came to read; here the form IS what they
            came for, so it is the history that moves down. */
         <div className="flex flex-col gap-4">
+          {qc && (
+            <QcPanel
+              orgId={params.orgId}
+              workOrderId={workOrder.id}
+              trade={workOrder.trade}
+              enabled={qc.enabled}
+              rows={qc.enabled ? qc.rows : []}
+              photoRefs={photoRefs}
+              latestCheckInId={checkIns[0]?.id ?? null}
+              result={isQcResult(searchParams.qc) ? searchParams.qc : null}
+            />
+          )}
           <AddCheckInForm
             orgId={params.orgId}
             workOrderId={workOrder.id}
