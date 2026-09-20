@@ -1,4 +1,5 @@
 import { formatDateOnly } from "@/lib/coordination/stage";
+import { officeReadyBySourceText } from "@/lib/materials/ready-by";
 import type { PurchaseOrderLine } from "@/lib/purchasing/model";
 import {
   updatePurchaseOrderLine,
@@ -77,7 +78,7 @@ export function PoLineRow({
               <span className="font-medium tabular-nums text-text">
                 {formatDateOnly(readyBy)}
               </span>
-              {readyBySourceText(readyBySource)}
+              {officeReadyBySourceText(readyBySource)}
             </p>
           )}
         </div>
@@ -287,21 +288,3 @@ function recordedOn(iso: string): string {
  *                   Shown verbatim rather than mapped to the nearest familiar
  *                   story.
  */
-function readyBySourceText(source: string | null): string {
-  switch (source) {
-    case "purchase_order":
-      return " — from the promised dates on this and any other live order";
-    case "orphaned":
-      return (
-        " — the last date an order promised, but that order has since been cancelled or removed." +
-        " Nobody set this date and nothing currently backs it, yet the schedule still uses it." +
-        " Record a new promise on a live order, or set the date on the material item."
-      );
-    case "manual":
-      return " — set by hand on the material item; no live order promise governs it";
-    case null:
-      return " — where this date came from could not be read";
-    default:
-      return ` — source not recognised by this page ("${source}")`;
-  }
-}

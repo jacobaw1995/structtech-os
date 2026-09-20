@@ -6,6 +6,7 @@ import { AddCheckInForm } from "@/components/field/AddCheckInForm";
 import { ProductionPacketView } from "@/components/field/ProductionPacketView";
 import { todayInNewYork } from "@/lib/home/model";
 import { FIELD_ERROR_COPY, isFieldError } from "@/lib/field/field-errors";
+import { MaterialsList, type FieldMaterial } from "@/components/field/MaterialsList";
 import { WorkOrderFiles } from "@/components/files/WorkOrderFiles";
 import { FieldReadyBeacon } from "@/components/field/FieldReadyBeacon";
 import { recordFieldEvent } from "@/lib/observability/field-events";
@@ -56,7 +57,8 @@ export default async function FieldJobPage({
 }) {
   const ctx = await requireModuleAccess(params.orgId, "field");
   const supabase = ctx.supabase;
-  const tab = searchParams.tab === "packet" ? "packet" : "check-in";
+  const tab =
+    searchParams.tab === "packet" ? "packet" : searchParams.tab === "materials" ? "materials" : "check-in";
 
   // Single-record fetch RPC (CLAUDE.md rule 4), same pattern as
   // coordination's fetch_work_order.
@@ -81,7 +83,7 @@ export default async function FieldJobPage({
     workOrderId: workOrder.id,
   });
 
-  const [{ data: fieldJobsData }, { data: jobRows }, { data: checkInsData }] = await Promise.all([
+  const [{ data: fieldJobsData }, { data: jobRows }, { data: checkInsData }, materialsRes] = await Promise.all([
     // The same money-free read the Today list uses. It covers a work order with
     // a schedule block ending today or later; a work order with no such block
     // falls back to the job's address below, and says so rather than guessing
@@ -100,6 +102,14 @@ export default async function FieldJobPage({
       .eq("work_order_id", workOrder.id)
       .order("check_in_date", { ascending: false })
       .order("created_at", { ascending: false }),
+    // U-W1.22 — this trade's materials. FOUR COLUMNS, and material_items has no
+    // money column at all (checked 2026-09-19), so there is nothing to filter.
+    // List query (rule 5); the crew's own RLS scopes it to their org.
+    supabase
+      .from("material_items")
+      .select("id, name, quantity, unit, ready_by, ready_by_source", { count: "exact" })
+      .eq("work_order_id", workOrder.id)
+      .order("sort_order", { ascending: true }),
   ]);
 
   type FieldJob = { work_order_id: string; job_title: string | null; site_address: string | null; squares: number | null; pitch: string | null };
@@ -111,6 +121,12 @@ export default async function FieldJobPage({
         .join(", ")
     : "";
   const checkIns = (checkInsData ?? []) as CheckIn[];
+  // A read that came back short is not a read (PostgREST max_rows): the count and
+  // the rows must agree, or the tab says it could not be read.
+  const materials =
+    !materialsRes.error && materialsRes.data && materialsRes.count === materialsRes.data.length
+      ? (materialsRes.data as FieldMaterial[])
+      : null;
   const jobTitle = header?.job_title || "Job";
   const siteAddress = header?.site_address || jobAddress || null;
   const lastCrewName = checkIns[0]?.crew_name;
@@ -142,6 +158,11 @@ export default async function FieldJobPage({
           label: "Check-in",
           href: `/w/${params.orgId}/field/${workOrder.id}?tab=check-in`,
           active: tab === "check-in",
+        },
+        {
+          label: "Materials",
+          href: `/w/${params.orgId}/field/${workOrder.id}?tab=materials`,
+          active: tab === "materials",
         },
         {
           label: "Packet",
@@ -196,6 +217,16 @@ export default async function FieldJobPage({
           ))}
         </div>
       )}
+
+      {tab === "materials" &&
+        (materials ? (
+          <MaterialsList items={materials} todayIso={todayInNewYork()} />
+        ) : (
+          <p className="text-base text-[var(--warn-strong)] group-data-[outdoor=true]/field:text-white">
+            The material list could not be read just now. That is not the same as there being none — pull to
+            reload.
+          </p>
+        ))}
 
       {/* X-W1.15 (A4.7) — roof data and photos from the office, view only. */}
       {tab === "packet" && (
