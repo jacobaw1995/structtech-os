@@ -103,9 +103,19 @@ export default async function CoordinationPage({
 
   return (
     <div className="flex h-full flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-text">Coordination</h1>
-        <p className="text-sm text-muted">{ctx.active.org_name}</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold text-text">Coordination</h1>
+          <p className="text-sm text-muted">{ctx.active.org_name}</p>
+        </div>
+        {/* U-W1.23 — the roster. A work order is assigned to a CREW, so the
+            crews live one click from the jobs they get assigned to. */}
+        <Link
+          href={`/w/${params.orgId}/coordination/crews`}
+          className="flex min-h-14 items-center rounded-md border border-border px-4 text-sm font-medium text-text hover:border-accent sm:h-10 sm:min-h-0"
+        >
+          Crews
+        </Link>
       </div>
 
       {unjobbedSigned.length > 0 && (
