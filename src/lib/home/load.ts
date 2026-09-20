@@ -103,7 +103,10 @@ export async function loadHome(ctx: WorkspaceContext): Promise<HomeData> {
   const { supabase, active, session } = ctx;
   const orgId = active.org_id;
   const today = todayInNewYork();
-  const entitled = new Set<string>(active.entitled_modules ?? []);
+  // U-W1.24 — `entitled` is deliberately GONE, not merely unused. Every section
+  // gate now asks what this PERSON can open, never what the ORG bought; the
+  // last reader of active.entitled_modules on this page was the `||
+  // entitled.has("field")` clause that built the office's cards for a crew.
   // Links follow the route guard (requireModuleAccess), so a link on this page
   // is never one that bounces the caller back here.
   const visible = new Set<ModuleKey>(ctx.visibleModules);
