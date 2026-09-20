@@ -3074,6 +3074,33 @@ export type Database = {
           },
         ]
       }
+      work_order_acknowledgments: {
+        Row: {
+          acknowledged_at: string
+          acknowledged_by: string
+          id: string
+          org_id: string
+          work_order_id: string
+          work_order_version: string
+        }
+        Insert: {
+          acknowledged_at?: string
+          acknowledged_by: string
+          id?: string
+          org_id: string
+          work_order_id: string
+          work_order_version: string
+        }
+        Update: {
+          acknowledged_at?: string
+          acknowledged_by?: string
+          id?: string
+          org_id?: string
+          work_order_id?: string
+          work_order_version?: string
+        }
+        Relationships: []
+      }
       work_order_activity: {
         Row: {
           action: string
@@ -3245,6 +3272,39 @@ export type Database = {
           },
         ]
       }
+      work_order_objectives: {
+        Row: {
+          body: string
+          id: string
+          objective_date: string
+          org_id: string
+          published_at: string
+          published_by: string | null
+          updated_at: string
+          work_order_id: string
+        }
+        Insert: {
+          body: string
+          id?: string
+          objective_date?: string
+          org_id: string
+          published_at?: string
+          published_by?: string | null
+          updated_at?: string
+          work_order_id: string
+        }
+        Update: {
+          body?: string
+          id?: string
+          objective_date?: string
+          org_id?: string
+          published_at?: string
+          published_by?: string | null
+          updated_at?: string
+          work_order_id?: string
+        }
+        Relationships: []
+      }
       work_orders: {
         Row: {
           assignee_ref: string | null
@@ -3393,6 +3453,7 @@ export type Database = {
         Args: { p_full_name?: string; p_token: string }
         Returns: undefined
       }
+      acknowledge_work_order: { Args: { p_work_order_id: string }; Returns: Json }
       add_check_in_photo: {
         Args: { p_check_in_id: string; p_photo_data_url: string }
         Returns: undefined
@@ -3476,6 +3537,10 @@ export type Database = {
         Args: { p_answers: Json; p_crew: number }
         Returns: Json
       }
+      clear_work_order_objective: {
+        Args: { p_objective_date?: string; p_work_order_id: string }
+        Returns: undefined
+      }
       complete_site_survey: {
         Args: { p_completed_at?: string; p_deal_id: string }
         Returns: undefined
@@ -3531,6 +3596,7 @@ export type Database = {
         Args: { p_po_id: string }
         Returns: Database["public"]["Tables"]["purchase_orders"]["Row"][]
       }
+      fetch_work_order_brief: { Args: { p_work_order_id: string }; Returns: Json }
       list_purchase_orders: {
         Args: { p_org_id: string; p_job_id?: string }
         Returns: Database["public"]["Tables"]["purchase_orders"]["Row"][]
@@ -3547,6 +3613,10 @@ export type Database = {
       set_crew_person_archived: {
         Args: { p_archived: boolean; p_person_id: string }
         Returns: undefined
+      }
+      set_work_order_objective: {
+        Args: { p_body: string; p_objective_date?: string; p_work_order_id: string }
+        Returns: string
       }
       unassign_crew_from_work_order: {
         Args: { p_assignment_id: string }
@@ -4353,6 +4423,7 @@ export type Database = {
       void_estimate: { Args: { p_estimate_id: string }; Returns: undefined }
       void_work_order: { Args: { p_work_order_id: string }; Returns: undefined }
     }
+      work_order_version: { Args: { p_work_order_id: string }; Returns: string }
     Enums: {
       lead_activity_action:
         | "created"

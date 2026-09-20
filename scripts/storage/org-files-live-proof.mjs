@@ -36,6 +36,11 @@ for (const f of ['.env.local', '.env.proof.local']) {
     if (m) env[m[1]] = m[2].replace(/^["']|["']$/g, '');
   }
 }
+// Defaults: Track S's synthetic field tenant (docs/SYNTHETIC_FIELD_TENANT.md, seed
+// supabase/seeds/20260917_synthetic_field_tenant.sql — literal ids). Jacob adds only
+// the four credential lines.
+env.PROOF_ORG_ID ??= 'e0851ad8-35d6-4e17-b267-6cd35cb6f713';
+env.PROOF_TRADE_WORK_ORDER_ID ??= '6af911f6-5c60-4041-9a4f-582f5f08434e';
 const need = ['NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_ANON_KEY', 'PROOF_ORG_ID', 'PROOF_TRADE_WORK_ORDER_ID',
   'PROOF_CREW_EMAIL', 'PROOF_CREW_PASSWORD', 'PROOF_OFFICE_EMAIL', 'PROOF_OFFICE_PASSWORD'];
 const missing = need.filter((k) => !env[k]);
