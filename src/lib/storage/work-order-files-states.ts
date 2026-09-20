@@ -31,7 +31,7 @@ export const FILES_COPY: Record<FilesState, { tone: "info" | "warn"; text: strin
   uploaded: { tone: "info", text: "File added. The crew can see it on this job." },
   upload_refused: {
     tone: "warn",
-    text: "Storage refused this upload for your role in this workspace. Nothing was added.",
+    text: "That upload wasn't allowed for your account. Nothing was added — ask the office to add it.",
   },
   upload_failed: {
     tone: "warn",

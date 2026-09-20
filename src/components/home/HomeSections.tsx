@@ -172,13 +172,3 @@ function ItemRow({ item }: { item: AttentionItem }) {
     </li>
   );
 }
-
-export function HiddenSections({ hidden }: { hidden: HomeData["hidden"] }) {
-  if (hidden.length === 0) return null;
-  const names: Record<string, string> = { estimates: "Estimates", pipeline: "Pipeline" };
-  return (
-    <p data-home-hidden className="text-xs text-muted">
-      {hidden.map((h) => `${names[h.id] ?? h.id} is not shown — ${h.because}.`).join(" ")}
-    </p>
-  );
-}

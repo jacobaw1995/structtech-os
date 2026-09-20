@@ -45,9 +45,29 @@ import {
 // and, on top of every one of them, the caller must be able to OPEN the page
 // the item is resolved on (reachableOnly, in build.ts).
 
+// U-W1.24 (2026-09-20) — WHAT WAS WITHHELD IS NOT A THING THE SCREEN SAYS.
+//
+// `hidden` used to live here: a list of sections the caller's capabilities
+// refused, rendered at the foot of the page as "Estimates is not shown — your
+// role does not have view_estimates." MEASURED BY A HUMAN on production, as
+// the crew member: `view_master_work_order` and `view_estimates` were on a
+// roofer's screen, verbatim. Those are our internal identifiers. He cannot act
+// on them, and naming what he cannot see tells him the shape of a system he
+// has no business seeing.
+//
+// THE RULE (Jacob, 2026-09-20): a screen says what the person CAN DO, not what
+// the system withheld from them. If a section is not for this role, it is
+// ABSENT — not present and explained. So the array, its type, the component
+// that rendered it and the sentence it built are all gone rather than reworded:
+// a politer sentence would still be a sentence about our permission model.
+//
+// It is worth being clear about what this cost, because it is not nothing. The
+// note existed so an absence could not be read as an empty — "no estimates
+// yet" on a screen that is not allowed to count estimates is a lie of a
+// different kind. That case is still handled, but by NOT BUILDING the section
+// at all rather than by explaining its absence, which is the same answer the
+// person would get from a screen that simply does not have that job.
 export type HomeData = {
-  /** Sections whose capability gate was read and refused — not rendered. */
-  hidden: { id: Section["id"]; because: string }[];
   sections: Section[];
   today: string;
 };
@@ -102,10 +122,20 @@ export async function loadHome(ctx: WorkspaceContext): Promise<HomeData> {
     ]);
   const caps: Caps = { view_financials, view_estimates, schedule, manage_purchasing, edit_leads };
 
-  const hidden: HomeData["hidden"] = [];
   const tasks: Promise<Section>[] = [];
 
-  if (entitled.has("coordination") || entitled.has("field")) {
+  // U-W1.24 (2026-09-20) — GATED ON WHAT THIS PERSON CAN OPEN, NOT ON WHAT THE
+  // ORG BOUGHT. This read `entitled.has("coordination") || entitled.has("field")`,
+  // and the `|| entitled.has("field")` is the whole of yesterday's crew-screen
+  // defect: a field member is entitled to `field`, so the OFFICE's three cards
+  // — Schedule, Jobs, "Materials and purchasing" — were built and rendered for
+  // a roofer, in the office's words, linking to a module the route guard would
+  // bounce them out of. Entitlement is the ORG's; visibility is the PERSON's,
+  // and this page is a person's.
+  //
+  // The field module has its own Today list, which is the crew's schedule in
+  // the crew's words. This page does not need to build them a second one.
+  if (visible.has("coordination")) {
     tasks.push(
       (async () => {
         const res = await supabase
@@ -135,7 +165,7 @@ export async function loadHome(ctx: WorkspaceContext): Promise<HomeData> {
     );
   }
 
-  if (entitled.has("estimating")) {
+  if (visible.has("estimating")) {
     if (view_estimates && view_financials) {
       tasks.push(
         (async () => {
@@ -147,15 +177,11 @@ export async function loadHome(ctx: WorkspaceContext): Promise<HomeData> {
           return buildEstimates(e.data, j.data.map((r) => r.estimate_id), href);
         })()
       );
-    } else {
-      hidden.push({
-        id: "estimates",
-        because: `your role does not have ${!view_estimates ? "view_estimates" : "view_financials"}`,
-      });
     }
+    // NOT EXPLAINED WHEN ABSENT — see the note on `hidden` below.
   }
 
-  if (entitled.has("crm")) {
+  if (visible.has("crm")) {
     if (view_financials) {
       tasks.push(
         (async () => {
@@ -169,10 +195,8 @@ export async function loadHome(ctx: WorkspaceContext): Promise<HomeData> {
           return buildPipeline(stages, d.data, f.data, session.user.id, Date.now(), caps, href);
         })()
       );
-    } else {
-      hidden.push({ id: "pipeline", because: "your role does not have view_financials" });
     }
   }
 
-  return { hidden, sections: reachableOnly(await Promise.all(tasks)), today };
+  return { sections: reachableOnly(await Promise.all(tasks)), today };
 }

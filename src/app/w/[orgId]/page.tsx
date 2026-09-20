@@ -1,8 +1,9 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { getWorkspaceContext } from "@/lib/workspace/context";
 import { moduleLabel } from "@/lib/workspace/modules";
 import { loadHome } from "@/lib/home/load";
-import { HiddenSections, HomeSectionCard, HomeSummary } from "@/components/home/HomeSections";
+import { HomeSectionCard, HomeSummary } from "@/components/home/HomeSections";
 
 export default async function WorkspaceHomePage({
   params,
@@ -10,6 +11,25 @@ export default async function WorkspaceHomePage({
   params: { orgId: string };
 }) {
   const ctx = await getWorkspaceContext(params.orgId);
+
+  // U-W1.24 (2026-09-20) — A PERSON WITH ONE MODULE LANDS IN IT.
+  //
+  // MEASURED BY A HUMAN, not by me: signed in to production as the crew
+  // member, this screen rendered a WORKSPACE OVERVIEW — cards headed Schedule,
+  // Jobs and "Materials and purchasing" — with the field module behind an
+  // "Open Field" button underneath. A roofer opening the app got an office
+  // dashboard and one more tap.
+  //
+  // The comment that used to sit here said a redirect "is what I would
+  // recommend, but it removes a route every such user currently lands on, and
+  // that is a navigation decision rather than a measurement. Reported, not
+  // taken." It has now been taken, by the person whose decision it was, after
+  // looking at the screen. Leaving it as a recommendation for another week is
+  // what put an office dashboard in front of a crew.
+  if (ctx.visibleModules.length === 1) {
+    redirect(`/w/${params.orgId}/${ctx.visibleModules[0]}`);
+  }
+
   const home = await loadHome(ctx);
 
   return (
@@ -33,31 +53,11 @@ export default async function WorkspaceHomePage({
           <HomeSectionCard key={s.id} section={s} />
         ))}
       </div>
-      <HiddenSections hidden={home.hidden} />
 
-      {/* U-W1.10 — measured at 375x812 as a `field` member: this whole screen
-          was ONE tile, 46px tall, under §2.4's 56dp floor. A crew member opens
-          the app and the only thing on the page is a single small link to the
-          only place they are allowed to go.
-
-          Two changes, both from that measurement. Every tile is now a 56dp
-          target. And when a role has exactly ONE visible module, it stops
-          being a grid — a two-column grid holding one item is a layout
-          pretending there is a choice — and becomes one full-width primary
-          action that names where it goes.
-
-          NOT a redirect. Skipping this screen entirely for single-module roles
-          would be the smaller journey and it is what I would recommend, but it
-          removes a route every such user currently lands on, and that is a
-          navigation decision rather than a measurement. Reported, not taken. */}
-      {ctx.visibleModules.length === 1 ? (
-        <Link
-          href={`/w/${params.orgId}/${ctx.visibleModules[0]}`}
-          className="flex min-h-14 items-center justify-center rounded-lg bg-accent-strong px-4 text-base font-semibold text-white"
-        >
-          Open {moduleLabel(ctx.visibleModules[0], ctx.active.tenant_type)}
-        </Link>
-      ) : ctx.visibleModules.length > 1 ? (
+      {/* Navigation for a role that has a CHOICE. The single-module case
+          redirected above and never reaches here; the no-module case is a
+          membership with nothing granted, which is a state, not an error. */}
+      {ctx.visibleModules.length > 1 ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {ctx.visibleModules.map((moduleKey) => (
             <Link

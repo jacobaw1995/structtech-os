@@ -90,18 +90,22 @@ export function buildSchedule(
     title: "Schedule",
     state: stateOf(blocks.length, items.length),
     onRecord: blocks.length,
-    onRecordLabel: plural(blocks.length, "schedule block"),
+    // U-W1.24 — "schedule block" and "unfinished block" are the TABLE's words
+    // (schedule_blocks), not a person's. Nobody says "three unfinished blocks";
+    // they say "three jobs still to finish". The row is a crew's stretch of
+    // days on a job, so that is what it is called.
+    onRecordLabel: plural(blocks.length, "scheduled job"),
     items,
     notes:
       blocks.length > 0
         ? [
             `${onSiteToday.length} on site today · ${current.length - onSiteToday.length} upcoming · ${
               blocks.length - current.length
-            } finished · ${conflicts.length} of ${plural(current.length, "unfinished block")} ${is(
+            } finished · ${conflicts.length} of ${plural(current.length, "still to finish")} ${is(
               conflicts.length,
               "starts",
               "start"
-            )} before ${is(conflicts.length, "its", "their")} materials are ready`,
+            )} before ${is(conflicts.length, "its", "their")} materials arrive`,
           ]
         : [],
   };
@@ -134,7 +138,7 @@ export function buildJobs(
               unscheduled.length,
               "has",
               "have"
-            )} no schedule block`,
+            )} not on the schedule yet`,
             href: href("coordination") ?? href("field"),
             needsYou: caps.schedule,
           },
@@ -145,16 +149,24 @@ export function buildJobs(
   // view_master_work_order, RLS returns trades only, so a job whose only live
   // work order is its master would count as "not in flight". The sentence
   // names what was counted rather than passing a smaller number off as the whole.
+  // "void" is the COLUMN's word (voided_at). A person says a job is cancelled,
+  // or that it is still live. The trade/master distinction stays — that one is
+  // the office's own vocabulary, not ours.
   const counted = viewMaster ? "work order" : "trade work order";
   // A job count of zero gets no notes: "0 of 0 jobs" is arithmetic, not information.
   const notes = jobCount === 0 ? [] : [
-    `${inFlight} of ${plural(jobCount, "job")} ${is(inFlight, "has", "have")} a ${counted} that is not void`,
+    `${inFlight} of ${plural(jobCount, "job")} ${is(inFlight, "has", "have")} a live ${counted}`,
     viewMaster
-      ? `${plural(live.length, "work order")} not void · ${trades.length} trade`
-      : `${plural(trades.length, "trade work order")} not void`,
+      ? `${plural(live.length, "work order")} live · ${trades.length} trade`
+      : `${plural(trades.length, "trade work order")} live`,
   ];
   if (jobCount > 0 && !viewMaster) {
-    notes.push("Master work orders are not counted here — your role does not have view_master_work_order.");
+    // U-W1.24 — the CAVEAT stays, the IDENTIFIER goes. §7.1's point is that a
+    // partial count must not pass as the whole, and that is still said. What is
+    // no longer said is the name of the permission that made it partial: the
+    // reader cannot act on `view_master_work_order` and does not need to know
+    // it exists.
+    notes.push("Counting trade work orders only — masters are not included in this number.");
   }
 
   return {

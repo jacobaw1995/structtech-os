@@ -25,7 +25,11 @@ export type FieldError =
 
 export const FIELD_ERROR_COPY: Record<FieldError, string> = {
   not_accessible: "That item couldn't be found for your account. Nothing was changed.",
-  wrong_level: "This is not a trade work order, so it can't take check-ins or a packet. Nothing was changed.",
+  // U-W1.24 — was "This is not a trade work order, so it can't take check-ins
+  // or a packet." "Trade work order" is the office's distinction from a master,
+  // and a crew member can neither say it nor act on it. The sentence says what
+  // happened to what he was looking at.
+  wrong_level: "This job can't take check-ins or a packet. Nothing was changed.",
   delete_not_yours: "Only the person who recorded this check-in, or the office, can delete it. Ask the office to remove it.",
   change_not_yours: "Only the person who recorded this check-in, or the office, can change it. Ask the office to correct it.",
   // update_check_in keeps the old figure when hours are blank; clearing is its own
