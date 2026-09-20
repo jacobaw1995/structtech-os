@@ -114,16 +114,16 @@ if (dbAvailable()) {
 // ── R10 can we still see what happened after the day ends ───────────────────
 // Runtime logs are the only place a page open or a failed load appears today.
 // Vercel docs (read 2026-09-16): Hobby keeps 1 hour, Pro 1 day; drains Pro only.
+// Asked THROUGH the CLI (2026-09-18): the raw token in the CLI's auth file went stale
+// and the API answered "forbidden" while the CLI itself was signed in — a check
+// reading that file reported "cannot tell" on a question the CLI could answer.
 try {
-  const auth = [`${process.env.HOME}/Library/Application Support/com.vercel.cli/auth.json`, `${process.env.HOME}/.local/share/com.vercel.cli/auth.json`].find(existsSync);
-  if (!auth) throw Object.assign(new Error('no vercel auth'), { name: 'NoAuth' });
-  const token = JSON.parse(readFileSync(auth, 'utf8')).token;
-  const res = await fetch(`https://api.vercel.com/v2/teams/${cfg.vercelScope}`, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(15000) });
-  const plan = (await res.json())?.billing?.plan;
-  if (!plan) record('R10', 'UNDETERMINED', 'runtime logs outlive the pilot day', `plan unreadable (HTTP ${res.status})`);
+  const out = execFileSync('vercel', ['api', `/v2/teams/${cfg.vercelScope}`], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 60000 });
+  const plan = JSON.parse(out)?.billing?.plan;
+  if (!plan) record('R10', 'UNDETERMINED', 'runtime logs outlive the pilot day', 'plan not in the API answer');
   else if (plan === 'hobby') record('R10', 'FAIL', 'runtime logs outlive the pilot day', 'Vercel plan hobby: 1 hour of runtime logs, no log drains');
   else record('R10', 'PASS', 'runtime logs outlive the pilot day', `Vercel plan ${plan}: at least 1 day of runtime logs`);
-} catch (e) { record('R10', 'UNDETERMINED', 'runtime logs outlive the pilot day', `could not read the plan (${e.name})`); }
+} catch (e) { record('R10', 'UNDETERMINED', 'runtime logs outlive the pilot day', `could not ask the Vercel CLI (${e.code || e.name})`); }
 
 // ── report ──────────────────────────────────────────────────────────────────
 for (const r of results) console.log(`${r.verdict.padEnd(12)} ${r.id.padEnd(7)} ${r.what} — ${r.fact}`);
