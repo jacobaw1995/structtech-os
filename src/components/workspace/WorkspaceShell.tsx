@@ -154,15 +154,17 @@ export function WorkspaceShell({
           </span>
         )}
 
-        <div className="mx-2 hidden max-w-xs flex-1 sm:block">
-          <input
-            type="search"
-            placeholder="Search…"
-            disabled
-            title="Not built yet"
-            className="w-full rounded-full border border-border bg-bg px-3 py-1.5 text-sm text-muted placeholder:text-muted disabled:opacity-60"
-          />
-        </div>
+        {/* U-W1.27 (2026-09-21) — THE SEARCH BOX IS GONE, because search is.
+            It was a disabled input with placeholder "Search…" and title "Not
+            built yet". Measured by the controller off the live accessibility
+            tree: a sighted person saw a search field; a screen reader, which
+            ranks `title` above `placeholder` when naming an input, announced
+            "Not built yet". Two people, two different claims about the same
+            control, and only one of them true. Nothing on this page searches,
+            so nothing on this page may look like it does. When search exists
+            it comes back as a working control, not as a promise. The flex-1
+            it held is taken up by the ml-auto below, so the header keeps its
+            shape. */}
 
         {/* The two placeholders below are not built yet and do nothing when
             tapped. Below sm they are dropped entirely rather than shrunk:
