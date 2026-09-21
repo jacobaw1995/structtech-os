@@ -1,8 +1,11 @@
 import Link from "next/link";
 import { requireModuleAccess } from "@/lib/workspace/context";
+import { cookies } from "next/headers";
 import { FieldShell } from "@/components/field/FieldShell";
+import { OUTDOOR_COOKIE, parseOutdoorCookie } from "@/lib/field/outdoor";
 import { scheduleBlockStatus } from "@/lib/field/today";
 import { todayInNewYork } from "@/lib/home/model";
+import { EmptyDay, type LastJob } from "@/components/field/EmptyDay";
 
 // More specific than the [moduleKey] placeholder route — see crm/page.tsx's
 // comment for why Next resolves this static segment first.
@@ -55,14 +58,40 @@ export default async function FieldTodayPage({
   // end_date >= today keeps this to in-progress + upcoming jobs; past jobs drop
   // off. Voided work orders are excluded inside the RPC — a cancelled job
   // should simply stop showing up for a crew to check into.
-  const { data: jobsData } = await supabase.rpc("fetch_field_jobs", {
+  //
+  // U-W1.25 (2026-09-21) — A FAILED READ IS NOT AN EMPTY DAY. This read
+  // destructured `data` only and dropped `error`, so a failed call and a day
+  // with nothing on it rendered the SAME card: "No jobs scheduled". That is
+  // "cannot see" rendered as "does not exist" on the first screen a crew opens.
+  // Now three states, and the screen says which.
+  const { data: jobsData, error: jobsError } = await supabase.rpc("fetch_field_jobs", {
     p_org_id: params.orgId,
     p_today: todayIso,
   });
-  const jobs = (jobsData ?? []) as unknown as FieldJob[];
+  const jobs: FieldJob[] | null = jobsError || !Array.isArray(jobsData) ? null : (jobsData as unknown as FieldJob[]);
+
+  // THE EMPTY DAY — measured 2026-09-21: of the last 30 days, this screen had
+  // anything on it for THREE (2026-09-17 from 8:29 PM, when the org's only
+  // schedule row was created, through 2026-09-19, when it ended). On the other
+  // 27 a crew member opened the app and learned nothing. Nothing on the
+  // schedule is the COMMON day, so the screen is designed for it.
+  //
+  // What is true and useful on that day, from reads a crew can actually make:
+  // the job they were last on, and that they can still add to it. Checked
+  // against the functions rather than assumed: create_check_in and
+  // add_check_in_photo have no date or schedule check at all, so a late
+  // check-in and a late photo on a finished job both land.
+  //
+  // WHY THIS READ MAY SAY NOTHING BUT MAY NEVER SAY "NONE". It is a direct
+  // table read under the caller's own RLS, not a definer function. Measured as
+  // the crew account on 2026-09-21 it saw 1 of 1 of the org's schedule rows —
+  // but "saw every row today" is a measurement, not a guarantee. So an empty or
+  // failed result renders NOTHING about the past: no "you have no past jobs",
+  // no "nothing was ever scheduled". The section is simply absent.
+  const lastJob = jobs && jobs.length === 0 ? await readLastJob(supabase, params.orgId, todayIso) : null;
 
   return (
-    <FieldShell>
+    <FieldShell initialOutdoor={parseOutdoorCookie(cookies().get(OUTDOOR_COOKIE)?.value)}>
       <div>
         <p className="text-2xl font-bold text-text group-data-[outdoor=true]/field:text-white">
           Today
@@ -79,15 +108,21 @@ export default async function FieldTodayPage({
         </p>
       </div>
 
-      {jobs.length === 0 ? (
-        <div className="flex h-40 flex-col items-center justify-center gap-1 rounded-2xl border border-border text-center group-data-[outdoor=true]/field:border-white/30">
-          <p className="text-sm font-semibold text-text group-data-[outdoor=true]/field:text-white">
-            No jobs scheduled
+      {jobs === null ? (
+        /* COULD NOT READ. Said as that, and never as an empty day. */
+        <div
+          role="alert"
+          className="flex flex-col gap-1 rounded-2xl border border-border p-4 group-data-[outdoor=true]/field:border-white/40"
+        >
+          <p className="text-base font-semibold text-[var(--warn-strong)] group-data-[outdoor=true]/field:text-white">
+            Couldn&apos;t load the schedule
           </p>
           <p className="text-sm text-muted group-data-[outdoor=true]/field:text-white/80">
-            Jobs appear here once coordination schedules a crew.
+            That doesn&apos;t mean there&apos;s no work. Pull down to reload, or try again in a minute.
           </p>
         </div>
+      ) : jobs.length === 0 ? (
+        <EmptyDay orgId={params.orgId} lastJob={lastJob} />
       ) : (
         <div className="flex flex-col gap-3">
           {jobs.map((job) => {
@@ -151,4 +186,53 @@ export default async function FieldTodayPage({
       )}
     </FieldShell>
   );
+}
+
+/**
+ * The most recent schedule row that ended before today, on a live trade job.
+ * Returns null — never "none" — when the read fails or finds nothing: see the
+ * note at the call site. Voided jobs are excluded, the same rule
+ * fetch_field_jobs applies, so a cancelled job is never offered as "your last
+ * job".
+ */
+async function readLastJob(
+  supabase: Awaited<ReturnType<typeof requireModuleAccess>>["supabase"],
+  orgId: string,
+  todayIso: string
+): Promise<LastJob | null> {
+  const { data, error } = await supabase
+    .from("schedule_blocks")
+    .select(
+      "work_order_id, crew_name, end_date, work_order:work_orders!inner(kind, voided_at, job:jobs(service_address_street, service_address_city, service_address_state, service_address_zip))"
+    )
+    .eq("org_id", orgId)
+    .lt("end_date", todayIso)
+    .eq("work_order.kind", "trade")
+    .is("work_order.voided_at", null)
+    .order("end_date", { ascending: false })
+    .limit(1);
+  const row = !error && data ? data[0] : undefined;
+  if (!row) return null;
+
+  const job = row.work_order?.job;
+  const address = job
+    ? [job.service_address_street, job.service_address_city, job.service_address_state, job.service_address_zip]
+        .filter((p): p is string => Boolean(p && p.trim()))
+        .join(", ")
+    : "";
+
+  const { data: checkIns, error: checkInError } = await supabase
+    .from("check_ins")
+    .select("check_in_date")
+    .eq("work_order_id", row.work_order_id)
+    .order("check_in_date", { ascending: false })
+    .limit(1);
+
+  return {
+    workOrderId: row.work_order_id,
+    endDate: row.end_date,
+    crewName: row.crew_name,
+    address,
+    lastCheckIn: !checkInError && checkIns?.[0] ? checkIns[0].check_in_date : null,
+  };
 }

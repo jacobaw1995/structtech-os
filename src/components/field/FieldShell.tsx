@@ -1,7 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import Link from "next/link";
+import { OUTDOOR_COOKIE, OUTDOOR_LEGACY_STORAGE_KEY } from "@/lib/field/outdoor";
+
+// useLayoutEffect runs before the browser paints; on the server it does not run
+// at all and React warns, so the server gets the no-op useEffect.
+const useBeforePaint = typeof window === "undefined" ? useEffect : useLayoutEffect;
 
 // Generalized version of EstimateFlowShell's pattern (single thumb column,
 // capped phone width, group-data-[outdoor=true]/field:* CSS variant driven
@@ -34,20 +39,25 @@ import Link from "next/link";
 // time, for the whole day.
 // ===========================================================================
 
-const OUTDOOR_KEY = "stos.field.outdoor";
-
 export function FieldShell({
   backHref,
   backLabel,
   tabs,
+  initialOutdoor,
   children,
 }: {
   backHref?: string;
   backLabel?: string;
   tabs?: { label: string; href: string; active: boolean }[];
+  /**
+   * U-W1.26 — the saved preference, read from the cookie BY THE SERVER, so the
+   * first render is already right and there is no light frame to paint.
+   * `null` = no cookie yet (see the legacy read below).
+   */
+  initialOutdoor: boolean | null;
   children: React.ReactNode;
 }) {
-  const [outdoor, setOutdoor] = useState(false);
+  const [outdoor, setOutdoor] = useState(initialOutdoor ?? false);
 
   // localStorage rather than lifting into a field layout. A layout would keep
   // the state across in-app navigations only; this also survives a reload, a
@@ -58,13 +68,22 @@ export function FieldShell({
   // Every access is wrapped: Safari private mode and a browser set to block
   // site data both THROW on read, and a field screen must not white-screen
   // because a preference could not be loaded.
+  //
+  // U-W1.26 (2026-09-21) — the server now reads the choice from a cookie and
+  // renders it, so this effect no longer DECIDES the first frame. It only
+  // carries forward anyone who turned the mode on before the cookie existed:
+  // no cookie, legacy key says on → turn on and write the cookie, once.
   useEffect(() => {
+    if (initialOutdoor !== null) return;
     try {
-      if (window.localStorage.getItem(OUTDOOR_KEY) === "1") setOutdoor(true);
+      if (window.localStorage.getItem(OUTDOOR_LEGACY_STORAGE_KEY) === "1") {
+        setOutdoor(true);
+        writeCookie(true);
+      }
     } catch {
       /* storage unavailable — stay on the documented default (off) */
     }
-  }, []);
+  }, [initialOutdoor]);
 
   // Outdoor mode is a DOCUMENT mode, not a panel mode. FieldShell paints itself
   // black, but WorkspaceShell draws the top bar, the tenant row and a 16px
@@ -77,7 +96,11 @@ export function FieldShell({
   // member has only `field` in their sidebar, but an owner or agency_admin can
   // open the field module and then navigate away, and the app must not stay
   // black because they once tapped this.
-  useEffect(() => {
+  //
+  // BEFORE PAINT (U-W1.26): as a plain useEffect, the unmount of one field
+  // screen deleted the attribute and the next screen re-set it AFTER a paint,
+  // so the top bar flashed light between screens.
+  useBeforePaint(() => {
     document.documentElement.dataset.fieldOutdoor = outdoor ? "true" : "false";
     return () => {
       delete document.documentElement.dataset.fieldOutdoor;
@@ -87,10 +110,11 @@ export function FieldShell({
   function toggleOutdoor() {
     setOutdoor((v) => {
       const next = !v;
+      writeCookie(next);
       try {
-        window.localStorage.setItem(OUTDOOR_KEY, next ? "1" : "0");
+        window.localStorage.setItem(OUTDOOR_LEGACY_STORAGE_KEY, next ? "1" : "0");
       } catch {
-        /* the toggle still works for this page view; it just will not persist */
+        /* the cookie is the source of truth now; this key is only kept in step */
       }
       return next;
     });
@@ -203,4 +227,13 @@ function ConnectionDot() {
       Offline
     </span>
   );
+}
+
+/** A year, per device, readable by the server. A display preference, not a credential. */
+function writeCookie(on: boolean) {
+  try {
+    document.cookie = `${OUTDOOR_COOKIE}=${on ? "1" : "0"}; path=/; max-age=31536000; samesite=lax`;
+  } catch {
+    /* cookies blocked — the toggle still works for this page view */
+  }
 }

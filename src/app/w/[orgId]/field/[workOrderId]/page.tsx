@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { requireModuleAccess } from "@/lib/workspace/context";
+import { cookies } from "next/headers";
 import { FieldShell } from "@/components/field/FieldShell";
+import { OUTDOOR_COOKIE, parseOutdoorCookie } from "@/lib/field/outdoor";
 import { CheckInRow } from "@/components/field/CheckInRow";
 import { AddCheckInForm } from "@/components/field/AddCheckInForm";
 import { ProductionPacketView } from "@/components/field/ProductionPacketView";
@@ -160,6 +162,7 @@ export default async function FieldJobPage({
 
   return (
     <FieldShell
+      initialOutdoor={parseOutdoorCookie(cookies().get(OUTDOOR_COOKIE)?.value)}
       backHref={`/w/${params.orgId}/field`}
       backLabel="← Today"
       tabs={[

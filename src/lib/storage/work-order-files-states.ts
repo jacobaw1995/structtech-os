@@ -40,7 +40,7 @@ export const FILES_COPY: Record<FilesState, { tone: "info" | "warn"; text: strin
   too_large: { tone: "warn", text: "That file is over 25 MB. Nothing was added." },
   wrong_type: { tone: "warn", text: "Only photos and PDFs can be added here. Nothing was added." },
   deleted: { tone: "info", text: "File removed." },
-  delete_refused: { tone: "warn", text: "That file wasn't removed — your role can't delete files in this workspace." },
+  delete_refused: { tone: "warn", text: "That file wasn't removed. Ask the office to remove it." },
   open_failed: { tone: "warn", text: "That file couldn't be opened. Refresh the page and try again." },
   delete_failed: {
     tone: "warn",
