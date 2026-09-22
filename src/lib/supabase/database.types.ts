@@ -2377,6 +2377,48 @@ export type Database = {
           },
         ]
       }
+      qc_items: {
+        Row: {
+          actor_id: string
+          cleared_at: string | null
+          cleared_by: string | null
+          count_value: number | null
+          id: string
+          kind: string
+          occurred_at: string
+          org_id: string
+          photo_ref: string | null
+          requirement_key: string
+          work_order_id: string
+        }
+        Insert: {
+          actor_id: string
+          cleared_at?: string | null
+          cleared_by?: string | null
+          count_value?: number | null
+          id?: string
+          kind: string
+          occurred_at?: string
+          org_id: string
+          photo_ref?: string | null
+          requirement_key: string
+          work_order_id: string
+        }
+        Update: {
+          actor_id?: string
+          cleared_at?: string | null
+          cleared_by?: string | null
+          count_value?: number | null
+          id?: string
+          kind?: string
+          occurred_at?: string
+          org_id?: string
+          photo_ref?: string | null
+          requirement_key?: string
+          work_order_id?: string
+        }
+        Relationships: []
+      }
       roadmap_items: {
         Row: {
           created_at: string
@@ -3537,6 +3579,10 @@ export type Database = {
         Args: { p_answers: Json; p_crew: number }
         Returns: Json
       }
+      clear_qc_item: {
+        Args: { p_requirement_key: string; p_work_order_id: string }
+        Returns: number
+      }
       clear_work_order_objective: {
         Args: { p_objective_date?: string; p_work_order_id: string }
         Returns: undefined
@@ -3600,6 +3646,16 @@ export type Database = {
       list_purchase_orders: {
         Args: { p_org_id: string; p_job_id?: string }
         Returns: Database["public"]["Tables"]["purchase_orders"]["Row"][]
+      }
+      record_qc_item: {
+        Args: {
+          p_count_value?: number
+          p_kind: string
+          p_photo_ref?: string
+          p_requirement_key: string
+          p_work_order_id: string
+        }
+        Returns: string
       }
       remove_crew_member: {
         Args: { p_crew_id: string; p_person_id: string }
