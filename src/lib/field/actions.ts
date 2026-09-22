@@ -18,6 +18,12 @@ function requireString(formData: FormData, key: string): string {
   return value;
 }
 
+/** Trimmed, and may be empty — the database decides whether empty is allowed. */
+function trimmed(formData: FormData, key: string): string {
+  const value = formData.get(key);
+  return typeof value === "string" ? value.trim() : "";
+}
+
 function optionalString(formData: FormData, key: string): string | undefined {
   const value = formData.get(key);
   return typeof value === "string" && value.length > 0 ? value : undefined;
@@ -53,7 +59,16 @@ export async function createCheckIn(formData: FormData) {
 
   const { data: checkInId, error } = await supabase.rpc("create_check_in", {
     p_work_order_id: workOrderId,
-    p_crew_name: requireString(formData, "crew_name"),
+    // U-W1.28 — TRIMMED, AND DELIBERATELY ALLOWED TO BE EMPTY. The browser's
+    // `required` blocks an empty box but not three spaces, and requireString()
+    // accepted "   " as a string of length 3 and threw only on a genuinely
+    // absent field — so whitespace reached the database, which refused it with
+    // 'choose a crew, or type who is doing the work' (hint crew_required).
+    // Sending the trimmed value keeps ONE authority on what counts as a crew
+    // name: S's raise. The alternative — an HTML `pattern` — would block the
+    // submit behind a browser-native bubble whose wording we do not control,
+    // which is a second copy of the refusal and a worse one.
+    p_crew_name: trimmed(formData, "crew_name"),
     p_hours: optionalNumber(formData, "hours"),
     p_materials_used: optionalString(formData, "materials_used"),
     p_blockers: optionalString(formData, "blockers"),
