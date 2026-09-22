@@ -242,6 +242,10 @@ Do **not** build these now, but do **not** make choices that block them (full de
 
 19. **A SPINE IS NOT A SURFACE, AND THE BUILD TRACKER CANNOT TELL THE DIFFERENCE.** *(Controller ruling, 2026-09-20.)* **Five Field items read `planned` while their tables, policies and functions exist** — and not one is reachable from the only screen a field member can open. An item is `shipped` from the database's side and `planned` from the roofer's side at once; `roadmap_items.status` holds one value and cannot say which. **Ship spines, report them as spines with "NOT BUILT: the screen" attached, and never move an item to `shipped` on a spine alone.** Directive §7.1 RULE 17.
 
+20. **SHOW THE INSTRUMENT THE DEFECT BEFORE YOU TRUST ITS ZERO.** *(Controller ruling, 2026-09-21.)* Track U, unprompted, ran its parser-based module-name sweep against `origin/main` first — where the known "coordination" sentence still lived — confirmed it fired at `field/page.tsx:88`, and only then trusted its zero on the fixed branch. **Every sweep runs its positive control first and records that it fired; a result without one is reported as UNCALIBRATED, not clean.** The positive form of "a check that cannot fail is not a check" (rules 9, 11, 18). Directive §7.1 RULE 18.
+
+21. **A NUMBER RIGHT FOR THE WRONG REASON IS NOT EVIDENCE — STATE THE MECHANISM.** *(Controller ruling, 2026-09-21.)* "3 of 30 days non-empty" was confirmed by Track U, who then showed the reason was wrong: `fetch_field_jobs` keeps a row from CREATION until `end_date`, so it was 3 only because the job was created the day it started — created two weeks earlier it would have read 17 of 30. **Agreement on a figure is not agreement on the mechanism, and only the mechanism predicts the next case.** A confirmed figure is reported with the mechanism that produced it and one case where that mechanism gives a different number. Directive §7.1 RULE 19.
+
 ---
 
 ## CURRENT PHASE — DEPTH PASS (set 7/20, after Isaac's first real demo)
