@@ -2383,6 +2383,8 @@ export type Database = {
           cleared_at: string | null
           cleared_by: string | null
           count_value: number | null
+          first_actor_id: string
+          first_occurred_at: string
           id: string
           kind: string
           occurred_at: string
@@ -2396,6 +2398,8 @@ export type Database = {
           cleared_at?: string | null
           cleared_by?: string | null
           count_value?: number | null
+          first_actor_id?: string
+          first_occurred_at?: string
           id?: string
           kind: string
           occurred_at?: string
@@ -2409,6 +2413,8 @@ export type Database = {
           cleared_at?: string | null
           cleared_by?: string | null
           count_value?: number | null
+          first_actor_id?: string
+          first_occurred_at?: string
           id?: string
           kind?: string
           occurred_at?: string
@@ -3643,9 +3649,14 @@ export type Database = {
         Returns: Database["public"]["Tables"]["purchase_orders"]["Row"][]
       }
       fetch_work_order_brief: { Args: { p_work_order_id: string }; Returns: Json }
+      is_qc_attester: { Args: { p_org_id: string }; Returns: boolean }
       list_purchase_orders: {
         Args: { p_org_id: string; p_job_id?: string }
         Returns: Database["public"]["Tables"]["purchase_orders"]["Row"][]
+      }
+      qc_photo_on_work_order: {
+        Args: { p_photo_ref: string; p_work_order_id: string }
+        Returns: boolean
       }
       record_qc_item: {
         Args: {
