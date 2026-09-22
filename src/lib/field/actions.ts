@@ -66,7 +66,17 @@ export async function createCheckIn(formData: FormData) {
     event: error ? "check_in_failed" : "check_in_saved",
     workOrderId,
     subjectRef: !error && typeof checkInId === "string" ? checkInId : null,
-    outcome: error ? (error.code ? "refused" : "unconfirmed") : "ok",
+    // 2026-09-21: the database's HINT when it is a code (create_check_in raises
+    // `crew_required` for a blank or spaces-only crew box), so the record says WHY
+    // a check-in failed instead of "refused". A hint that is not a bare code is
+    // not written — the event table accepts ^[a-z_]{1,40}$ and nothing else.
+    outcome: error
+      ? typeof error.hint === "string" && /^[a-z_]{1,40}$/.test(error.hint)
+        ? error.hint
+        : error.code
+          ? "refused"
+          : "unconfirmed"
+      : "ok",
   });
 
   if (error) {

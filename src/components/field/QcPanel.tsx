@@ -21,7 +21,7 @@ export function QcPanel({
   orgId,
   workOrderId,
   trade,
-  enabled,
+  read,
   rows,
   photoRefs,
   latestCheckInId,
@@ -30,7 +30,8 @@ export function QcPanel({
   orgId: string;
   workOrderId: string;
   trade: string | null;
-  enabled: boolean;
+  /** "off" never reaches here: the page does not render the panel then. */
+  read: "on" | "unreadable";
   rows: QcRow[];
   photoRefs: Set<string>;
   latestCheckInId: string | null;
@@ -42,7 +43,7 @@ export function QcPanel({
   const blocking = outstandingBlocking(lines);
 
   return (
-    <section id="qc" data-qc-enabled={enabled} className="flex flex-col gap-3 rounded-lg border border-border p-3 group-data-[outdoor=true]/field:border-white/30">
+    <section id="qc" data-qc-read={read} className="flex flex-col gap-3 rounded-lg border border-border p-3 group-data-[outdoor=true]/field:border-white/30">
       <p className="text-sm font-semibold uppercase tracking-wide text-muted group-data-[outdoor=true]/field:text-white/80">
         Required checks
       </p>
@@ -57,9 +58,12 @@ export function QcPanel({
         </p>
       )}
 
-      {!enabled ? (
-        <p data-qc-state="not_enabled" className="text-sm text-text group-data-[outdoor=true]/field:text-white">
-          {QC_RESULT_COPY.not_enabled.text}
+      {read === "unreadable" ? (
+        /* 2026-09-21 — WE COULD NOT READ IT, which is a fact about this request,
+           not about the roof. So: no rows (seven "Not done yet" would be a false
+           statement), and the one thing the person can do. */
+        <p role="alert" data-qc-state="unreadable" className="text-sm text-text group-data-[outdoor=true]/field:text-white">
+          Your required checks didn&apos;t load. Refresh the page to try again.
         </p>
       ) : (
         <>

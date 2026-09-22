@@ -165,9 +165,15 @@ export type QcResult =
 export const QC_RESULT_COPY: Record<QcResult, { tone: "info" | "warn"; text: string }> = {
   recorded: { tone: "info", text: "Recorded." },
   cleared: { tone: "info", text: "Cleared — that check is outstanding again." },
+  // 2026-09-21: was "The QC checklist isn't switched on for this workspace yet, so
+  // nothing was recorded." Two faults: it told a crew member about a feature flag,
+  // and the panel showed it when nothing had been TRIED, asserting an outcome for
+  // an action that never happened. The panel no longer renders at all when the
+  // checklist is off; this code now arises only when a save is attempted and the
+  // checklist has gone away underneath it, and it says what to do.
   not_enabled: {
     tone: "warn",
-    text: "The QC checklist isn't switched on for this workspace yet, so nothing was recorded.",
+    text: "That wasn't saved. Refresh the page and try again.",
   },
   needs_check_in: {
     tone: "warn",

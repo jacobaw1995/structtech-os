@@ -209,13 +209,16 @@ export default async function FieldJobPage({
            using, never the FACTS you came to read; here the form IS what they
            came for, so it is the history that moves down. */
         <div className="flex flex-col gap-4">
-          {qc && (
+          {/* 2026-09-21 — OFF RENDERS NOTHING. A screen says what the person can
+              do; when the checklist does not exist here it has nothing to offer, so
+              the section is absent rather than explaining a feature flag. */}
+          {qc && qc.state !== "off" && (
             <QcPanel
               orgId={params.orgId}
               workOrderId={workOrder.id}
               trade={workOrder.trade}
-              enabled={qc.enabled}
-              rows={qc.enabled ? qc.rows : []}
+              read={qc.state}
+              rows={qc.state === "on" ? qc.rows : []}
               photoRefs={photoRefs}
               latestCheckInId={checkIns[0]?.id ?? null}
               result={isQcResult(searchParams.qc) ? searchParams.qc : null}
