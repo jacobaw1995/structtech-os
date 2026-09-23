@@ -246,6 +246,8 @@ Do **not** build these now, but do **not** make choices that block them (full de
 
 21. **A NUMBER RIGHT FOR THE WRONG REASON IS NOT EVIDENCE — STATE THE MECHANISM.** *(Controller ruling, 2026-09-21.)* "3 of 30 days non-empty" was confirmed by Track U, who then showed the reason was wrong: `fetch_field_jobs` keeps a row from CREATION until `end_date`, so it was 3 only because the job was created the day it started — created two weeks earlier it would have read 17 of 30. **Agreement on a figure is not agreement on the mechanism, and only the mechanism predicts the next case.** A confirmed figure is reported with the mechanism that produced it and one case where that mechanism gives a different number. Directive §7.1 RULE 19.
 
+22. **A MUTANT MUST ATTACK THE TEXT THAT ACTUALLY RUNS.** *(Controller ruling, 2026-09-23, from Track S's finding the day before.)* A fixture mutated X's qc proposal and required the mutant to fail; Track S's delta then re-created `record_qc_item`, overwriting the mutation, so **mutant-reach stopped being a mutant while the suite still printed PROVED**. In a layered migration the LAST definition wins, so a test that patches an earlier layer tests nothing. Mutate the last file that defines the object, and assert that what you mutated is what the database ends up with. Same family as rule 20 (show the instrument the defect), one layer deeper — a check that cannot fail *inside* the instrument for finding checks that cannot fail. Directive §7.1 RULE 20.
+
 ---
 
 ## CURRENT PHASE — DEPTH PASS (set 7/20, after Isaac's first real demo)
