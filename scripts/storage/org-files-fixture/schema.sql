@@ -61,6 +61,9 @@ grant execute on function storage.foldername(text) to anon, authenticated;
 -- columns the policies read.
 create table public.org_members (org_id uuid, user_id uuid, role text, permissions jsonb);
 create table public.work_orders (id uuid primary key, org_id uuid not null, kind text not null);
+-- Added 2026-09-22 (Track S): qc_items' photo_ref is resolved against the photos on this work order's
+-- check-ins, so a fixture that loads the QC migration needs the table that holds them.
+create table public.check_ins (id uuid primary key default gen_random_uuid(), org_id uuid not null, work_order_id uuid not null, photos text[] not null default '{}');
 alter table public.work_orders enable row level security;
 grant select, insert, update, delete on public.work_orders to authenticated;
 
