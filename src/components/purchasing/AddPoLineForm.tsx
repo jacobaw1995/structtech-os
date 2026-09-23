@@ -50,11 +50,17 @@ export function AddPoLineForm({
         <span className="text-[11px] font-medium uppercase tracking-wide text-muted">
           Material item
         </span>
+        {/* U-W1.32 — `required` was already here and did nothing, because the
+            select had no empty option: it rested on whichever material sorted
+            first, so pressing Add untouched put THAT material on a supplier
+            order. `required` only bites when the resting value is empty. */}
         <select
           name="material_item_id"
           required
+          defaultValue=""
           className="min-h-14 w-full rounded-md border border-border bg-bg px-2 text-base text-text outline-none focus:border-accent sm:h-10 sm:min-h-0 sm:text-sm"
         >
+          <option value="">Choose a material…</option>
           {trades.map((t) => (
             <optgroup key={t} label={t}>
               {items

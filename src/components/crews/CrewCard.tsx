@@ -187,7 +187,15 @@ export function CrewCard({
                 <input type="hidden" name="crewId" value={crew.id} />
                 <label className="flex flex-1 flex-col gap-1">
                   <span className={label}>Add someone</span>
-                  <select name="personId" className={input}>
+                  {/* U-W1.32 (2026-09-23) — NOBODY IS CHOSEN UNTIL SOMEBODY
+                      CHOOSES. This select had no placeholder, so it rested on
+                      the first person in the list and pressing "Add to crew"
+                      untouched put a REAL person on a REAL crew that nobody
+                      picked. Same class as "No predecessor" on the new-trade
+                      row, and mine, shipped 2026-09-19. The empty option is
+                      the resting state and `required` stops the submit. */}
+                  <select name="personId" defaultValue="" required className={input}>
+                    <option value="">Choose a person…</option>
                     {notMembers.map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.full_name}
@@ -219,7 +227,11 @@ export function CrewCard({
                 <input type="hidden" name="crewId" value={crew.id} />
                 <label className="flex flex-1 flex-col gap-1">
                   <span className={label}>Assign to a work order</span>
-                  <select name="workOrderId" className={input}>
+                  {/* U-W1.32 — same defect, heavier consequence: untouched,
+                      this booked a crew onto whichever job happened to sort
+                      first. */}
+                  <select name="workOrderId" defaultValue="" required className={input}>
+                    <option value="">Choose a work order…</option>
                     {workOrders.map((w) => (
                       <option key={w.id} value={w.id}>
                         {w.jobLabel}

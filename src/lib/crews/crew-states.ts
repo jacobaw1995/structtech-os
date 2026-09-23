@@ -44,6 +44,12 @@ export type CrewHint =
   | "crew_in_use"
   | "login_not_member"
   | "login_already_a_person"
+  // OURS — this surface's own refusals, about ITS OWN form. `required` on the
+  // select stops this in the browser; these exist because a form can also be
+  // submitted without one (an older browser, a replayed request), and the
+  // answer then must be a sentence rather than a 500.
+  | "person_required"
+  | "work_order_required"
   // OURS, and deliberately not refusals: these two describe THIS surface's own
   // failure to get an answer, which S has no sentence for because S never saw
   // the request.
@@ -63,6 +69,8 @@ export const CREW_HINT_COPY: Record<CrewHint, string> = {
   crew_in_use: "This crew is assigned to work orders — unassign it, or archive the crew instead.",
   login_not_member: "That login is not a member of this workspace.",
   login_already_a_person: "That login already belongs to another person in this workspace.",
+  person_required: "Choose a person first. Nothing was changed.",
+  work_order_required: "Choose a work order first. Nothing was changed.",
   save_failed: "That wasn't saved. Nothing was changed — please try again.",
   save_unconfirmed: "We couldn't confirm that was saved. Check the roster below before trying again.",
 };
