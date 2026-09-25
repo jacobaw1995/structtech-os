@@ -187,3 +187,57 @@ export function boundGetSession(client: {
   GAVE_UP.set(client, accessor);
   return accessor;
 }
+
+// ── THE BROWSER CLIENT (2026-09-22) ──────────────────────────────────────────
+// Everything above is written for a SERVER client, which lives for one request:
+// a per-client socket budget and a one-way "gave up" latch are safe there,
+// because the client is discarded with the request. A BROWSER client lives for
+// the whole tab. Give it the same budget and latch and a bad minute on a roof
+// becomes permanent: the budget is spent, every later getSession() answers "no
+// session" instantly, and the person is locked out of their own screens until
+// they reload. So the browser gets the per-attempt bound and NOTHING ELSE.
+//
+// THE NUMBER. 7736 ms = the slowest of 12 real round trips to this project's
+// /auth/v1/settings measured 2026-09-22 (min 57, p50 79, max 967 ms) x 8. The x8
+// is for a phone on one bar, where RTT inflates several fold. It is NOT measured
+// on a roof — nothing has been, because no browser code path has used this client
+// yet — and it sits well inside gotrue's own AUTO_REFRESH_TICK_DURATION_MS
+// (30 000 ms), so the screen proceeds while the library keeps retrying behind it.
+// Re-derive from field_events page_ready durations once crew phones produce them.
+export const BROWSER_AUTH_BOUND_MS = 7736;
+
+/** A browser fetch whose auth calls are bounded per attempt and stay retryable. */
+export function createBrowserBoundedFetch(): typeof fetch {
+  return async function browserBoundedFetch(input, init) {
+    const url =
+      typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    const path = authPath(url);
+    if (!path) return fetch(input, init);
+    const bound = EMAIL_SENDING_AUTH_PATHS.includes(path) ? AUTH_EMAIL_BOUND_MS : BROWSER_AUTH_BOUND_MS;
+    // An aborted fetch looks like a network failure to gotrue, which is RETRYABLE:
+    // it never calls _removeSession, so a slow auth service cannot sign anyone out.
+    return fetch(input, { ...init, signal: AbortSignal.timeout(bound) });
+  } as typeof fetch;
+}
+
+/**
+ * Race each `auth.getSession()` against the bound, per call and with no memory.
+ * The screen proceeds without a session; the session itself is untouched, and the
+ * very next call can succeed. Nothing here clears storage or emits SIGNED_OUT —
+ * that is the whole point: PROCEEDING WITHOUT A SESSION MUST NOT DESTROY ONE.
+ */
+export function boundGetSessionPerCall(client: { auth: { getSession: () => Promise<unknown> } }): void {
+  const original = client.auth.getSession.bind(client.auth);
+  const noSession = { data: { session: null }, error: null } as SessionResult;
+  client.auth.getSession = async () => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const deadline = new Promise<SessionResult>((resolve) => {
+      timer = setTimeout(() => resolve(noSession), BROWSER_AUTH_BOUND_MS);
+    });
+    try {
+      return await Promise.race([original(), deadline]);
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+}
