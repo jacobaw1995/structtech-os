@@ -216,10 +216,16 @@ export const QC_RESULT_COPY: Record<QcResult, { tone: "info" | "warn"; text: str
   cleared: { tone: "info", text: "Cleared — that check is outstanding again." },
   // Kept for the action's own result banner. When the LIST cannot be read the
   // panel renders nothing at all rather than explaining a configuration fact
-  // (absent, not explained) — see QcPanel.
+  // (absent, not explained) — see QcPanel. So this code now arises only when a
+  // save is ATTEMPTED and the checklist has gone away underneath the page, and
+  // the sentence says what to do rather than naming a feature flag. (Was "The QC
+  // checklist isn't switched on for this workspace yet, so nothing was recorded."
+  // — two faults: it told a crew member about a flag, and the panel showed it
+  // when nothing had been TRIED, asserting an outcome for an action that never
+  // happened.)
   not_enabled: {
     tone: "warn",
-    text: "Required checks aren't set up here yet, so nothing was recorded.",
+    text: "That wasn't saved. Refresh the page and try again.",
   },
   needs_check_in: {
     tone: "warn",
