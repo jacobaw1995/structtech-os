@@ -40,7 +40,7 @@ export function AddScheduleBlockForm({
       </div>
       <button
         type="submit"
-        aria-label="Add schedule block"
+        aria-label="Add a crew and dates"
         className="flex h-14 w-14 shrink-0 items-center justify-center self-end rounded-md bg-accent-strong text-base font-medium text-white sm:h-9 sm:w-9 sm:self-auto sm:text-sm"
       >
         +

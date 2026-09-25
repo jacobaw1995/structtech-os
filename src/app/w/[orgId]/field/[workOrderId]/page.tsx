@@ -214,8 +214,7 @@ export default async function FieldJobPage({
               orgId={params.orgId}
               workOrderId={workOrder.id}
               trade={workOrder.trade}
-              enabled={qc.enabled}
-              rows={qc.enabled ? qc.rows : []}
+              read={qc}
               photoRefs={photoRefs}
               latestCheckInId={checkIns[0]?.id ?? null}
               result={isQcResult(searchParams.qc) ? searchParams.qc : null}

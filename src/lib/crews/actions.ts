@@ -207,6 +207,9 @@ export async function deleteCrew(formData: FormData) {
 export async function addCrewMember(formData: FormData) {
   const orgId = required(formData, "orgId");
   const crewId = required(formData, "crewId");
+  // U-W1.32 — an unchosen person is a sentence, not a thrown 500. required()
+  // would throw here, and a crash is not an answer to "you did not pick anyone".
+  if (!optional(formData, "personId")) redirect(crewsHref(orgId, "person_required", `crew-${crewId}`));
   const supabase = await client();
   const { error } = await supabase.rpc("add_crew_member", {
     p_crew_id: crewId,
@@ -239,6 +242,8 @@ export async function removeCrewMember(formData: FormData) {
 export async function assignCrewToWorkOrder(formData: FormData) {
   const orgId = required(formData, "orgId");
   const crewId = required(formData, "crewId");
+  // U-W1.32 — see addCrewMember.
+  if (!optional(formData, "workOrderId")) redirect(crewsHref(orgId, "work_order_required", `crew-${crewId}`));
   const supabase = await client();
   const { error } = await supabase.rpc("assign_crew_to_work_order", {
     p_work_order_id: required(formData, "workOrderId"),

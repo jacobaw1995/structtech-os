@@ -114,14 +114,23 @@ export type QcRow = {
   kind: string;
   photo_ref: string | null;
   count_value: number | null;
+  /** The LATEST attestation. */
   occurred_at: string;
+  /**
+   * The FIRST attestation — set by a trigger on every write path and not
+   * editable (migration 20260922221943, ruling 1). Two facts, not one: a repeat
+   * is a real event, and the surface must say which one it is showing.
+   * Optional in the type because a row read before that migration has none.
+   */
+  first_occurred_at?: string | null;
 };
 
 export type QcState =
   | "satisfied" //      recorded, and its evidence is still there
   | "photo_removed" //  recorded with a photo that has since been deleted
   | "outstanding" //    applies to this trade, nothing recorded
-  | "not_required"; //  does not apply to this trade
+  | "not_required" //   does not apply to this trade
+  | "unknown"; //       U-W1.30: the checklist could not be read. NOT "outstanding".
 
 export type QcLine = {
   requirement: QcRequirement;
@@ -146,6 +155,46 @@ export function qcLines(trade: string | null, rows: QcRow[], photoRefs: Set<stri
   });
 }
 
+/**
+ * U-W1.30 — the list when the checklist COULD NOT BE READ. The requirements are
+ * code, so we still know WHAT is required on this trade; what we do not know is
+ * what has been recorded. Every applicable row is `unknown` — never
+ * `outstanding`, which would be a claim, and never hidden, which would leave a
+ * crew with no idea what the job needs.
+ */
+export function qcLinesUnknown(trade: string | null): QcLine[] {
+  return QC_REQUIREMENTS.map((requirement) => ({
+    requirement,
+    state: appliesToTrade(requirement, trade) ? ("unknown" as const) : ("not_required" as const),
+    row: null,
+  }));
+}
+
+/** Only ever called on a list we could READ: `unknown` is not outstanding. */
+/**
+ * WHICH ATTESTATION THIS IS — ruling 1, said in words rather than implied.
+ *
+ * The live row carries two facts: the FIRST attestation (trigger-set, not
+ * editable) and the LATEST. The first is the one that answers "who signed this
+ * off", so it is the one shown; the latest is shown only when it differs, and
+ * then it is labelled, so a re-check never silently replaces the sign-off.
+ *
+ * NEW YORK, EXPLICITLY. `toLocaleDateString` with no timeZone uses the server's,
+ * which on Vercel is UTC — so a check recorded at 9 PM EDT would render as
+ * tomorrow. CLAUDE.md's timezone rule, on a date a crew reads as "the day we
+ * did it".
+ */
+export function qcAttestationLine(row: QcRow): string {
+  const day = (iso: string) =>
+    new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/New_York" });
+  const first = row.first_occurred_at ?? row.occurred_at;
+  const latest = row.occurred_at;
+  // Same calendar day = one event as far as a crew is concerned.
+  return day(first) === day(latest)
+    ? `First recorded ${day(first)}.`
+    : `First recorded ${day(first)}. Checked again ${day(latest)}.`;
+}
+
 export function outstandingBlocking(lines: QcLine[]): QcLine[] {
   return lines.filter((l) => l.requirement.blocking && (l.state === "outstanding" || l.state === "photo_removed"));
 }
@@ -165,9 +214,12 @@ export type QcResult =
 export const QC_RESULT_COPY: Record<QcResult, { tone: "info" | "warn"; text: string }> = {
   recorded: { tone: "info", text: "Recorded." },
   cleared: { tone: "info", text: "Cleared — that check is outstanding again." },
+  // Kept for the action's own result banner. When the LIST cannot be read the
+  // panel renders nothing at all rather than explaining a configuration fact
+  // (absent, not explained) — see QcPanel.
   not_enabled: {
     tone: "warn",
-    text: "The QC checklist isn't switched on for this workspace yet, so nothing was recorded.",
+    text: "Required checks aren't set up here yet, so nothing was recorded.",
   },
   needs_check_in: {
     tone: "warn",
@@ -176,7 +228,11 @@ export const QC_RESULT_COPY: Record<QcResult, { tone: "info" | "warn"; text: str
   photo_too_large: { tone: "warn", text: "That photo was too large to save even after shrinking. Nothing was recorded." },
   photo_failed: { tone: "warn", text: "The photo didn't save, so the check wasn't recorded. Try again." },
   count_invalid: { tone: "warn", text: "Enter a whole number of 0 or more. Nothing was recorded." },
-  refused: { tone: "warn", text: "That wasn't recorded — your role can't record it on this job." },
+  // U-W1.30 — was "your role can't record it on this job". A screen says what
+  // the person can do, not what the system withheld (controller ruling
+  // 2026-09-20). The database's own allow-list is crew and office, so that is
+  // what the sentence says, in people rather than in roles.
+  refused: { tone: "warn", text: "That wasn't recorded. Checks here are signed off by the crew or the office — ask the office to record it." },
   unconfirmed: {
     tone: "warn",
     text: "We couldn't confirm that was recorded. Check the list below before recording it again.",

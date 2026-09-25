@@ -28,11 +28,32 @@ export function AddMaterialItemForm({
         className="min-h-14 w-full min-w-0 rounded-md border border-border bg-bg px-2 text-base text-text outline-none focus:border-accent sm:min-h-0 sm:flex-1 sm:py-2 sm:text-sm"
       />
       <div className="flex items-center gap-2 sm:contents">
+        {/* U-W1.32 (2026-09-23) — NO defaultValue, AND required. U-W1.12 took
+            the pre-filled 1 off the PO LINE form ("price and quantity are asked,
+            not assumed") and left the identical assumption one form over, on the
+            material that the PO line is later raised against. Found by sweeping
+            the class instead of fixing the instance.
+
+            WHY `required` AND NOT ONLY AN EMPTY BOX, and this is the whole
+            reason the surface fix is shaped this way: add_material_item declares
+            `p_quantity numeric DEFAULT 1`, material_items.quantity is NOT NULL
+            DEFAULT 1, and no refusal exists for a missing quantity (measured
+            2026-09-23). So an empty box alone would move the assumption from
+            VISIBLE (a 1 the user can see and change) to INVISIBLE (a 1 written
+            by the database with nobody told) — strictly worse. `required` means
+            the number is always the user's.
+
+            RESIDUAL, REPORTED TO S: a submit that bypasses the browser check
+            still lands on the RPC default. Closing it properly is the PO-line
+            treatment — drop the RPC's DEFAULT and add a named refusal — and
+            that is S's to do. */}
         <input
           name="quantity"
           type="number"
           step="any"
-          defaultValue={1}
+          required
+          placeholder="Qty"
+          aria-label="Quantity"
           className="min-h-14 w-24 rounded-md border border-border bg-bg px-1 text-right font-mono text-base text-text outline-none focus:border-accent sm:min-h-0 sm:w-14 sm:py-2 sm:text-sm"
         />
         <input

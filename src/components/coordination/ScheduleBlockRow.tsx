@@ -107,7 +107,7 @@ export function ScheduleBlockRow({
           <input type="hidden" name="scheduleBlockId" value={block.id} />
           <button
             type="submit"
-            aria-label="Remove schedule block"
+            aria-label="Remove this crew and dates"
             className="flex h-14 w-14 shrink-0 items-center justify-center text-muted hover:text-warn sm:h-9 sm:w-9"
           >
             ✕

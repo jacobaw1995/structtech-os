@@ -381,9 +381,13 @@ export default async function WorkOrderPage({
               than leaving the master looking like it lost them. */}
           {trades.length > 0 && (
             <p className="pt-2 text-xs text-muted">
+              {/* U-W1.29 — "schedule block" is the TABLE's name (schedule_blocks).
+                  The section heading below already says what the row is in the
+                  office's own words — "Schedule — crew + dates" — so the row is
+                  a crew booking. */}
               Materials and schedule live on each trade — {jobMaterialCount}{" "}
               material{jobMaterialCount === 1 ? "" : "s"} and {jobScheduleCount}{" "}
-              schedule block{jobScheduleCount === 1 ? "" : "s"} across this job.
+              crew booking{jobScheduleCount === 1 ? "" : "s"} across this job.
             </p>
           )}
         </div>
@@ -494,7 +498,7 @@ export default async function WorkOrderPage({
             </p>
           )}
           {scheduleBlocks.length === 0 && (
-            <p className="py-2 text-sm text-muted">No schedule blocks yet.</p>
+            <p className="py-2 text-sm text-muted">No crew booked on this trade yet.</p>
           )}
           {scheduleBlocks.map((block) => (
             <ScheduleBlockRow

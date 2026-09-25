@@ -370,19 +370,32 @@ function Block({
 }) {
   // "0 of 0" is arithmetic, not information: with no denominator, show the count alone.
   if (of === 0) of = undefined;
+  // U-W1.29 (2026-09-22) — A RESOLVED BLOCK SAYS SO ONCE, AND NOT IN THE SLOT
+  // THE EYE READS AS AN OPEN ITEM. Measured by the controller on the live admin
+  // session: "Every material line has a trade" sat directly beneath "0 material
+  // lines have no trade" — the same fact twice, once positively and once as a
+  // zero. And that zero occupied the same position, in the same type, as "1 of 1
+  // lines have no decision", which IS work outstanding. A reader scanning the
+  // right-hand column for numbers had to read each one to find out whether it
+  // was a problem. Resolved now renders the settled sentence in that position
+  // and nothing else; only an open block shows a count.
   const head = (
     <div className="flex flex-wrap items-baseline justify-between gap-x-3">
       <h3 className="text-sm font-semibold text-text">{title}</h3>
-      <p className="text-xs text-muted">
-        <span className="font-mono tabular-nums">{count}</span>
-        {of !== undefined && (
-          <>
-            {" "}
-            of <span className="font-mono tabular-nums">{of}</span>
-          </>
-        )}{" "}
-        {unit}
-      </p>
+      {count === 0 ? (
+        <p className="text-xs text-muted">{empty}</p>
+      ) : (
+        <p className="text-xs text-muted">
+          <span className="font-mono tabular-nums">{count}</span>
+          {of !== undefined && (
+            <>
+              {" "}
+              of <span className="font-mono tabular-nums">{of}</span>
+            </>
+          )}{" "}
+          {unit}
+        </p>
+      )}
     </div>
   );
   return (
@@ -397,7 +410,7 @@ function Block({
       ) : (
         <>
           {head}
-          {count === 0 ? <p className="mt-1 text-xs text-muted">{empty}</p> : children}
+          {count === 0 ? null : children}
         </>
       )}
     </div>
