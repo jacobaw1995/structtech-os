@@ -1586,7 +1586,7 @@ export type Database = {
           name: string
           org_id: string
           product_id?: string | null
-          quantity?: number
+          quantity: number
           ready_by?: string | null
           ready_by_source?: string
           sort_order?: number

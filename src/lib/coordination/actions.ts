@@ -162,10 +162,36 @@ export async function addMaterialItem(formData: FormData) {
   } = await supabase.auth.getSession();
   if (!session) redirect("/login");
 
+  // 2026-09-25 — A QUANTITY IS ENTERED, NEVER ASSUMED. Shaped like the PO line
+  // (U-W1.12 / src/lib/purchasing/actions.ts), because it is the same defect one
+  // form over: optionalNumber turns an empty OR non-numeric box into `undefined`,
+  // which the RPC's old `DEFAULT 1` quietly filled — so "" and "abc" both became
+  // one, invisibly. The RPC now refuses NULL by name
+  // (hint material_quantity_required) and refuses <= 0 by name
+  // (material_quantity_not_positive); these two checks catch the same causes
+  // BEFORE the round trip and quote the RPC's own sentences, so a user reads one
+  // sentence per cause wherever it was caught.
+  const qtyText = (formData.get("quantity") ?? "").toString().trim();
+  if (qtyText === "") {
+    redirect(
+      workOrderHref(
+        orgId,
+        workOrderId,
+        "enter a quantity for this material — a crew cannot be sent to a roof with an unknown count"
+      )
+    );
+  }
+  const qty = Number(qtyText);
+  if (!Number.isFinite(qty)) {
+    redirect(workOrderHref(orgId, workOrderId, `“${qtyText}” isn’t a quantity. Enter a number, such as 12.`));
+  }
+
   const { error } = await supabase.rpc("add_material_item", {
     p_work_order_id: workOrderId,
     p_name: requireString(formData, "name"),
-    p_quantity: optionalNumber(formData, "quantity"),
+    // Finite, always. Zero and negatives go through so the RPC's own refusal is
+    // the sentence the user reads.
+    p_quantity: qty,
     p_ready_by: optionalString(formData, "ready_by"),
     p_sort_order: optionalNumber(formData, "sort_order"),
   });
