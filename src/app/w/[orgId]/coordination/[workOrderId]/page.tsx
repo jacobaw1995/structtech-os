@@ -49,6 +49,15 @@ type WorkOrderTree = {
   trades: TradeNode[];
   job_material_count: number;
   job_schedule_count: number;
+  /**
+   * U-W1.34 (2026-09-25) — added by migration 20260923204850. A SIGNATURE ROW
+   * exists for the job's estimate, not `estimates.status`, which a person can
+   * set. The stage rail's first chip is this fact instead of the constant it
+   * used to be.
+   */
+  job_signed: boolean;
+  /** Trade work orders on the job that are not voided. */
+  job_live_trade_count: number;
 };
 
 export default async function WorkOrderPage({
@@ -246,6 +255,12 @@ export default async function WorkOrderPage({
     signOffAt: tree?.master_sign_off_at ?? null,
     materialCount: isMaster ? jobMaterialCount : materials.length,
     scheduleCount: isMaster ? jobScheduleCount : scheduleBlocks.length,
+    // U-W1.34 — both were hardcoded `complete: true`. A tree we could not read
+    // means we do not know, and "we do not know" is rendered as not-yet rather
+    // than as done: a checkmark is a claim, and the one thing it may never be
+    // is a claim made because a read failed.
+    signed: tree?.job_signed ?? false,
+    workOrder: (tree?.job_live_trade_count ?? 0) > 0,
   });
 
   // A1.4 moved the real guard into the RPC: delete_work_order now refuses a

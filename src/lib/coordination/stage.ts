@@ -51,19 +51,38 @@ export function formatWorkOrderActivityLine(
   return actorName ? `${actorName} ${label}` : label.charAt(0).toUpperCase() + label.slice(1);
 }
 
+/**
+ * THE RAIL REPORTS FACTS, ALL FIVE OF THEM. U-W1.34, 2026-09-25.
+ *
+ * `signed` and `work_order` were `complete: true` — constants. Two of the five
+ * chips carried a checkmark that reported nothing, sitting beside three that
+ * were earned, and no reader could tell which was which. Reported 2026-09-22
+ * as a product question rather than a rendering one; Track S answered it with
+ * migration 20260923204850, which puts both facts on fetch_work_order_tree:
+ * `job_signed` (a SIGNATURE ROW exists for the job's estimate — not
+ * `estimates.status`, which a person can set) and `job_live_trade_count`.
+ *
+ * S measured that `work_order` is FALSE on a real BMR job today — Devin
+ * Carter's has no trade work order — so this chip stops lying on a live record
+ * the moment it ships, rather than being a correctness argument with no case.
+ */
 export function coordinationStages(input: {
   signOffAt: string | null;
   materialCount: number;
   scheduleCount: number;
+  /** A signature row exists for the job's estimate. */
+  signed: boolean;
+  /** The job has at least one live trade work order. */
+  workOrder: boolean;
 }): CoordinationStage[] {
   return [
-    { key: "signed", label: "Signed job", complete: true },
+    { key: "signed", label: "Signed job", complete: input.signed },
     {
       key: "sign_off",
       label: "Sign-off: colors & finishes",
       complete: input.signOffAt != null,
     },
-    { key: "work_order", label: "Work order", complete: true },
+    { key: "work_order", label: "Work order", complete: input.workOrder },
     {
       key: "materials",
       label: "Materials",
