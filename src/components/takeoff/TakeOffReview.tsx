@@ -29,6 +29,27 @@ type Props = {
 
 export function TakeOffReview({ orgId, masterWorkOrderId, jobId, run, review, trades, memberName, error, unchanged, focusLineId }: Props) {
   const total = review.lines.length;
+
+  // U-W1.38 (D7) — SEVEN ALL-CLEAR HEADINGS READ AS SEVEN THINGS TO FIX.
+  // Measured on the coordination work-order screen, golden path run 1: of the
+  // eight checks below, seven reported that nothing was wrong and only one
+  // carried a number. Each still took a full heading, in heading weight, in the
+  // column the eye scans for work. Settled checks now collapse into ONE line —
+  // the reader still learns they were run, which is the half that must not be
+  // lost (a check nobody can see is a check nobody trusts), without seven
+  // headings competing with the one that needs them.
+  const settled: string[] = [];
+  const clear = (n: number, title: string) => {
+    if (n === 0) settled.push(title);
+    return true;
+  };
+  clear(review.isMaterial.length, "Is this material?");
+  clear(review.whichTrade.length, "Which trade?");
+  clear(review.tradeVoided.length, "The chosen trade was voided");
+  clear(review.decidedNotTakenOff.length, "Decided, no material yet");
+  clear(review.removedByHuman.length, "Materials a person deleted");
+  clear(review.leftovers.length, "Materials whose estimate line is gone");
+  clear(review.notMaterial.length, "Decided not material");
   const tradeName = (id: string | null) => trades.find((t) => t.id === id)?.trade || "an unnamed trade";
   const tradeHref = (id: string | null) => (id ? `/w/${orgId}/coordination/${id}` : null);
   const addTradeHref = `/w/${orgId}/coordination/${masterWorkOrderId}#add-trade`;
@@ -149,6 +170,7 @@ export function TakeOffReview({ orgId, masterWorkOrderId, jobId, run, review, tr
           {/* 3. THE THREE UNDECIDED QUESTIONS — three blocks, three counts. */}
           <Block
             id="is-material"
+            clearIsGood
             title="Is this material?"
             count={review.isMaterial.length}
             of={total}
@@ -172,6 +194,7 @@ export function TakeOffReview({ orgId, masterWorkOrderId, jobId, run, review, tr
 
           <Block
             id="which-trade"
+            clearIsGood
             title="Which trade?"
             count={review.whichTrade.length}
             of={review.lines.filter((l) => l.disposition === "material").length}
@@ -192,6 +215,7 @@ export function TakeOffReview({ orgId, masterWorkOrderId, jobId, run, review, tr
 
           <Block
             id="trade-voided"
+            clearIsGood
             title="The chosen trade was voided"
             count={review.tradeVoided.length}
             of={review.lines.filter((l) => l.disposition === "material").length}
@@ -208,6 +232,7 @@ export function TakeOffReview({ orgId, masterWorkOrderId, jobId, run, review, tr
           {/* Decided, material, on a live trade, with no material yet. */}
           <Block
             id="not-taken-off"
+            clearIsGood
             title="Decided, no material yet"
             count={review.decidedNotTakenOff.length}
             of={total}
@@ -248,6 +273,7 @@ export function TakeOffReview({ orgId, masterWorkOrderId, jobId, run, review, tr
           {/* 6. LEFTOVERS AND REMOVALS */}
           <Block
             id="removed"
+            clearIsGood
             title="Materials a person deleted"
             count={review.removedByHuman.length}
             of={total}
@@ -270,6 +296,7 @@ export function TakeOffReview({ orgId, masterWorkOrderId, jobId, run, review, tr
 
           <Block
             id="leftovers"
+            clearIsGood
             title="Materials whose estimate line is gone"
             count={review.leftovers.length}
             unit={review.leftovers.length === 1 ? "material on this job" : "materials on this job"}
@@ -324,6 +351,7 @@ export function TakeOffReview({ orgId, masterWorkOrderId, jobId, run, review, tr
 
           <Block
             id="not-material"
+            clearIsGood
             title="Decided not material"
             count={review.notMaterial.length}
             of={total}
@@ -333,6 +361,30 @@ export function TakeOffReview({ orgId, masterWorkOrderId, jobId, run, review, tr
           >
             <ul>{review.notMaterial.map((l) => row(l, { withForm: "closed" }))}</ul>
           </Block>
+
+          {/* THE SETTLED CHECKS, ONCE. Not seven headings — one line, at the
+              foot, out of the column the eye scans for work. It still SAYS they
+              were run, because a check nobody can see is a check nobody trusts;
+              opening it names each one. */}
+          {settled.length > 0 && (
+            <details data-settled-checks={settled.length} className="group/settled px-4 py-3">
+              <summary className="flex min-h-14 cursor-pointer list-none items-center gap-2 text-sm text-muted sm:min-h-0 [&::-webkit-details-marker]:hidden">
+                <span aria-hidden="true" className="transition-transform group-open/settled:rotate-90">
+                  ›
+                </span>
+                {settled.length === 1
+                  ? "1 other check was run and found nothing to fix."
+                  : `${settled.length} other checks were run and found nothing to fix.`}
+              </summary>
+              <ul className="mt-1 space-y-0.5 pl-5">
+                {settled.map((t) => (
+                  <li key={t} className="text-xs text-muted">
+                    {t}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
         </div>
       )}
 
@@ -357,6 +409,7 @@ function Block({
   unit,
   empty,
   collapsed,
+  clearIsGood,
   children,
 }: {
   id: string;
@@ -366,8 +419,23 @@ function Block({
   unit: string;
   empty: string;
   collapsed?: boolean;
+  /**
+   * U-W1.38 (2026-09-27) — D7. TRUE when a count of zero means "nothing to
+   * fix", which is most of these. Such a block does not render at all; it
+   * reports its title through `onClear` and the parent says so once, in one
+   * line, at the foot.
+   *
+   * FALSE where a zero is INFORMATION rather than an all-clear — "No line has
+   * a material yet" tells the office the take-off has not run, which is a fact
+   * about the job and not a clean bill of health. Getting that distinction
+   * wrong in either direction is the whole defect: seven settled checks were
+   * rendered as seven headings, and a reader scanning for work to do had to
+   * read every one to find out none of them was work to do.
+   */
+  clearIsGood?: boolean;
   children: React.ReactNode;
 }) {
+  if (count === 0 && clearIsGood) return null;
   // "0 of 0" is arithmetic, not information: with no denominator, show the count alone.
   if (of === 0) of = undefined;
   // U-W1.29 (2026-09-22) — A RESOLVED BLOCK SAYS SO ONCE, AND NOT IN THE SLOT
