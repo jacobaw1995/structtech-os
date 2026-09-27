@@ -502,6 +502,21 @@ export default async function WorkOrderPage({
           )}
         </div>
 
+        {/* U-W1.36 (D8) — THE OFFICE'S WAY IN. The packet existed and was
+            reachable only from the crew's phone, so nobody in the office could
+            build one and none had ever been built. */}
+        {!isMaster && (
+          <Link
+            href={`/w/${params.orgId}/coordination/${workOrder.id}/packet`}
+            className="flex min-h-14 items-center justify-between rounded-lg border border-border bg-surface px-4 text-sm font-medium text-text hover:border-accent sm:h-12 sm:min-h-0"
+          >
+            Production packet — what the crew sees on this job
+            <span aria-hidden="true" className="text-muted">
+              ›
+            </span>
+          </Link>
+        )}
+
         {!isMaster && (
         <div className="rounded-lg border border-border bg-surface p-3">
           <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">

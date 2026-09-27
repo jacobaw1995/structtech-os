@@ -24,6 +24,7 @@ export function ProductionPacketView({
   pitch,
   photos,
   packet,
+  returnTo,
 }: {
   orgId: string;
   workOrderId: string;
@@ -33,6 +34,14 @@ export function ProductionPacketView({
   pitch: string | null;
   photos: string[];
   packet: ProductionPacket;
+  /**
+   * U-W1.36 — where a save returns to. The CREW leaves this undefined and the
+   * actions send them back to the field job, exactly as before. The OFFICE
+   * passes its own coordination path, because an office member has no `field`
+   * module and would be bounced off it. One view, one set of actions, two
+   * places to come back to.
+   */
+  returnTo?: string;
 }) {
   const callouts = parseCallouts(packet.callouts);
 
@@ -84,6 +93,7 @@ export function ProductionPacketView({
         <input type="hidden" name="orgId" value={orgId} />
         <input type="hidden" name="workOrderId" value={workOrderId} />
         <input type="hidden" name="productionPacketId" value={packet.id} />
+        {returnTo && <input type="hidden" name="returnTo" value={returnTo} />}
         <p className="text-sm font-semibold uppercase tracking-wide text-muted group-data-[outdoor=true]/field:text-white/80">
           Notes
         </p>
@@ -119,9 +129,10 @@ export function ProductionPacketView({
             productionPacketId={packet.id}
             callout={callout}
             index={i}
+            returnTo={returnTo}
           />
         ))}
-        <AddCalloutForm orgId={orgId} workOrderId={workOrderId} productionPacketId={packet.id} />
+        <AddCalloutForm orgId={orgId} workOrderId={workOrderId} productionPacketId={packet.id} returnTo={returnTo} />
         {/* Was "— deferred (BACKLOG.md)": a build note, in 12px at 5.3:1 in
             outdoor mode, on a crew screen. Said plainly instead. */}
         <p className="mt-2 text-sm text-muted group-data-[outdoor=true]/field:text-white/80">
@@ -133,7 +144,7 @@ export function ProductionPacketView({
           48px button that did that on ONE tap, in text-warn at 4.1:1 on black. */}
       <TwoTapDelete
         action={deleteProductionPacket}
-        fields={{ orgId, workOrderId, productionPacketId: packet.id }}
+        fields={{ orgId, workOrderId, productionPacketId: packet.id, ...(returnTo ? { returnTo } : {}) }}
         label="Reset packet"
         question="Reset this packet? Its notes and every callout are deleted."
         confirmLabel="Reset"

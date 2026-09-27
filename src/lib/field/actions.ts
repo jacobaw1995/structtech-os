@@ -42,6 +42,37 @@ function jobHref(orgId: string, workOrderId: string, tab: "check-in" | "packet",
   return `/w/${orgId}/field/${workOrderId}?${params.toString()}`;
 }
 
+/**
+ * U-W1.36 (2026-09-27) — WHERE TO GO BACK TO, WHEN THE CALLER IS NOT THE CREW.
+ *
+ * D8, golden path run 1: the production packet was reachable ONLY through the
+ * field module, so the OFFICE — the people who would build one — had no route
+ * to make it, and the run stopped. The office now has one
+ * (coordination/<work order>/packet), and it calls THESE actions rather than a
+ * second copy of them. Only the place to return to differs.
+ *
+ * AND IT CANNOT BE LEFT TO DEFAULT. An `office` member's visible modules are
+ * crm/estimating/coordination — NOT field — so redirecting them to
+ * /w/<org>/field/... after a save would be bounced by requireModuleAccess
+ * straight back to the workspace root. The office would save a callout and
+ * land on the dashboard.
+ *
+ * THE VALUE IS CHECKED, NOT TRUSTED (controller ruling 2026-09-15: a URL
+ * parameter is never rendered as text, and here it is never FOLLOWED as text
+ * either). It must be a relative path inside this org's own workspace, so a
+ * crafted form cannot turn a save into an open redirect.
+ */
+function returnHref(formData: FormData, orgId: string, fallback: string, error?: FieldError): string {
+  const raw = formData.get("returnTo");
+  const prefix = `/w/${orgId}/`;
+  const safe =
+    typeof raw === "string" && raw.startsWith(prefix) && !raw.startsWith("//") && !raw.includes("://")
+      ? raw
+      : null;
+  if (!safe) return fallback;
+  return error ? `${safe}${safe.includes("?") ? "&" : "?"}error=${error}` : safe;
+}
+
 // Same Router Cache rationale as revalidateWorkOrder in coordination/actions.ts.
 function revalidateJob(orgId: string, workOrderId: string) {
   revalidatePath(`/w/${orgId}/field/${workOrderId}`);
@@ -249,11 +280,11 @@ export async function updateProductionPacketNotes(formData: FormData) {
   });
 
   if (error) {
-    redirect(jobHref(orgId, workOrderId, "packet", classifyFieldError(error)));
+    redirect(returnHref(formData, orgId, jobHref(orgId, workOrderId, "packet"), classifyFieldError(error)));
   }
 
   revalidateJob(orgId, workOrderId);
-  redirect(jobHref(orgId, workOrderId, "packet"));
+  redirect(returnHref(formData, orgId, jobHref(orgId, workOrderId, "packet")));
 }
 
 export async function deleteProductionPacket(formData: FormData) {
@@ -272,11 +303,11 @@ export async function deleteProductionPacket(formData: FormData) {
   });
 
   if (error) {
-    redirect(jobHref(orgId, workOrderId, "packet", classifyFieldError(error)));
+    redirect(returnHref(formData, orgId, jobHref(orgId, workOrderId, "packet"), classifyFieldError(error)));
   }
 
   revalidateJob(orgId, workOrderId);
-  redirect(jobHref(orgId, workOrderId, "packet"));
+  redirect(returnHref(formData, orgId, jobHref(orgId, workOrderId, "packet")));
 }
 
 export async function addProductionPacketCallout(formData: FormData) {
@@ -297,11 +328,11 @@ export async function addProductionPacketCallout(formData: FormData) {
   });
 
   if (error) {
-    redirect(jobHref(orgId, workOrderId, "packet", classifyFieldError(error)));
+    redirect(returnHref(formData, orgId, jobHref(orgId, workOrderId, "packet"), classifyFieldError(error)));
   }
 
   revalidateJob(orgId, workOrderId);
-  redirect(jobHref(orgId, workOrderId, "packet"));
+  redirect(returnHref(formData, orgId, jobHref(orgId, workOrderId, "packet")));
 }
 
 export async function updateProductionPacketCallout(formData: FormData) {
@@ -324,11 +355,11 @@ export async function updateProductionPacketCallout(formData: FormData) {
   });
 
   if (error) {
-    redirect(jobHref(orgId, workOrderId, "packet", classifyFieldError(error)));
+    redirect(returnHref(formData, orgId, jobHref(orgId, workOrderId, "packet"), classifyFieldError(error)));
   }
 
   revalidateJob(orgId, workOrderId);
-  redirect(jobHref(orgId, workOrderId, "packet"));
+  redirect(returnHref(formData, orgId, jobHref(orgId, workOrderId, "packet")));
 }
 
 export async function deleteProductionPacketCallout(formData: FormData) {
@@ -349,9 +380,9 @@ export async function deleteProductionPacketCallout(formData: FormData) {
   });
 
   if (error) {
-    redirect(jobHref(orgId, workOrderId, "packet", classifyFieldError(error)));
+    redirect(returnHref(formData, orgId, jobHref(orgId, workOrderId, "packet"), classifyFieldError(error)));
   }
 
   revalidateJob(orgId, workOrderId);
-  redirect(jobHref(orgId, workOrderId, "packet"));
+  redirect(returnHref(formData, orgId, jobHref(orgId, workOrderId, "packet")));
 }
