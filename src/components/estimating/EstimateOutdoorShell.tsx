@@ -25,12 +25,32 @@ import { OutdoorModeContext } from "@/lib/estimating/outdoor-context";
 // here would be a lot of surface area for a "must survive," not
 // "must be repolished" requirement. Flagging as a reasonable simplification,
 // not a silent shortcut.
-export function EstimateOutdoorShell({ children }: { children: React.ReactNode }) {
+// U-W1.37 (2026-09-27) — D3: "Outdoor mode" WAS RENDERED ON THE CUSTOMER'S
+// SIGNED ESTIMATE. Present Mode is the screen the salesperson turns around: the
+// homeowner reads it, signs it, and after signing the operator is redirected
+// straight back to it. A control labelled for a roof crew sat on that document.
+//
+// The CAPABILITY stays — a driveway in full sun is exactly where this document
+// gets read, and CLAUDE.md sanctions outdoor mode on estimating screens. What
+// goes is the BUTTON, on the one view a customer looks at. The operator's own
+// estimate page keeps it.
+//
+// The provider stays mounted either way, because SignaturePad reads the boolean
+// through context rather than CSS (see the note above) and must not lose its
+// value just because the control is not offered here.
+export function EstimateOutdoorShell({
+  children,
+  showToggle = true,
+}: {
+  children: React.ReactNode;
+  showToggle?: boolean;
+}) {
   const [outdoor, setOutdoor] = useState(false);
 
   return (
     <OutdoorModeContext.Provider value={outdoor}>
       <div className="flex flex-col gap-3">
+        {showToggle && (
         <button
           type="button"
           onClick={() => setOutdoor((v) => !v)}
@@ -38,6 +58,7 @@ export function EstimateOutdoorShell({ children }: { children: React.ReactNode }
         >
           {outdoor ? "☀ Outdoor mode" : "Outdoor mode"}
         </button>
+        )}
         <div
           className={
             outdoor

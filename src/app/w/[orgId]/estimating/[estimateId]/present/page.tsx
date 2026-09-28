@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireModuleAccess } from "@/lib/workspace/context";
 import { parseEstimateBranding } from "@/lib/estimating/branding";
@@ -76,6 +77,34 @@ export default async function EstimatePresentPage({
   // render even if that ever changes.
   return (
     <div className="min-h-dvh bg-bg px-4 py-6 sm:px-8">
+      {/* U-W1.37 (D4) — THE WAY BACK, AND ONLY ONCE IT IS SIGNED.
+          Golden path run 1, Jacob's words: "after I presented the estimate and
+          signed it, there's no navigation no way to go back no nothing."
+          MEASURED: signing redirects here (estimatePresentHref, in
+          lib/estimating/actions.ts), and this page's own content holds ZERO
+          links. Every onward control — View PDF, Download PDF, Create work
+          order — lives in EstimateSignatureBlock behind `!presentationMode`,
+          deliberately, because they are the operator's and this is the screen
+          the homeowner reads. So the single most important action in the
+          application ended on the one view where everything that follows it is
+          hidden.
+          The fix is not to un-hide them here — that would put office controls
+          back on a customer's document, which is D3 in this very session. It is
+          to hand the operator back their own screen the moment the signature
+          exists. Before signing, this stays exactly as clean as it was. */}
+      {estimate.status === "signed" && (
+        <div className="mx-auto mb-4 flex max-w-3xl flex-col gap-1">
+          <Link
+            href={`/w/${params.orgId}/estimating/${estimate.id}`}
+            className="inline-flex min-h-14 items-center text-base font-medium text-accent-strong sm:min-h-0"
+          >
+            ← Back to the estimate
+          </Link>
+          <p className="text-sm text-muted">
+            Signed. The PDF, and the job it becomes, are on the estimate.
+          </p>
+        </div>
+      )}
       {/* X-W1.14: shown only for a signed estimate, so a crafted ?copy= on an
           unsigned one cannot claim a copy went out. */}
       {/* X-W1.16: a failed signature is a code looked up in sign-states.ts. */}
@@ -96,7 +125,7 @@ export default async function EstimatePresentPage({
           estimateId={estimate.id}
         />
       ) : null}
-      <EstimateOutdoorShell>
+      <EstimateOutdoorShell showToggle={false}>
         <EstimateDocument
           orgId={params.orgId}
           estimate={estimate}

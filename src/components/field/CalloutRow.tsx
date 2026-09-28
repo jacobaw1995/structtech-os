@@ -17,12 +17,14 @@ export function CalloutRow({
   productionPacketId,
   callout,
   index,
+  returnTo,
 }: {
   orgId: string;
   workOrderId: string;
   productionPacketId: string;
   callout: Callout;
   index: number;
+  returnTo?: string;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const [isPending, startTransition] = useTransition();
@@ -49,6 +51,7 @@ export function CalloutRow({
         <input type="hidden" name="orgId" value={orgId} />
         <input type="hidden" name="workOrderId" value={workOrderId} />
         <input type="hidden" name="productionPacketId" value={productionPacketId} />
+        {returnTo && <input type="hidden" name="returnTo" value={returnTo} />}
         <input type="hidden" name="calloutId" value={callout.id} />
         <input
           name="label"
@@ -69,7 +72,7 @@ export function CalloutRow({
       </form>
       <TwoTapDelete
         action={deleteProductionPacketCallout}
-        fields={{ orgId, workOrderId, productionPacketId, calloutId: callout.id }}
+        fields={{ orgId, workOrderId, productionPacketId, calloutId: callout.id, ...(returnTo ? { returnTo } : {}) }}
         label="Remove"
         ariaLabel={`Remove callout ${index + 1}`}
         question={`Remove callout ${index + 1}${callout.label ? `, "${callout.label}"` : ""}?`}
