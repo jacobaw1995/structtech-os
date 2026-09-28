@@ -10,21 +10,99 @@ From now on dates get contradicted the same way counts do, and the measurements 
 
 ## The twelve gates
 
+**⚠ RE-DATED 2026-09-28. THE PILOT MOVED AND SO DID EVERYTHING BEHIND IT.**
+Jacob's decision, 2026-09-28: build the full job scope sheet (`docs/SCOPE_SHEET_SPEC.md`,
+`docs/SCOPE_SHEET_SHAPES.md`) **before** the field pilot. That is a two-to-three week build
+starting 09-28, landing 10-12 → 10-19. **Recorded as a cost, not argued.** Old dates struck
+through so the size of the move stays visible; a re-dating that hides what it replaced is how a
+60-day plan becomes a 200-day plan with nobody deciding to.
+
 | Gate | Date | What it is |
 |---|---|---|
 | G2 | Sep 10 | A2 Materials & Purchasing accepted |
 | G3 | Sep 14 | Platform debt clear |
 | G4 | ~~Sep 20~~ → **November** | A3 Standards accepted — **CUT 2026-09-13** |
-| G5 | Oct 6 | A4 Field Execution accepted ⚠ TRIPWIRE |
-| G6 | Oct 13 | Field pilot closes ⚠ TRIPWIRE |
-| G7 | Oct 16 | Invoicing live |
-| G11 | Oct 18 | Stripe subscription billing live |
-| G8 | Oct 24 | Phase A complete |
-| G9 | Oct 25 | Phase B complete |
-| G10 | Oct 29 | Second contractor tenant live |
-| G12 | Oct 31 | MVP LAUNCH |
+| **NEW** | **~Oct 12–19** | **Job scope sheet accepted** — on the rendered screen (§7.1 rule 17), against the measured 22-taps-per-screen baseline. **Widened from ~Oct 12–16 by Track S: the build's own stated window is 10-12 → 10-19, so an acceptance gate that closes on the 16th cannot hold a build that may run to the 19th.** See *Checked, not accepted* below |
+| G5 | ~~Oct 6~~ → **Oct 18** | A4 Field Execution accepted ⚠ TRIPWIRE |
+| G6 | ~~Oct 13~~ → **Oct 25** | Field pilot closes ⚠ TRIPWIRE |
+| G7 | ~~Oct 16~~ → **Oct 28** | Invoicing live |
+| G11 | ~~Oct 18~~ → **Oct 30** | Stripe subscription billing live |
+| G8 | ~~Oct 24~~ → **Nov 5** | Phase A complete |
+| G9 | ~~Oct 25~~ → **Nov 6** | Phase B complete |
+| G10 | ~~Oct 29~~ → **Nov 10** | Second contractor tenant live |
+| G12 | ~~Oct 31~~ → **Nov 12** | MVP LAUNCH |
 
-**Field pilot day 1: Oct 7.**
+**Field pilot day 1: ~~Oct 7~~ → approximately Oct 19.**
+
+### Why these numbers and not others
+
+The pilot moves **+12 days**; everything downstream of it moves with it, because the three
+tracks are the constraint and the scope sheet consumes all three. **G11 moves too even though
+Stripe is not downstream of the pilot** — it is downstream of track capacity, and pretending
+otherwise would be the cheerful arithmetic this file exists to prevent.
+
+**THE SCOPE-SHEET GATE IS NEW AND IT IS NOT A FORMALITY.** Measured 2026-09-28: the build
+covers **25 of 38 configured fields**, which is **102 of 127 PDF inputs with no field at all** —
+one input in five. And **200 of 200 deals cannot distinguish "the client declined this" from
+"nobody got to it"**, on all six gated sections. That is the size of the thing being built.
+
+### Checked, not accepted — Track S, 2026-09-28
+
+**The +12 is arithmetically clean.** Every gate was re-derived independently: G5 · G6 · G7 · G11 ·
+G8 · G9 · G10 · G12 and pilot day 1 are each **exactly +12 days**, and `09-28 + 2 weeks = 10-12`,
+`09-28 + 3 weeks = 10-19`. Nothing here is a slip of the calendar.
+
+**Three things the arithmetic does not say, and one of them was an internal contradiction:**
+
+**1 · The scope-sheet gate closed before the build it accepts.** It read *~Oct 12–16* against a
+build window this file states as *10-12 → 10-19*. Widened to **~Oct 12–19** above. It was the only
+figure in the re-dating that disagreed with another figure in the re-dating.
+
+**2 · THERE IS NO SLACK BETWEEN ACCEPTANCE AND THE PILOT, AND IN THE THREE-WEEK CASE THERE IS
+NONE AT ALL.** Pilot day 1 is **Mon Oct 19**. At the build's upper bound the sheet is accepted the
+same day. At the gate's old upper bound it was **Fri Oct 16 → Mon Oct 19**, one weekend. **Golden
+path run 1 produced nine defects on a far smaller surface**, every one found by a person looking
+at a screen. A 127-input sheet accepted on the Friday with a pilot on the Monday has nowhere to
+put what acceptance finds. **That is a decision for Jacob, not an arithmetic error** — but a +12
+that leaves zero days between finishing and starting is the optimism this file exists to catch,
+and it is recorded rather than smoothed.
+
+**3 · Two gates landed on a Sunday.** +12 *calendar* days put **G5 on Sun Oct 18** — the day
+before the pilot — and **G6 on Sun Oct 25**. A gate nobody is working on is a gate that slips by
+default.
+
+**AND G11 SHOULD NOT HAVE MOVED WITH THE OTHERS.** The reasoning given is that Stripe is
+downstream of track capacity rather than of the pilot, and for its BUILD half that is right. But
+G11's critical path is not the build: it is **a business verification that has not begun**, whose
+own entry in *the four that are Jacob's alone* reads *"~30 min + days-to-weeks verification"*.
+This file already says it, two paragraphs down — *"a later gate does not restart a verification
+clock that has not started"* — **and then gives that clock a deadline of Oct 30 anyway.** Those
+two sentences cannot both be acted on. **Track S's reading: G11 has no derivable date until the
+account exists, and should read BLOCKED — clock not started rather than carry one derived from a
+capacity it is not gated on.** Contradictable, and left as the controller wrote it pending a
+ruling; only this paragraph is added.
+
+### What did NOT move, deliberately
+
+**The real crew account stays at Oct 1.** The pilot being twelve days later creates twelve days
+of slack on an item that has not moved in twelve days already — and Track X put the reason
+better than this file can: *slack on something that has not moved in twelve days is how a
+decision becomes a drift.* BMR still has **0 field members** and **0 rows in `crew_memberships`** — re-measured 2026-09-28:
+BMR has 2 members (owner, agency_admin), **0** with role `field`, and **0** rows in `crews`,
+`crew_people` and `crew_memberships` alike. The only `field` member in the database is the
+synthetic tenant's. **The crew account now sits 18 days before pilot day 1 instead of 6** — which
+is the slack this decision declines to spend.
+
+**Stripe stays overdue.** It was due Sep 25 and is late; G11 moving to Oct 30 does not restart a
+verification clock that has not started. The lead time is the point, not the deadline.
+
+**`ORG_FILES_ENABLED` moved EARLIER, not later** — measured absent on 09-16, 09-23, 09-25, 09-27
+and 09-28. *(Track S confirms the read path — `src/lib/storage/work-order-files-states.ts:57`,
+`process.env.ORG_FILES_ENABLED === "true"` — and NOT the production value, which is a server env
+var this session cannot read. The five measurements are carried, not re-confirmed.)* The scope sheet's §5 and §6 carry photo references, and an *internal* photo has
+different standing from an unresolvable external one (`SCOPE_SHEET_SPEC.md` R4) — the internal
+path is this flag, and it is off. It was a pilot-day prerequisite; it is now a prerequisite of
+the thing being built this week.
 
 ## The four that are Jacob's alone
 
