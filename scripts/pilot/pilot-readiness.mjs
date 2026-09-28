@@ -66,6 +66,22 @@ if (!dbAvailable()) {
   record('R3', 'FAIL', 'pilot crew named', cfg._fromExample
     ? 'no scripts/pilot/pilot.config.json — nobody is named as pilot crew'
     : 'crewUserIds is empty — nobody is named as pilot crew');
+  // A CHECK THAT DID NOT RUN IS NOT A CHECK THAT PASSED, AND IT MUST NOT BE INVISIBLE.
+  // Until 2026-09-27, R4-R8 did not exist at all when R3 failed: the loop below never
+  // ran, nothing was recorded, and the summary read "4 FAIL, 0 UNDETERMINED, 2 PASS"
+  // — six items out of eleven, with nothing in the output saying five were missing.
+  // Eleven days of NOT READY were reported that way, and the missing five are the
+  // only ones that ask what a crew member can actually reach. They are asked AS a
+  // named person, so with nobody named they genuinely cannot be answered — which is
+  // what UNDETERMINED is for, per this file's own header rule: a check that cannot
+  // run is UNDETERMINED, never PASS. Recorded now, so the denominator is whole.
+  for (const [id, what] of [
+    ['R4', 'crew have accounts and have signed in'],
+    ['R5', 'crew see a job to work on'],
+    ['R6', 'crew cannot reach a master work order'],
+    ['R7', 'crew see no estimate (no $ in the field)'],
+    ['R8', 'crew can open roof data / photos from the office'],
+  ]) record(id, 'UNDETERMINED', what, 'NOT RUN — asked as a named crew member, and R3 names nobody');
 } else {
   record('R3', 'PASS', 'pilot crew named', `${crew.length} user id(s)`);
   for (const [i, id] of crew.entries()) {
@@ -130,6 +146,13 @@ for (const r of results) console.log(`${r.verdict.padEnd(12)} ${r.id.padEnd(7)} 
 const fails = results.filter((r) => r.verdict === 'FAIL').length;
 const unknown = results.filter((r) => r.verdict === 'UNDETERMINED').length;
 console.log('------------------------------------------------------------------------');
-if (fails) { console.log(`NOT READY: ${fails} FAIL, ${unknown} UNDETERMINED, ${results.length - fails - unknown} PASS`); process.exit(1); }
-if (unknown) { console.log(`UNDETERMINED: ${unknown} check(s) could not be answered`); process.exit(2); }
+// THE SUMMARY STATES ITS DENOMINATOR AND WHAT IT COULD NOT LOOK AT. A line reading
+// "4 FAIL, 2 PASS" is a verdict on six things; said without the six, it reads as a
+// verdict on readiness. Every count below is "of N", and the unanswered are named,
+// because the ones that cannot be answered are not the unimportant ones — on
+// 2026-09-27 they were the five that ask what a crew member can actually reach.
+const answered = results.length - unknown;
+console.log(`ANSWERED ${answered} of ${results.length} checks` + (unknown ? `; ${unknown} UNANSWERED: ${results.filter((r) => r.verdict === 'UNDETERMINED').map((r) => r.id).join(', ')}` : ''));
+if (fails) { console.log(`NOT READY: ${fails} FAIL, ${unknown} UNDETERMINED, ${results.length - fails - unknown} PASS — of ${results.length}`); process.exit(1); }
+if (unknown) { console.log(`UNDETERMINED: ${unknown} of ${results.length} check(s) could not be answered`); process.exit(2); }
 console.log(`READY: ${results.length} of ${results.length} PASS`); process.exit(0);
