@@ -49,6 +49,19 @@ export function roofPlaceLabel(code: string | null): string | null {
   return ROOF_PLACES.find((p) => p.code === code)?.label ?? null;
 }
 
+/**
+ * U-W1.36 — THE RECONCILIATION, and it runs in this direction on purpose.
+ * What is actually stored is `{ id, label, detail }`; the office picks a place
+ * from ROOF_PLACES and it lands in `label`. So a label that IS a place label
+ * comes back out as that place's code, and anything else stays free text and
+ * renders as "No place recorded" rather than being dropped. No second store,
+ * no migration, and every callout written before today still reads.
+ */
+export function placeCodeFromLabel(label: string): string | null {
+  const t = label.trim().toLowerCase();
+  return ROOF_PLACES.find((p) => p.label.toLowerCase() === t)?.code ?? null;
+}
+
 export type RoofCallout = {
   id: string;
   /** null = recorded without a place. Rendered, never dropped. */
@@ -73,15 +86,27 @@ export function parseRoofCallouts(value: unknown): RoofCallout[] {
   if (!Array.isArray(value)) return [];
   return value
     .filter((c): c is Record<string, unknown> => typeof c === "object" && c !== null && !Array.isArray(c))
-    .map((c) => ({
-      id: typeof c.id === "string" ? c.id : "",
-      place: typeof c.place === "string" && c.place.length > 0 ? c.place : null,
-      // `label` is the existing free-text field; it carries the "what" until the
-      // derived data replaces it.
-      what: typeof c.what === "string" ? c.what : typeof c.label === "string" ? c.label : "",
-      note: typeof c.note === "string" ? c.note : typeof c.detail === "string" ? c.detail : null,
-      unusual: c.unusual === true,
-    }))
+    .map((c) => {
+      const label = typeof c.label === "string" ? c.label : "";
+      const detail = typeof c.detail === "string" ? c.detail : null;
+      // When the LABEL is the place (the office picked one from the list), the
+      // thing that goes there is the DETAIL — otherwise the row would read
+      // "Valleys / Valleys" and the actual spec would be demoted to a footnote.
+      const placeFromLabel = label ? placeCodeFromLabel(label) : null;
+      const place = typeof c.place === "string" && c.place.length > 0 ? c.place : placeFromLabel;
+      return {
+        id: typeof c.id === "string" ? c.id : "",
+        place,
+        what:
+          typeof c.what === "string"
+            ? c.what
+            : placeFromLabel && detail
+              ? detail
+              : label,
+        note: typeof c.note === "string" ? c.note : placeFromLabel && detail ? null : detail,
+        unusual: c.unusual === true,
+      };
+    })
     .filter((c) => c.id.length > 0 && c.what.length > 0);
 }
 
