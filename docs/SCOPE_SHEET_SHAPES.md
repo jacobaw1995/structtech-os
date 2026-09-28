@@ -157,13 +157,28 @@ public.scope_section_answers
   deal_id           uuid    not null
   section_key       text    not null   -- '3a_roof' … '3f_other', and the header's
                                        -- inspection_or_call, which is a gate too
-  state             text    not null   -- 'not_on_this_job' | 'on_this_job' | 'unreadable'
+  state             text    not null   -- 'not_on_job' | 'on_job'
   variant           text                -- the 4-way gates: 'soffit_and_fascia' | 'soffit_only'
                                        --   | 'fascia_only'; 'gutters_and_guards' | …
   decided_by        uuid                -- who said so
   decided_at        timestamptz
   primary key (deal_id, section_key)
 ```
+
+**THE VOCABULARY IS TRACK U's, RULED 2026-09-28.** `not_on_job`, not `not_on_this_job` — it was
+already in code (`src/lib/crm/scope-sheet.ts`, `SectionState`), it is shorter, and the two models
+were established to agree before the names were settled: U's `unfilled` / `filled` derive exactly
+as this table intends, from whether field values exist under `on_job`, and U's `unreadable` is
+already produced by the reader rather than stored. **So the column stores two values and the
+screen renders four**, which is the same split this document argued for under different names.
+Settled **before** the migration, which is the only moment it is free.
+
+| stored here | rendered by `SectionState` |
+|---|---|
+| `not_on_job` | `not_on_job` |
+| `on_job`, no field values | `unfilled` |
+| `on_job`, field values | `filled` |
+| *(never stored)* | `unreadable` — the read failed |
 
 **Why a table and not a jsonb key.** The directive's sentence — *"reachable FROM THE TABLE, not
 only through a function"* — has a measured cause: **4 of 5 live members reach `schedule_blocks`
@@ -176,9 +191,9 @@ function.
 
 | state | what it means | how it is reached |
 |---|---|---|
-| `not_on_this_job` | a person decided. **This is the row that does not exist today** | the inspector answers No |
-| `on_this_job` + no field values | on this job, not yet filled | the inspector answers Yes and moves on |
-| `on_this_job` + field values | on this job, filled | the ordinary path |
+| `not_on_job` | a person decided. **This is the row that does not exist today** | the inspector answers No |
+| `on_job` + no field values (renders `unfilled`) | on this job, not yet filled | the inspector answers Yes and moves on |
+| `on_job` + field values (renders `filled`) | on this job, filled | the ordinary path |
 | `unreadable` | **we could not ask.** Not a decision and not an absence | the read failed — the same third answer `fetchQcRows` gives, and it is a state of the READ, so it is produced by the reader and never stored |
 
 **`unreadable` is reachable because the reader returns it, not because a row holds it** — a row
