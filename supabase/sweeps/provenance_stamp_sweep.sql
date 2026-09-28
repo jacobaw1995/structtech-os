@@ -52,9 +52,22 @@
 -- ============================== STATUS — SWEEP CLOSED 2026-09-17 ==============================
 --  CLASS A  19: FIXED 6 (the 2 take-off functions, 20260915220533; archive_deal, archive_tracker_item,
 --               archive_tracker_project, present_estimate, 20260916214749), SAFE 13. BREAKS 0.
---  CLASS B  13: BREAKS 7 — NOT DONE. Scheduled for the week of 2026-09-21 (controller, 2026-09-17), not "pending":
---               assign_deal_owner, update_deal_fields, restore_deal, complete_site_survey, order_scope,
---               present_quote, update_material_item. SAFE 6.
+--  CLASS B  13: BREAKS 7 — ✅ ALL SEVEN FIXED 2026-09-27, migration 20260927153148_class_b_provenance,
+--               ten days after they were scheduled. Every one was RE-PROVED TO BREAK against live pg_proc
+--               on the day of the fix rather than trusted from this file, and every one has a control that
+--               still writes: assign_deal_owner (same owner: 1→1 guarded; owner→null: 1→2 writes),
+--               update_deal_fields (empty patch 0→0, RESENT same company 0→0, real change 0→1),
+--               complete_site_survey / order_scope / present_quote (six calls, three activity rows;
+--               a different timestamp still writes), restore_deal (not archived 0→0; archive-then-restore
+--               writes), update_material_item (every value resent 3→3; quantity→99 writes). SAFE 6.
+--               AND THE SEVENTH FIRED IN PRODUCTION: golden path run 1 put five "changed a material after
+--               sign-off" lines on Jacob's coordination screen and THE FIRST RECORDED NO CHANGE —
+--               "Dumpster (qty 1)" → "Dumpster (qty 1) [Tear-Off]", same name, same quantity, no ready
+--               date either side. The true count was four. A change log that records non-changes is not
+--               evidence.
+--               POPULATION MOVED: 17 activity-row writers on 2026-09-27 against 13 on 2026-09-15. The new
+--               one is `record_field_event`, graded SAFE by reading — a field event is an event, so every
+--               call records something that happened (same grade as add_deal_note). Named, not left uncounted.
 --  CLASS C  31: RULED OUT OF SCOPE (controller, 2026-09-17): updated_at is not provenance — UNLESS a surface
 --               renders it to a human as "last changed by/at". Measured in src/ at f7a8509: TWO surfaces do —
 --               the Build page (roadmap_items updated_by · updated_at; writer update_roadmap_fields) and the
