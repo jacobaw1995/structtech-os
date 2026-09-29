@@ -35,6 +35,8 @@ export type FieldError =
   | "delete_needs_author_or_office"
   | "change_needs_author_or_office"
   | "not_signed_in"
+  | "special_trip_reason_required"
+  | "special_trip_not_found"
   | "qc_work_order_not_recordable"
   | "crew_required"
   // OURS, and not refusals: these describe THIS surface's own situation, which
@@ -53,6 +55,9 @@ export const FIELD_ERROR_COPY: Record<FieldError, string> = {
   change_needs_author_or_office:
     "Only the person who recorded this check-in, or the office, can change it. Ask the office to correct it.",
   not_signed_in: "You're signed out. Sign in and try again — nothing was changed.",
+  // S's own sentences, reached by S's own hints (20260929025035).
+  special_trip_reason_required: "Pick a reason from the list. A special trip is counted, so the reason has to be one of them.",
+  special_trip_not_found: "That trip couldn't be found for your account. Nothing was changed.",
   qc_work_order_not_recordable: "Checks can't be recorded on this job. Nothing was recorded.",
   crew_required: "Choose a crew, or type who is doing the work.",
   // update_check_in keeps the old figure when hours are blank; clearing is its
