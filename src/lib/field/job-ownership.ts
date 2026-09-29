@@ -26,11 +26,53 @@
 
 export type JobOwnership = "mine" | "other_crew" | "unknown";
 
+/**
+ * U-W1.43 (2026-09-29) — THE THIRD STATE, and it is the one that can do harm.
+ *
+ * S is building crew scoping BEHIND A SWITCH THAT DEFAULTS OFF, and its refusal
+ * path returns a NAMED REFUSAL rather than an empty list when a member has no
+ * assignments. So there are three situations, not two:
+ *
+ *   scoping_off   nobody is scoping anything. No claim is possible and none is
+ *                 made: one flat list, as today.
+ *   scoped        we know who is on what. Lead with the reader's own work.
+ *   none_assigned SCOPING IS ON AND NOTHING IS ASSIGNED TO THIS PERSON.
+ *
+ * THE THIRD MUST NOT RENDER AS "NO WORK TODAY", and that is the whole reason it
+ * exists as its own state. The jobs are there. The org is working. What is
+ * absent is an ASSIGNMENT, which is a fact about the schedule and not about the
+ * roofs — and a crew member told "nothing scheduled" when five jobs are running
+ * will either sit at home or stop believing the screen. Both are worse than the
+ * truth, which is short: nothing is assigned to you yet, here is what the
+ * company has on.
+ */
+export type OwnershipRead<T> =
+  | { state: "scoping_off" }
+  | { state: "scoped"; ownershipOf: (job: T) => JobOwnership }
+  | { state: "none_assigned" };
+
 export type OwnershipGrouping<T> =
   /** Something is known: the screen can lead with the reader's own work. */
   | { kind: "grouped"; mine: T[]; others: T[]; unknown: T[] }
   /** Nothing is known about any of them. No groups, no claim, no headings. */
-  | { kind: "flat"; all: T[] };
+  | { kind: "flat"; all: T[] }
+  /** Scoping is on and this person has none. The jobs still render. */
+  | { kind: "none_assigned"; all: T[] };
+
+/** The read, resolved to what the screen renders. */
+export function resolveOwnership<T>(jobs: T[], read: OwnershipRead<T>): OwnershipGrouping<T> {
+  if (read.state === "scoping_off") return { kind: "flat", all: jobs };
+  if (read.state === "none_assigned") return { kind: "none_assigned", all: jobs };
+  return groupByOwnership(jobs, read.ownershipOf);
+}
+
+/**
+ * What the screen SAYS when scoping is on and this person has nothing. Said in
+ * one sentence, above jobs that are still listed — never instead of them.
+ */
+export const NONE_ASSIGNED_HEADING = "Nothing assigned to you yet";
+export const NONE_ASSIGNED_DETAIL =
+  "These are the jobs your company has on. Ask the office which one is yours.";
 
 export function groupByOwnership<T>(jobs: T[], ownershipOf: (job: T) => JobOwnership): OwnershipGrouping<T> {
   const mine = jobs.filter((j) => ownershipOf(j) === "mine");

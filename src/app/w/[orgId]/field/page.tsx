@@ -4,7 +4,13 @@ import { cookies } from "next/headers";
 import { FieldShell } from "@/components/field/FieldShell";
 import { OUTDOOR_COOKIE, parseOutdoorCookie } from "@/lib/field/outdoor";
 import { formatDateRange, scheduleBlockStatus } from "@/lib/field/today";
-import { groupByOwnership, OWNERSHIP_HEADING, type JobOwnership } from "@/lib/field/job-ownership";
+import {
+  resolveOwnership,
+  OWNERSHIP_HEADING,
+  NONE_ASSIGNED_HEADING,
+  NONE_ASSIGNED_DETAIL,
+  type OwnershipRead,
+} from "@/lib/field/job-ownership";
 import { todayInNewYork } from "@/lib/home/model";
 import { EmptyDay, type LastJob } from "@/components/field/EmptyDay";
 
@@ -153,23 +159,38 @@ export default async function FieldTodayPage({
             // would be false. Track S owns the scoping and starts today; when
             // the assignment read lands it replaces this one function and the
             // grouping below already renders it.
-            // Takes no argument today because the answer does not depend on the
-            // job yet — nothing is recorded about who is on any of them.
-            const ownershipOf = (): JobOwnership => "unknown";
-            const grouped = groupByOwnership(inGroup, ownershipOf);
+            // U-W1.43 — THREE STATES, and today the read is `scoping_off`
+            // because S's switch defaults OFF and nothing is assigned anywhere.
+            // NOT WIRED to the real function until S reports it applied; this
+            // is the one line that changes.
+            const ownershipRead: OwnershipRead<FieldJob> = { state: "scoping_off" };
+            const grouped = resolveOwnership(inGroup, ownershipRead);
             const sections: { key: string; heading: string | null; jobs: FieldJob[] }[] =
-              grouped.kind === "flat"
-                ? [{ key: "all", heading: null, jobs: grouped.all }]
-                : [
+              grouped.kind === "grouped"
+                ? [
                     { key: "mine", heading: OWNERSHIP_HEADING.mine, jobs: grouped.mine },
                     { key: "others", heading: OWNERSHIP_HEADING.others, jobs: grouped.others },
                     { key: "unknown", heading: OWNERSHIP_HEADING.unknown, jobs: grouped.unknown },
-                  ].filter((s) => s.jobs.length > 0);
+                  ].filter((sec) => sec.jobs.length > 0)
+                : [{ key: grouped.kind, heading: null, jobs: grouped.all }];
             return (
               <div key={group} className="flex flex-col gap-3">
                 <p className="text-sm font-semibold uppercase tracking-wide text-muted group-data-[outdoor=true]/field:text-white/80">
                   {group === "active" ? "On site today" : "Coming up"}
                 </p>
+                {/* SCOPING ON, NOTHING YOURS — said once, ABOVE jobs that are
+                    still listed, never instead of them. "No work today" would
+                    be false while the company is on five roofs. */}
+                {grouped.kind === "none_assigned" && (
+                  <div data-ownership-state="none_assigned" className="flex flex-col gap-1">
+                    <p className="text-base font-semibold text-text group-data-[outdoor=true]/field:text-white">
+                      {NONE_ASSIGNED_HEADING}
+                    </p>
+                    <p className="text-sm text-muted group-data-[outdoor=true]/field:text-white/80">
+                      {NONE_ASSIGNED_DETAIL}
+                    </p>
+                  </div>
+                )}
                 {sections.map((section) => (
                   <div key={section.key} data-ownership={section.key} className="flex flex-col gap-3">
                     {section.heading && (
