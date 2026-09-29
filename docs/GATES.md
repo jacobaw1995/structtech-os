@@ -10,109 +10,63 @@ From now on dates get contradicted the same way counts do, and the measurements 
 
 ## The gates
 
-*(Headed "the twelve gates" until 2026-09-28. It is **thirteen rows** now — G4 was cut and
-two were added, the scope sheet and its burn-down. Renamed rather than left saying twelve above a
-table of thirteen: §7.1 RULE 21, applied to this file by the session that wrote the rule.)*
+**⚠ REVERTED 2026-09-28 22:21 EDT. THE ORIGINAL DATES STAND.**
+Jacob found a workaround for BMR's job scope sheet, so it is **shelved, not cancelled**, and
+the original schedule resumes. Today's two re-datings — pilot → Oct 19, then Oct 26 — are
+**withdrawn**. Recorded rather than deleted: the calendar moved twice and back in one day.
+**What it actually cost is Monday 2026-09-28** — that day's planned Field work did not happen
+and does not come back.
 
-**⚠ RE-DATED 2026-09-28 (second pass, same day). THE SCOPE SHEET IS THE PRIORITY.**
-Jacob's decision, 2026-09-28: build the full job scope sheet
-(`docs/SCOPE_SHEET_SPEC.md`, `docs/SCOPE_SHEET_SHAPES.md`) **first, at full depth, and the
-crew day moves rather than the sheet being cut short.** Old dates struck through so the size
-of the move stays visible — a re-dating that hides what it replaced is how a 60-day plan
-becomes a 200-day plan with nobody deciding to.
+**The revert is clean for a scope reason worth stating.** The core system is **StructTech's**,
+not any tenant's; a tenant brands and configures its own. So the BMR job scope sheet was always
+**tenant configuration**, never core — which is why taking it off the critical path costs the
+platform nothing. What Track U built on 09-28 (the gate, the type-code picker, the per-row
+table, the external-reference note) is the **capability**, and capabilities are core.
 
 | Gate | Date | What it is |
 |---|---|---|
 | G2 | Sep 10 | A2 Materials & Purchasing accepted |
 | G3 | Sep 14 | Platform debt clear |
 | G4 | ~~Sep 20~~ → **November** | A3 Standards accepted — **CUT 2026-09-13** |
-| **NEW** | **Mon Oct 12 → Mon Oct 19** | **Job scope sheet accepted** — on the rendered screen (§7.1 rule 17), against U's measured baseline |
-| **NEW** | **Oct 19 → Oct 23** | **Scope-sheet burn-down.** Golden path run 1 produced 9 defects on a 14-field screen; this sheet has 127 inputs, and every one of those 9 was found by a person looking at a screen |
-| G5 | ~~Oct 6~~ → **Fri Oct 23** | A4 Field Execution accepted ⚠ TRIPWIRE |
-| G6 | ~~Oct 13~~ → **Fri Oct 30** | Field pilot closes ⚠ TRIPWIRE |
-| G7 | ~~Oct 16~~ → **Wed Nov 4** | Invoicing live |
-| **G11** | ~~Oct 18~~ → **BLOCKED — NO DATE** | Stripe subscription billing live. **See below.** |
-| G8 | ~~Oct 24~~ → **Thu Nov 12** | Phase A complete |
-| G9 | ~~Oct 25~~ → **Fri Nov 13** | Phase B complete |
-| G10 | ~~Oct 29~~ → **Tue Nov 17** | Second contractor tenant live |
-| G12 | ~~Oct 31~~ → **Thu Nov 19** | MVP LAUNCH |
+| G5 | **Tue Oct 6** | A4 Field Execution accepted ⚠ TRIPWIRE |
+| G6 | **Tue Oct 13** | Field pilot closes ⚠ TRIPWIRE |
+| G7 | **Fri Oct 16** | Invoicing live |
+| **G11** | **BLOCKED — NO DATE** | Stripe subscription billing live. **Unchanged by the revert.** |
+| G8 | **Sat Oct 24** | Phase A complete |
+| G9 | **Sun Oct 25** | Phase B complete |
+| G10 | **Thu Oct 29** | Second contractor tenant live |
+| G12 | **Sat Oct 31** | MVP LAUNCH |
 
-**Field pilot day 1: ~~Oct 7~~ → Mon Oct 26.**
+**Field pilot day 1: Wed Oct 7. Eight working days from this revert.**
 
-### G11 CARRIES NO DATE, and that is the honest entry
+### G11 STAYS BLOCKED. The revert does not restore its date.
 
-**Controller correction, 2026-09-28, on Track S's challenge.** The first re-dating put G11 at
-Oct 30 on the reasoning that Stripe is downstream of track capacity. S contradicted it, and
-was right: **G11's critical path is not the build, it is a business verification that has not
-begun.** Its own row in *the four that are Jacob's alone* reads *"~30 min + days-to-weeks
-verification"*.
+Its Oct 18 was withdrawn this afternoon on Track S's challenge, and that challenge had nothing
+to do with the scope sheet: **G11's critical path is a business verification that has not
+begun.** Restoring the date because the calendar snapped back would restore a date for
+something that still has not started. **It gets one the day the Stripe account exists, counted
+forward from there.** Due Sep 25; six days late.
 
-This file already said *"a later gate does not restart a verification clock that has not
-started"* — and then gave that clock a deadline anyway. **Those two sentences cannot both be
-acted on.** A date invented for something that has not started is a default standing in for a
-decision, which is the defect this build has closed four times in the schema.
+### The scope sheet is SHELVED, and what survives is written down
 
-**G11 is BLOCKED and gets a date the day the Stripe account exists, counted forward from
-there.** Not before.
+Retained in the repo and off the critical path: `SCOPE_SHEET_SPEC.md` (revision 2, corrected
+against the PDF in ten places), `SCOPE_SHEET_SHAPES.md`, `reference/BMR_TYPE_CODES.md` as
+Jacob's canon, and the source PDF.
 
-### The arithmetic, and the two things it does not say
+**The measurements are the part worth keeping, because they stay true whenever this resumes:**
+the build covers **25 of 38 configured fields**, and **102 of 127 PDF inputs have no field at
+all**; **0 of 200 deals can distinguish "the client declined this" from "nobody got to it"**,
+on all six gated sections; and `lib/estimating/scope-line-items.ts` has **no concept of a
+gate**, so a section marked *not on this job* would still price its lines.
 
-The build gets its **full three weeks**, accepted Oct 12–19, then **a burn-down window before
-a roofer touches it**. Pilot day 1 moves **Oct 19 → Mon Oct 26**; everything behind it follows.
+### What did not move, and did not move back
 
-**Two gates had landed on a Sunday** in the first pass — G5 on Oct 18, the day before the
-pilot, and G6 on Oct 25. Calendar arithmetic, not judgement. Both now fall on a Friday.
+**The real crew account is still Oct 1** — three days out again rather than twenty-five.
+Re-measured 2026-09-28: BMR holds **2 members, 0 with role `field`**, and **0 rows in `crews`,
+`crew_people` and `crew_memberships`** alike. **No account, no pilot.**
 
-**The burn-down window is not slack and must not be spent as slack.** It exists because run 1
-found nine defects on fourteen fields and every one required a person to look at a screen.
-Rule 17 means the scope sheet cannot be accepted any other way, and acceptance that finds
-nothing is acceptance nobody ran.
-
-### Checked, not accepted — Track S, 2026-09-28 (second pass)
-
-**Every date and every day-of-week claim in this re-dating is correct.** Re-derived
-independently: Mon Oct 12 · Mon Oct 19 · Fri Oct 23 · Mon Oct 26 · Fri Oct 30 · Wed Nov 4 ·
-Thu Nov 12 · Fri Nov 13 · Tue Nov 17 · Thu Nov 19. `09-28 + 3 weeks = Oct 19`, so the build
-gets its full three weeks and the acceptance window closes on the day the build does.
-
-**THE SLIPS ARE NOT UNIFORM, AND THAT IS THE GOOD NEWS — SO NOBODY "FIXES" IT.** Measured from
-the ORIGINAL dates: pilot day 1, G7, G8, G9, G10 and G12 move **+19**; **G5 and G6 move +17**.
-That reads like an arithmetic slip and is not. G5 and G6 are anchored to the pilot WEEK's
-Monday–Friday boundaries instead of being shifted mechanically, and the effect is that
-**the pilot is still five weekdays** — Mon Oct 26 → Fri Oct 30, against the original Wed Oct 7 →
-Tue Oct 13, which was also five weekdays but straddled a weekend. **The pilot did not shrink; it
-stopped being cut in half by a Saturday.** The uneven delta is the evidence of that choice, not a
-mistake in it. From the first re-dating the move is **+7** for everything except G5/G6 at **+5**.
-
-**The burn-down window is five weekdays** (Mon Oct 19 → Fri Oct 23) — the same length as the
-pilot it protects — with a weekend between it closing and a roofer arriving. Pass 1 had **zero**
-days there. That is the substantive change in this pass and it is the right one.
-
-**ONE THING THIS PASS PUTS ON A SINGLE DAY: Fri Oct 23 is both the burn-down close AND G5,
-A4 Field Execution accepted.** Two different surfaces — the scope sheet and the field module —
-accepted on one day, by the same three tracks, three days before the pilot. Not an error, and
-not free either: if the burn-down finds what a burn-down is for, it is competing for the same
-hours as a tripwire gate. Recorded so the collision is a decision rather than a discovery.
-
-### What did NOT move, deliberately
-
-**The real crew account stays at Oct 1.** The pilot moving creates weeks of new slack on an
-item that has not moved in twelve days — and Track X put it better than this file can: *slack
-on something that has not moved in twelve days is how a decision becomes a drift.* Re-measured
-2026-09-28: BMR holds **2 members, 0 with role `field`**, and **0 rows in `crews`,
-`crew_people` and `crew_memberships` alike**. **It now sits 25 days before pilot day 1** — 6 in
-the original plan, 18 after the first re-dating, 25 after this one. Three passes of slack on an
-item that has not moved once.
-
-**Stripe stays overdue.** It was due Sep 25. G11 having no date does not soften that — it is
-the reason G11 has no date.
-
-**`ORG_FILES_ENABLED` moved EARLIER, not later** — measured absent on 09-16, 09-23, 09-25,
-09-27 and 09-28. The scope sheet's §5 and §6 carry photo references, and an internal photo has
-different standing from an unresolvable external one (`SCOPE_SHEET_SPEC.md` R4). The internal
-path is this flag. *(The five readings are carried, not re-confirmed — the production value is
-a server env var no session can read; the read path was confirmed in source at
-`work-order-files-states.ts:57`.)*
+**`ORG_FILES_ENABLED`** — measured absent on 09-16, 09-23, 09-25, 09-27 and 09-28. **Twelve
+days**, and it gates two readiness checks that cannot move without it.
 
 ## The four that are Jacob's alone
 
