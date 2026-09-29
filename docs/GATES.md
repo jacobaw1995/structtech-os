@@ -8,6 +8,21 @@ three weeks was unfalsifiable from the executor's side**, while every count in t
 written to be contradicted. A deadline the executor cannot read is a deadline that cannot be contradicted.
 From now on dates get contradicted the same way counts do, and the measurements are below the table.
 
+### THE DAY LABEL IS NOT THE MIGRATION STAMP. 2026-09-28.
+
+Three directives were issued under the header **Tuesday 2026-09-29**. New York was
+**Monday 2026-09-28**. All three tracks contradicted the header independently; Track S measured
+the mechanism live in one minute — `current_date` = `2026-09-29`, `(now() at time zone
+'America/New_York')::date` = `2026-09-28`. The directives' own *eight working days* count is
+correct **from Monday**, so the body contradicted its own header. Those three directives are
+hereby **re-labelled Monday 2026-09-28**; the work in them was Monday's and was done Monday.
+
+**Migration filenames stay UTC and are not corrected.** `20260929025035_special_trip_log` and
+`20260929025510_member_capability_refusal_hints` were applied on Monday New York time under a
+Tuesday UTC stamp. That is the convention working as intended: a migration filename is an
+ordering key, not a day label. Renaming an applied migration would break ordering to fix
+nothing. **Day labels are New York. Ordering keys are UTC. They are allowed to disagree.**
+
 ## The gates
 
 **⚠ REVERTED 2026-09-28 22:21 EDT. THE ORIGINAL DATES STAND.**
@@ -91,7 +106,7 @@ cannot reach it.
 | **G5 · Oct 6 · A4 Field accepted** ⚠ | **At risk: 13 days for 8 items, none shipped** | Field (crew): **0 shipped, 1 in progress, 7 planned** |
 | G6 · Oct 13 · pilot closes ⚠ | Blocked on Jacob's Oct 1 item | No real crew account exists; the only `field` login is the synthetic one in the disposable tenant |
 | G7 · Oct 16 · Invoicing live | At risk | Invoicing & payments: 0 shipped, 5 planned |
-| G11 · Oct 18 · Stripe billing live | Blocked on Jacob's Sep 25 item | Nothing in the schema for subscriptions; Stripe account not yet created |
+| G11 · **NO DATE** · Stripe billing live | Blocked on Jacob's Sep 25 item | Nothing in the schema for subscriptions; Stripe account not yet created |
 | G8 · Oct 24 · Phase A complete | At risk | Phase A: **6 shipped, 9 in progress, 27 planned** (42). 31 days of items in 31 days |
 | G9 · Oct 25 · Phase B complete | At risk | Phase B: 0 shipped, 4 planned — one day after G8 |
 | G10 · Oct 29 · second tenant live | Not started | No second contractor tenant exists; the only extra org is the disposable test tenant |
