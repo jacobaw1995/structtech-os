@@ -1,19 +1,16 @@
 # Security advisor snapshot — object level
-# Taken 2026-09-28 22:59 EDT by Track S. Regenerate with scripts/monitor/advisor-snapshot.md's instructions.
+# Taken 2026-09-29 11:5x EDT by Track S. Regenerate with scripts/monitor/advisor-snapshot.md's instructions.
 # Columns: lint	level	schema	object
 # TOTAL 317
-# MOVED 310 -> 317 since 2026-09-23. All seven attributed, and FOUR ARE NOT OURS:
-#   OURS (+3, 20260929025035): record_special_trip, delete_special_trip (authenticated_security_definer_
-#     function_executable — the app's own call path, rule 7's carve-out) and special_trips
-#     (pg_graphql_authenticated_table_exposed — every owned table appears there).
-#   MATERIAL MATRIX (+4, 20260929023609_wh_saved_carts, applied 14 minutes before ours):
-#     wh_saved_carts, wh_saved_cart_lines, and wh_saved_carts_touch TWICE — under authenticated_ AND
-#     **anon_security_definer_function_executable**, which moved 5 -> 6.
-#   THE anon ONE IS REPORTED, NOT INVESTIGATED (CLAUDE.md rule 9). A new security-definer function in
-#     public that anon can execute is rule 7's failure mode — a missing closing
-#     'revoke execute ... from public, anon'. It is theirs to read and theirs to fix; the precedent is
-#     2026-08-20, our migration and their outage, where the fix was right only because each side
-#     examined its own half.
+# UNCHANGED from 2026-09-28 22:59 EDT — 317 -> 317, OBJECT-LEVEL IDENTICAL, zero delta.
+# Two migrations landed in that window and neither moved it:
+#   20260929153659_crew_scoped_field_jobs (ours) and 20260929030534_wh_saved_carts_reapply (theirs).
+# TWO ATTRIBUTABLE ZEROES, worth more than the unchanged total:
+#   · fetch_field_jobs was DROPPED and RE-CREATED today and this file CANNOT SHOW IT — a same-named
+#     object replaced in place is invisible here (README: 'not when something changed').
+#   · tenant_scopes_field_jobs_to_crew is NEW and deliberately absent: it is not granted to
+#     authenticated, so it never enters authenticated_security_definer_function_executable. The zero
+#     is the rule-7 carve-out working, not the instrument failing.
 anon_security_definer_function_executable	WARN	public	record_signed_copy_outcome_by_link
 anon_security_definer_function_executable	WARN	public	sign_estimate_by_link
 anon_security_definer_function_executable	WARN	public	signed_copy_by_link
