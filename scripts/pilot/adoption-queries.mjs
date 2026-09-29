@@ -164,3 +164,86 @@ export function perWorkOrder(q, org, day, scheduled) {
     qcLive: num(q, `select count(*) from public.qc_items where org_id = '${org}' and work_order_id = '${wo}' and cleared_at is null`),
   }));
 }
+
+// ── A4.8's three named measures: opens · completion rate · time-to-complete ───
+//
+// A RATE WITH A ZERO DENOMINATOR IS UNDEFINED, NOT 0%. Those are different claims
+// about a roof: 0% says the crew was given work and finished none of it; undefined
+// says nobody was given any. Rendering the second as the first is how a pilot gets
+// reported as a failure when it was never run — and on 2026-09-29 every one of
+// these is at or near that boundary, so the distinction is not hypothetical.
+//
+// WHICH DENOMINATOR, STATED RATHER THAN ASSUMED. Completion is measured against
+// TRADE WORK ORDERS SCHEDULED FOR THE DAY, because that is the work the office
+// actually assigned and it is recorded. It is NOT measured against A4.1's daily
+// objective, which is not built — if it were, the denominator would not exist at
+// all rather than being zero. Both cases render undefined here; they are different
+// reasons and the report says which.
+export const UNDEFINED = Object.freeze({ undefined: true });
+export const isUndefined = (r) => r === UNDEFINED || (r && r.undefined === true);
+
+/** A rate that refuses to invent a denominator. */
+export const rate = (numerator, denominator, container, why) =>
+  denominator > 0
+    ? { pct: Math.round((numerator / denominator) * 1000) / 10, n: numerator, of: denominator, container }
+    : { undefined: true, n: numerator, of: 0, container, why };
+
+export const fmtRate = (r) =>
+  isUndefined(r)
+    ? `UNDEFINED — ${r.why} (no denominator: 0 ${r.container}). Not 0%.`
+    : `${r.pct}%  (${r.n} of ${r.of} ${r.container})`;
+
+/** Opens on the day, with the work that was actually assigned as the container. */
+export function opens(q, org, day, scheduled) {
+  const w = dayWindow(day, "occurred_at");
+  const opened = scheduled.length
+    ? num(q, `select count(distinct work_order_id) from public.field_events
+              where org_id = '${org}' and ${w} and event in ('work_order_opened','packet_opened')
+                and work_order_id in (${inSet(scheduled)})`)
+    : 0;
+  const total = num(q, `select count(*) from public.field_events where org_id = '${org}' and ${w} and event in ('work_order_opened','packet_opened')`);
+  return {
+    scheduledOpened: rate(opened, scheduled.length, "trade work orders scheduled for this day", "no trade work order was scheduled"),
+    totalOpens: count(total, total, "opens recorded in this tenant on this day (any work order)"),
+  };
+}
+
+/** Completion: a scheduled work order counts as completed when it has a check-in that day. */
+export function completionRate(q, org, day, scheduled) {
+  const done = scheduled.length
+    ? num(q, `select count(distinct work_order_id) from public.check_ins
+              where org_id = '${org}' and ${dayWindow(day, "created_at")} and work_order_id in (${inSet(scheduled)})`)
+    : 0;
+  return rate(done, scheduled.length, "trade work orders scheduled for this day", "no trade work order was scheduled");
+}
+
+/**
+ * Time-to-complete: first open → first check-in, per (actor, work order), in minutes.
+ * UNDEFINED with no pairs — a median of nothing is not zero.
+ */
+export function timeToComplete(q, org, day) {
+  const w = dayWindow(day, "occurred_at");
+  const rows = list(
+    q,
+    `select round(extract(epoch from (c.first_check_in - o.first_open)) / 60.0)::text
+     from (select actor_id, work_order_id, min(occurred_at) as first_open from public.field_events
+            where org_id = '${org}' and ${w} and event in ('work_order_opened','packet_opened')
+            group by actor_id, work_order_id) o
+     join (select actor_id, work_order_id, min(occurred_at) as first_check_in from public.field_events
+            where org_id = '${org}' and ${w} and event = 'check_in_saved'
+            group by actor_id, work_order_id) c
+       on c.actor_id = o.actor_id and c.work_order_id = o.work_order_id
+     where c.first_check_in >= o.first_open`
+  ).map(Number).filter((n) => Number.isFinite(n)).sort((a, b) => a - b);
+  if (rows.length === 0) {
+    return { undefined: true, n: 0, of: 0, container: "open→check-in pairs on this day", why: "no work order was both opened and checked in by the same person" };
+  }
+  const mid = Math.floor(rows.length / 2);
+  const median = rows.length % 2 ? rows[mid] : (rows[mid - 1] + rows[mid]) / 2;
+  return { median, n: rows.length, of: rows.length, container: "open→check-in pairs on this day", min: rows[0], max: rows[rows.length - 1] };
+}
+
+export const fmtDuration = (t) =>
+  isUndefined(t)
+    ? `UNDEFINED — ${t.why} (0 ${t.container}). Not zero minutes.`
+    : `median ${t.median} min  (${t.n} ${t.container}; range ${t.min}–${t.max} min)`;

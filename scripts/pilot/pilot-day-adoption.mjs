@@ -29,7 +29,8 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { q as liveQ, dbAvailable } from "./db.mjs";
-import { containers, funnel, perWorkOrder, whereTheyStopped, everSeen, everSeenInOrg, fmt, EVENT_KINDS } from "./adoption-queries.mjs";
+import { containers, funnel, perWorkOrder, whereTheyStopped, everSeen, everSeenInOrg, fmt, EVENT_KINDS,
+         opens, completionRate, timeToComplete, fmtRate, fmtDuration, isUndefined } from "./adoption-queries.mjs";
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), "../..");
 const args = process.argv.slice(2);
@@ -74,6 +75,17 @@ function report(q, org, orgName, day, { calibrating = false } = {}) {
   const stopped = whereTheyStopped(q, org, day);
   if (stopped.length === 0) lines.push(`  nobody produced an event in this tenant on this day`);
   else stopped.forEach((s) => lines.push(`  ${s}`));
+
+  // A4.8's three named measures. Each prints its denominator, and a rate whose
+  // denominator is 0 prints UNDEFINED rather than 0% — see adoption-queries.mjs.
+  const op = opens(q, org, day, c.scheduled);
+  const comp = completionRate(q, org, day, c.scheduled);
+  const ttc = timeToComplete(q, org, day);
+  lines.push(`A4.8 — OPENS · COMPLETION RATE · TIME-TO-COMPLETE`);
+  lines.push(`  opens, of the work assigned    ${fmtRate(op.scheduledOpened)}`);
+  lines.push(`  opens recorded, any work order ${fmt(op.totalOpens)}`);
+  lines.push(`  completion rate                ${fmtRate(comp)}`);
+  lines.push(`  time-to-complete               ${fmtDuration(ttc)}`);
 
   lines.push(`PER SCHEDULED WORK ORDER (${c.scheduled.length})`);
   const per = perWorkOrder(q, org, day, c.scheduled);
@@ -164,6 +176,11 @@ try {
     insert into public.org_members values ('${ORG}','${CREW_USED}','field','{}'), ('${ORG}','${CREW_STOPPED}','field','{}'), ('${ORG}','${OFFICE}','office','{}');
     insert into public.work_orders (id, org_id, kind) values ('${WO}','${ORG}','trade');
     insert into public.schedule_blocks (org_id, work_order_id, start_date, end_date) values ('${ORG}','${WO}','${DAY}','${DAY}');
+    -- A second scheduled day with NO check-in, so the calibration has a case where
+    -- the denominator is real and the numerator is zero. That is 0% and must NOT
+    -- render as UNDEFINED — the converse of the quiet tenant, and the reason
+    -- "always print UNDEFINED" cannot pass the suite either.
+    insert into public.schedule_blocks (org_id, work_order_id, start_date, end_date) values ('${ORG}','${WO}','2026-10-09','2026-10-09');
     insert into public.check_ins (org_id, work_order_id, created_by, created_at) values ('${ORG}','${WO}','${CREW_USED}','${DAY} 14:00-04');
     insert into public.qc_items (org_id, work_order_id, requirement_key, kind, photo_ref, actor_id, occurred_at)
       values ('${ORG}','${WO}','magnet_sweep','confirm',null,'${CREW_USED}','${DAY} 15:00-04');
@@ -221,6 +238,30 @@ try {
     ["a kind fired nowhere reads zero in both scopes", everSeen(calQ).file_opened > 0 && everSeenInOrg(calQ, ORG_QUIET).file_opened === 0],
     ["the quiet tenant's report says UNEXERCISED HERE, not nothing", report(calQ, ORG_QUIET, "QUIET", DAY, { calibrating: true }).includes("UNEXERCISED HERE")],
     ["the busy tenant's exercised stage carries no marker at all", (() => { const r = report(calQ, ORG, "BUSY", DAY, { calibrating: true }).split("\n").find((l) => l.includes("opened a work order")); return Boolean(r) && !r.includes("UNEXERCISED"); })()],
+    // A4.8's three measures, and the distinction the whole thing turns on:
+    // a rate with a denominator is a number; a rate without one is UNDEFINED.
+    ["opens are counted against the work actually scheduled", opens(calQ, ORG, DAY, c.scheduled).scheduledOpened.pct === 100],
+    ["completion rate is a real rate when work was scheduled", completionRate(calQ, ORG, DAY, c.scheduled).pct === 100],
+    // 660 = 03:00 -> 14:00. My first expectation here said 55 (13:05 -> 14:00) and
+    // was WRONG: the measure takes the FIRST open of the day, and the seed contains
+    // a deliberate 03:00 open. The counter was right and the prediction was wrong
+    // (rule 21). The mechanism matters beyond this fixture — a crew member who opens
+    // a job at dawn and checks in after lunch scores the whole morning, which is the
+    // intended reading of "time to complete" and not of "time spent in the app".
+    ["time-to-complete measures first open to first check-in", timeToComplete(calQ, ORG, DAY).median === 660],
+    // THE ZERO-DENOMINATOR CASES. The quiet tenant has no schedule block, so its
+    // rate has nothing to be a rate OF. 0% would be a lie: it says work was given
+    // and none was done. These are the checks that must fail if anyone "simplifies"
+    // undefined back to zero.
+    ["a rate with no denominator is UNDEFINED, not 0%", isUndefined(completionRate(calQ, ORG_QUIET, DAY, containers(calQ, ORG_QUIET, DAY).scheduled))],
+    // The rendered line must not be a PERCENTAGE. Testing !includes("0%") was my
+    // own bug: the undefined text deliberately ends "Not 0%.", so the substring is
+    // present on purpose. Match the shape fmtRate emits when it HAS a denominator
+    // ("12.5%  (1 of 8 ...)") instead of a substring that appears in both.
+    ["and it RENDERS as undefined, not as a percentage", (() => { const l = report(calQ, ORG_QUIET, "QUIET", DAY, { calibrating: true }).split("\n").find((x) => x.includes("completion rate")); return Boolean(l) && l.includes("UNDEFINED") && !/\d+(\.\d+)?%\s+\(/.test(l); })()],
+    ["time-to-complete with no pairs is UNDEFINED, not 0 minutes", isUndefined(timeToComplete(calQ, ORG_QUIET, DAY))],
+    // ...and the converse, so "always print UNDEFINED" cannot pass either:
+    ["a real denominator with a zero numerator IS 0%, not undefined", (() => { const r = completionRate(calQ, ORG, "2026-10-09", containers(calQ, ORG, "2026-10-09").scheduled); return isUndefined(r) === false ? r.pct === 0 : false; })()],
   ];
   console.log("\nCALIBRATION — can each counter report behaviour that is definitely there?");
   checks.forEach(([label, ok]) => console.log(`  ${ok ? "FIRED " : "FAILED"} ${label}`));
