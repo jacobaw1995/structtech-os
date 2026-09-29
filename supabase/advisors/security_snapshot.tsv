@@ -1,14 +1,25 @@
 # Security advisor snapshot — object level
-# Taken 2026-09-23 16:50 EDT by Track S. Regenerate with scripts/monitor/advisor-snapshot.md's instructions.
-# Columns: lint\tlevel\tschema\tobject
-# TOTAL 310
-# Re-measured 2026-09-25 01:22 EDT (Track S), before AND after both of the day's migrations: 310 both times, object-level IDENTICAL to this file.
-# NOTE THE BLIND SPOT THIS PROVES: add_material_item was DROPPED and RECREATED on 2026-09-25 and this snapshot cannot show it — a same-named object replaced in place is invisible here (README: "not when something changed").
+# Taken 2026-09-28 22:59 EDT by Track S. Regenerate with scripts/monitor/advisor-snapshot.md's instructions.
+# Columns: lint	level	schema	object
+# TOTAL 317
+# MOVED 310 -> 317 since 2026-09-23. All seven attributed, and FOUR ARE NOT OURS:
+#   OURS (+3, 20260929025035): record_special_trip, delete_special_trip (authenticated_security_definer_
+#     function_executable — the app's own call path, rule 7's carve-out) and special_trips
+#     (pg_graphql_authenticated_table_exposed — every owned table appears there).
+#   MATERIAL MATRIX (+4, 20260929023609_wh_saved_carts, applied 14 minutes before ours):
+#     wh_saved_carts, wh_saved_cart_lines, and wh_saved_carts_touch TWICE — under authenticated_ AND
+#     **anon_security_definer_function_executable**, which moved 5 -> 6.
+#   THE anon ONE IS REPORTED, NOT INVESTIGATED (CLAUDE.md rule 9). A new security-definer function in
+#     public that anon can execute is rule 7's failure mode — a missing closing
+#     'revoke execute ... from public, anon'. It is theirs to read and theirs to fix; the precedent is
+#     2026-08-20, our migration and their outage, where the fix was right only because each side
+#     examined its own half.
 anon_security_definer_function_executable	WARN	public	record_signed_copy_outcome_by_link
 anon_security_definer_function_executable	WARN	public	sign_estimate_by_link
 anon_security_definer_function_executable	WARN	public	signed_copy_by_link
 anon_security_definer_function_executable	WARN	public	signing_link_view
 anon_security_definer_function_executable	WARN	public	wh_order_by_token
+anon_security_definer_function_executable	WARN	public	wh_saved_carts_touch
 auth_leaked_password_protection	WARN		Supabase Auth prevents the use of compromised passwords by checking against HaveIBeenPwned.org. Enable this feature to e
 authenticated_security_definer_function_executable	WARN	public	accept_invite
 authenticated_security_definer_function_executable	WARN	public	accept_pipeline_invite
@@ -74,6 +85,7 @@ authenticated_security_definer_function_executable	WARN	public	delete_purchase_o
 authenticated_security_definer_function_executable	WARN	public	delete_roadmap_item
 authenticated_security_definer_function_executable	WARN	public	delete_roadmap_project
 authenticated_security_definer_function_executable	WARN	public	delete_schedule_block
+authenticated_security_definer_function_executable	WARN	public	delete_special_trip
 authenticated_security_definer_function_executable	WARN	public	delete_tracker_item
 authenticated_security_definer_function_executable	WARN	public	delete_tracker_project
 authenticated_security_definer_function_executable	WARN	public	delete_work_order
@@ -130,6 +142,7 @@ authenticated_security_definer_function_executable	WARN	public	record_field_even
 authenticated_security_definer_function_executable	WARN	public	record_qc_item
 authenticated_security_definer_function_executable	WARN	public	record_signed_copy_outcome
 authenticated_security_definer_function_executable	WARN	public	record_signed_copy_outcome_by_link
+authenticated_security_definer_function_executable	WARN	public	record_special_trip
 authenticated_security_definer_function_executable	WARN	public	record_work_order_sign_off
 authenticated_security_definer_function_executable	WARN	public	remove_check_in_photo
 authenticated_security_definer_function_executable	WARN	public	remove_crew_member
@@ -188,6 +201,7 @@ authenticated_security_definer_function_executable	WARN	public	wh_get_family_pri
 authenticated_security_definer_function_executable	WARN	public	wh_my_attached_orders
 authenticated_security_definer_function_executable	WARN	public	wh_order_by_token
 authenticated_security_definer_function_executable	WARN	public	wh_save_catalog_family
+authenticated_security_definer_function_executable	WARN	public	wh_saved_carts_touch
 authenticated_security_definer_function_executable	WARN	public	wh_set_coverage_width
 authenticated_security_definer_function_executable	WARN	public	wh_set_unit_size
 authenticated_security_definer_function_executable	WARN	public	wh_set_variation_pricing
@@ -258,6 +272,7 @@ pg_graphql_authenticated_table_exposed	WARN	public	roadmap_projects
 pg_graphql_authenticated_table_exposed	WARN	public	schedule_blocks
 pg_graphql_authenticated_table_exposed	WARN	public	signatures
 pg_graphql_authenticated_table_exposed	WARN	public	signed_copy_records
+pg_graphql_authenticated_table_exposed	WARN	public	special_trips
 pg_graphql_authenticated_table_exposed	WARN	public	staff_invites
 pg_graphql_authenticated_table_exposed	WARN	public	staff_users
 pg_graphql_authenticated_table_exposed	WARN	public	take_off_decisions
@@ -282,6 +297,8 @@ pg_graphql_authenticated_table_exposed	WARN	public	wh_product_roles
 pg_graphql_authenticated_table_exposed	WARN	public	wh_product_types
 pg_graphql_authenticated_table_exposed	WARN	public	wh_product_variations
 pg_graphql_authenticated_table_exposed	WARN	public	wh_products
+pg_graphql_authenticated_table_exposed	WARN	public	wh_saved_cart_lines
+pg_graphql_authenticated_table_exposed	WARN	public	wh_saved_carts
 pg_graphql_authenticated_table_exposed	WARN	public	wh_settings
 pg_graphql_authenticated_table_exposed	WARN	public	wh_spec_files
 pg_graphql_authenticated_table_exposed	WARN	public	wh_stages

@@ -2587,6 +2587,42 @@ export type Database = {
           },
         ]
       }
+      special_trips: {
+        Row: {
+          created_at: string
+          id: string
+          note: string | null
+          occurred_on: string
+          org_id: string
+          reason_code: string
+          recorded_at: string
+          recorded_by: string
+          work_order_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          note?: string | null
+          occurred_on: string
+          org_id: string
+          reason_code: string
+          recorded_at?: string
+          recorded_by: string
+          work_order_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          note?: string | null
+          occurred_on?: string
+          org_id?: string
+          reason_code?: string
+          recorded_at?: string
+          recorded_by?: string
+          work_order_id?: string
+        }
+        Relationships: []
+      }
       signatures: {
         Row: {
           created_at: string
@@ -4312,6 +4348,19 @@ export type Database = {
           p_work_order_id?: string
         }
         Returns: Json
+      }
+      record_special_trip: {
+        Args: {
+          p_note?: string
+          p_occurred_on?: string
+          p_reason_code: string
+          p_work_order_id: string
+        }
+        Returns: string
+      }
+      delete_special_trip: {
+        Args: { p_special_trip_id: string }
+        Returns: undefined
       }
       set_member_capability: {
         Args: {
