@@ -41,11 +41,39 @@ export const EVENT_KINDS = [
   "file_removed",
 ];
 
-/** Has this kind EVER been recorded here? The guard against reading a zero as a fact. */
-export function everSeen(q) {
-  const rows = list(q, `select event || '=' || count(*) from public.field_events group by event`);
+/**
+ * Has this kind EVER been recorded? The guard against reading a zero as a fact.
+ *
+ * SCOPED, SINCE 2026-09-28, AND THE UNSCOPED VERSION WAS ACTIVELY MISLEADING.
+ * Until today this asked one question — "anywhere in this database" — and the
+ * marker it printed said "recorded HERE". Those are different questions, and on
+ * 2026-09-27 they gave different answers for the first time: golden-path run 1
+ * recorded work_order_opened, packet_opened and page_ready in the SYNTHETIC
+ * tenant, which silently removed the UNEXERCISED marker from **Brothers Metal
+ * Roofing's** report — a tenant where those kinds have still never fired. BMR's
+ * zeros began reading as measurements on the strength of activity in a disposable
+ * test tenant. Measured, not reasoned: BMR's 2026-10-26 report printed "0 of 0
+ * crew opened a work order" with no marker at all.
+ *
+ * A counter is now graded in three states, because two could not express it:
+ *   fired here      — the zero is a real measurement of this tenant
+ *   fired elsewhere — the path works, but nothing in THIS tenant has used it
+ *   fired nowhere   — the zero measures nothing at all
+ */
+function kindCounts(q, where) {
+  const rows = list(q, `select event || '=' || count(*) from public.field_events ${where} group by event`);
   const seen = Object.fromEntries(rows.map((r) => r.split("=")).map(([k, v]) => [k, Number(v)]));
   return Object.fromEntries(EVENT_KINDS.map((k) => [k, seen[k] ?? 0]));
+}
+
+/** Anywhere in this database. */
+export function everSeen(q) {
+  return kindCounts(q, "");
+}
+
+/** In THIS tenant only — what the printed marker actually claims. */
+export function everSeenInOrg(q, org) {
+  return kindCounts(q, `where org_id = '${org}'`);
 }
 
 /** Containers: the denominators every count below is read against. */

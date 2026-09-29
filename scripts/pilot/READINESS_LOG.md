@@ -110,3 +110,58 @@ produced by `09a25143` — **Jacob's own account, the tenant owner** — and the
 signed in`**. The crew account has not signed in since 2026-09-20. Run 1 drove eleven steps; **it did not
 drive the crew screen as a crew member**, which is the one thing rule 17 says the field surface is accepted
 on.
+
+---
+
+# 2026-09-28, EVENING — SECOND READING THE SAME DAY, AND THE PILOT DATE IS CONTESTED
+
+**Verify the clock before the date.** `TZ=America/New_York date` reads **Mon Sep 28 22:32 EDT 2026**.
+It is 02:32 UTC on the 29th, so anything reading a UTC clock calls today Tuesday. It is Monday. This is
+the trap CLAUDE.md names, and it caught a directive today.
+
+## THE PILOT DATE — the repo and the directive disagree, and the repo was verified twice
+
+| Source | Pilot day 1 | Working days from today |
+|---|---|---|
+| `docs/GATES.md`, re-dated **twice** on 2026-09-28, "checked, not accepted" by Track S, every day-of-week re-derived | **Mon Oct 26** | **21** |
+| Today's directive | Wed Oct 7 | 8 |
+
+**Not reconciled here, because it is not mine to reconcile.** `docs/GATES.md` is Track S's file and
+§7.1 says dates get contradicted the same way counts do. Recorded so the contradiction is visible in
+the one file that is supposed to make re-baselining falsifiable. **The directive itself said to
+re-read this log rather than trust its dates**, so the readings below are dated, not counted down.
+
+Note the directive's characterisation is also contradicted: the gates were re-dated twice in one day,
+but they did **not** return to where they started — Oct 7 → ~Oct 19 → **Oct 26**, each move outward.
+
+## Reading — 2026-09-28 evening. NOTHING MOVED since the morning reading.
+
+`ANSWERED 6 of 11 checks; 5 UNANSWERED: R4, R5, R6, R7, R8` · `NOT READY: 4 FAIL, 5 UNDETERMINED, 2
+PASS — of 11`. R1 `PASS 5d01b86` · R2 **FAIL absent, 6th reading** · R3 FAIL · R9 FAIL 0 · R10 FAIL
+Hobby · R11 PASS. Control re-run: R4–R8 all execute, 4 PASS, R8.1 FAIL on 0 files (which is R9, which
+is R2).
+
+**R2 is now the whole of the remaining file-layer story.** It blocks R8 and R9, it is three minutes of
+work (`JACOBS_LIST.md` #9), and it has been absent on 09-16, 09-23, 09-25, 09-27 and twice on 09-28.
+
+## A DEFECT IN MY OWN INSTRUMENT, FOUND AND FIXED TODAY
+
+**The UNEXERCISED marker said "recorded here" and measured "recorded anywhere".** Two questions, one
+query. They gave the same answer for a month and diverged for the first time on 2026-09-27, when
+golden-path run 1 wrote `work_order_opened`, `packet_opened` and `page_ready` **in the synthetic
+tenant** — which silently removed the marker from **Brothers Metal Roofing's** report, where those
+kinds have still never fired.
+
+**Measured, not reasoned.** BMR's report printed `0 of 0 crew opened a work order` with **no marker**,
+reading as a measurement, on the strength of activity in a disposable test tenant.
+
+Counters are now graded in three states: **fired here** (a real measurement) · **UNEXERCISED HERE**
+(the path works, nothing in this tenant has used it) · **UNEXERCISED ANYWHERE** (measures nothing).
+INSTRUMENT STATE now prints both scopes — today, BMR reads `ANYWHERE 4 of 8`, `IN THIS TENANT 1 of 8`.
+
+**Shown the defect before being trusted (rules 20 and 22).** A second, quiet tenant is seeded in the
+fixture so the grading has something to grade, and four regression checks were added. Reverting
+`everSeenInOrg` to the old global query — the mutation verified present in the file that actually runs
+— makes **3 of the 4 fail**. The fourth passes under both implementations by design: it guards against
+*over*-marking an exercised stage, so it is not a discriminator and is not counted as one.
+Calibration restored: **15 of 15 FIRED.**
