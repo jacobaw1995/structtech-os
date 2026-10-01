@@ -75,7 +75,21 @@ export default async function FieldTodayPage({
     p_org_id: params.orgId,
     p_today: todayIso,
   });
-  const jobs: FieldJob[] | null = jobsError || !Array.isArray(jobsData) ? null : (jobsData as unknown as FieldJob[]);
+  // U-W1.44 (2026-09-30) — THREE OUTCOMES FROM ONE CALL, and the middle one is
+  // new. S's crew scoping (20260929153659) refuses BY NAME when the switch is on
+  // and the caller is on no crew: hint `crew_not_assigned`, and it returns
+  // NOTHING rather than an empty array. An empty array on a crew screen reads
+  // "nothing on today", and a roofer who has simply never been put on a crew
+  // would stand in a driveway believing they had the day off.
+  //
+  // MEASURED against the applied function, switch ON, synthetic org, rolled
+  // back: no crew membership -> REFUSED with that hint; ON a crew with nothing
+  // assigned to it -> RETURNED 0 rows and no refusal. The refusal keys on the
+  // CALLER having no crew rows, not on the result being empty, so a genuinely
+  // free day still renders as a free day.
+  const notOnACrew = jobsError?.hint === "crew_not_assigned";
+  const jobs: FieldJob[] | null =
+    notOnACrew ? [] : jobsError || !Array.isArray(jobsData) ? null : (jobsData as unknown as FieldJob[]);
 
   // THE EMPTY DAY — measured 2026-09-21: of the last 30 days, this screen had
   // anything on it for THREE (2026-09-17 from 8:29 PM, when the org's only
@@ -137,6 +151,20 @@ export default async function FieldTodayPage({
             That doesn&apos;t mean there&apos;s no work. Pull down to reload, or try again in a minute.
           </p>
         </div>
+      ) : notOnACrew ? (
+        /* NOT ON A CREW — its own state, never the empty day. There are no jobs
+           to list, because the function refused rather than returning some. */
+        <div
+          data-ownership-state="none_assigned"
+          className="flex flex-col gap-1 rounded-2xl border border-border p-4 group-data-[outdoor=true]/field:border-white/40"
+        >
+          <p className="text-base font-semibold text-text group-data-[outdoor=true]/field:text-white">
+            {NONE_ASSIGNED_HEADING}
+          </p>
+          <p className="text-sm text-muted group-data-[outdoor=true]/field:text-white/80">
+            {NONE_ASSIGNED_DETAIL}
+          </p>
+        </div>
       ) : jobs.length === 0 ? (
         <EmptyDay orgId={params.orgId} lastJob={lastJob} />
       ) : (
@@ -178,19 +206,7 @@ export default async function FieldTodayPage({
                 <p className="text-sm font-semibold uppercase tracking-wide text-muted group-data-[outdoor=true]/field:text-white/80">
                   {group === "active" ? "On site today" : "Coming up"}
                 </p>
-                {/* SCOPING ON, NOTHING YOURS — said once, ABOVE jobs that are
-                    still listed, never instead of them. "No work today" would
-                    be false while the company is on five roofs. */}
-                {grouped.kind === "none_assigned" && (
-                  <div data-ownership-state="none_assigned" className="flex flex-col gap-1">
-                    <p className="text-base font-semibold text-text group-data-[outdoor=true]/field:text-white">
-                      {NONE_ASSIGNED_HEADING}
-                    </p>
-                    <p className="text-sm text-muted group-data-[outdoor=true]/field:text-white/80">
-                      {NONE_ASSIGNED_DETAIL}
-                    </p>
-                  </div>
-                )}
+
                 {sections.map((section) => (
                   <div key={section.key} data-ownership={section.key} className="flex flex-col gap-3">
                     {section.heading && (

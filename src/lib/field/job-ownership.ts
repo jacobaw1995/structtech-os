@@ -49,30 +49,45 @@ export type JobOwnership = "mine" | "other_crew" | "unknown";
 export type OwnershipRead<T> =
   | { state: "scoping_off" }
   | { state: "scoped"; ownershipOf: (job: T) => JobOwnership }
+  /**
+   * Handled by the PAGE, not by the grouping below: the refusal returns no jobs
+   * at all, so there is never a none_assigned LIST to group. A grouping kind for
+   * it would be a shape describing data that cannot exist.
+   */
   | { state: "none_assigned" };
 
 export type OwnershipGrouping<T> =
   /** Something is known: the screen can lead with the reader's own work. */
   | { kind: "grouped"; mine: T[]; others: T[]; unknown: T[] }
   /** Nothing is known about any of them. No groups, no claim, no headings. */
-  | { kind: "flat"; all: T[] }
-  /** Scoping is on and this person has none. The jobs still render. */
-  | { kind: "none_assigned"; all: T[] };
+  | { kind: "flat"; all: T[] };
 
 /** The read, resolved to what the screen renders. */
 export function resolveOwnership<T>(jobs: T[], read: OwnershipRead<T>): OwnershipGrouping<T> {
-  if (read.state === "scoping_off") return { kind: "flat", all: jobs };
-  if (read.state === "none_assigned") return { kind: "none_assigned", all: jobs };
+  // `none_assigned` never reaches here — see the note on the type.
+  if (read.state !== "scoped") return { kind: "flat", all: jobs };
   return groupByOwnership(jobs, read.ownershipOf);
 }
 
 /**
- * What the screen SAYS when scoping is on and this person has nothing. Said in
- * one sentence, above jobs that are still listed — never instead of them.
+ * What the screen SAYS when scoping is on and this person is on no crew.
+ *
+ * CORRECTED 2026-09-30 BY MEASUREMENT, and the correction matters. On 09-29
+ * this read "These are the jobs your company has on. Ask the office which one
+ * is yours." — written against an assumption that the list would still be
+ * there. IT IS NOT. Measured against the applied function: with the switch ON
+ * and no crew membership, fetch_field_jobs RAISES (hint `crew_not_assigned`)
+ * and returns nothing at all. So the surface has no jobs to show and must not
+ * imply it is showing any.
+ *
+ * What it must still do is the thing the refusal exists for: never let this
+ * read as a free day. S's own comment says it — "a roofer who has simply never
+ * been put on a crew would stand in a driveway believing they had the day
+ * off." So the last sentence is load-bearing, not reassurance.
  */
-export const NONE_ASSIGNED_HEADING = "Nothing assigned to you yet";
+export const NONE_ASSIGNED_HEADING = "You're not on a crew yet";
 export const NONE_ASSIGNED_DETAIL =
-  "These are the jobs your company has on. Ask the office which one is yours.";
+  "Ask the office to add you to a crew, and your jobs will show up here. This does not mean there is no work on.";
 
 export function groupByOwnership<T>(jobs: T[], ownershipOf: (job: T) => JobOwnership): OwnershipGrouping<T> {
   const mine = jobs.filter((j) => ownershipOf(j) === "mine");

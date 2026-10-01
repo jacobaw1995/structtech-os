@@ -37,6 +37,7 @@ export type FieldError =
   | "not_signed_in"
   | "special_trip_reason_required"
   | "special_trip_not_found"
+  | "crew_not_assigned"
   | "qc_work_order_not_recordable"
   | "crew_required"
   // OURS, and not refusals: these describe THIS surface's own situation, which
@@ -58,6 +59,10 @@ export const FIELD_ERROR_COPY: Record<FieldError, string> = {
   // S's own sentences, reached by S's own hints (20260929025035).
   special_trip_reason_required: "Pick a reason from the list. A special trip is counted, so the reason has to be one of them.",
   special_trip_not_found: "That trip couldn't be found for your account. Nothing was changed.",
+  // Raised by fetch_field_jobs when crew scoping is on and the caller is on no
+  // crew. The FIELD LIST renders this as its own state rather than as an error
+  // banner (see field/page.tsx) — it is a fact about the roster, not a failure.
+  crew_not_assigned: "You're not on a crew yet. Ask the office to add you to one.",
   qc_work_order_not_recordable: "Checks can't be recorded on this job. Nothing was recorded.",
   crew_required: "Choose a crew, or type who is doing the work.",
   // update_check_in keeps the old figure when hours are blank; clearing is its
