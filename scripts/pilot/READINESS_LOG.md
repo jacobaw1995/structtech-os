@@ -110,3 +110,139 @@ produced by `09a25143` — **Jacob's own account, the tenant owner** — and the
 signed in`**. The crew account has not signed in since 2026-09-20. Run 1 drove eleven steps; **it did not
 drive the crew screen as a crew member**, which is the one thing rule 17 says the field surface is accepted
 on.
+
+---
+
+# 2026-09-28, EVENING — SECOND READING THE SAME DAY, AND THE PILOT DATE IS CONTESTED
+
+**Verify the clock before the date.** `TZ=America/New_York date` reads **Mon Sep 28 22:32 EDT 2026**.
+It is 02:32 UTC on the 29th, so anything reading a UTC clock calls today Tuesday. It is Monday. This is
+the trap CLAUDE.md names, and it caught a directive today.
+
+## THE PILOT DATE — the repo and the directive disagree, and the repo was verified twice
+
+| Source | Pilot day 1 | Working days from today |
+|---|---|---|
+| `docs/GATES.md`, re-dated **twice** on 2026-09-28, "checked, not accepted" by Track S, every day-of-week re-derived | **Mon Oct 26** | **21** |
+| Today's directive | Wed Oct 7 | 8 |
+
+**Not reconciled here, because it is not mine to reconcile.** `docs/GATES.md` is Track S's file and
+§7.1 says dates get contradicted the same way counts do. Recorded so the contradiction is visible in
+the one file that is supposed to make re-baselining falsifiable. **The directive itself said to
+re-read this log rather than trust its dates**, so the readings below are dated, not counted down.
+
+Note the directive's characterisation is also contradicted: the gates were re-dated twice in one day,
+but they did **not** return to where they started — Oct 7 → ~Oct 19 → **Oct 26**, each move outward.
+
+## Reading — 2026-09-28 evening. NOTHING MOVED since the morning reading.
+
+`ANSWERED 6 of 11 checks; 5 UNANSWERED: R4, R5, R6, R7, R8` · `NOT READY: 4 FAIL, 5 UNDETERMINED, 2
+PASS — of 11`. R1 `PASS 5d01b86` · R2 **FAIL absent, 6th reading** · R3 FAIL · R9 FAIL 0 · R10 FAIL
+Hobby · R11 PASS. Control re-run: R4–R8 all execute, 4 PASS, R8.1 FAIL on 0 files (which is R9, which
+is R2).
+
+**R2 is now the whole of the remaining file-layer story.** It blocks R8 and R9, it is three minutes of
+work (`JACOBS_LIST.md` #9), and it has been absent on 09-16, 09-23, 09-25, 09-27 and twice on 09-28.
+
+## A DEFECT IN MY OWN INSTRUMENT, FOUND AND FIXED TODAY
+
+**The UNEXERCISED marker said "recorded here" and measured "recorded anywhere".** Two questions, one
+query. They gave the same answer for a month and diverged for the first time on 2026-09-27, when
+golden-path run 1 wrote `work_order_opened`, `packet_opened` and `page_ready` **in the synthetic
+tenant** — which silently removed the marker from **Brothers Metal Roofing's** report, where those
+kinds have still never fired.
+
+**Measured, not reasoned.** BMR's report printed `0 of 0 crew opened a work order` with **no marker**,
+reading as a measurement, on the strength of activity in a disposable test tenant.
+
+Counters are now graded in three states: **fired here** (a real measurement) · **UNEXERCISED HERE**
+(the path works, nothing in this tenant has used it) · **UNEXERCISED ANYWHERE** (measures nothing).
+INSTRUMENT STATE now prints both scopes — today, BMR reads `ANYWHERE 4 of 8`, `IN THIS TENANT 1 of 8`.
+
+**Shown the defect before being trusted (rules 20 and 22).** A second, quiet tenant is seeded in the
+fixture so the grading has something to grade, and four regression checks were added. Reverting
+`everSeenInOrg` to the old global query — the mutation verified present in the file that actually runs
+— makes **3 of the 4 fail**. The fourth passes under both implementations by design: it guards against
+*over*-marking an exercised stage, so it is not a discriminator and is not counted as one.
+Calibration restored: **15 of 15 FIRED.**
+
+---
+
+# 2026-09-29 — C0 CLOSED, AND A4.8 GETS ITS THREE MEASURES
+
+## C0 — the gates contradiction is RESOLVED. Entry closed.
+
+**Cause: I merged before the revert landed.** My 2026-09-28 reading was of `6372d7f`, which was the
+second re-dating. `9df1c64` reverted it and `be5a698` corrected a label; both were on main by this
+morning. Nothing was wrong with the reading — it was of a superseded file.
+
+**Confirmed from the file at `ee3036f`** (GATES.md last touched by `be5a698`), not from a directive:
+
+- **Field pilot day 1: Wed Oct 7.** ✔
+- **G11 carries NO DATE in BOTH tables** — table 1 (the gates): `BLOCKED — NO DATE`; table 2 (measured
+  against the tracker): `G11 · NO DATE · Stripe billing live`. **The two tables agree.** ✔
+
+**Checked against itself as well as against the directive (§7.1 RULE 21).** All **8 of 8**
+day-of-week labels in the file are correct: Oct 6 Tue, Oct 13 Tue, Oct 16 Fri, Oct 24 Sat, Oct 25 Sun,
+Oct 29 Thu, Oct 31 Sat, Oct 7 Wed. The file's *"Eight working days from this revert"* is correct **from
+the revert** — `9df1c64` was authored Mon 2026-09-28 22:44 EDT, and 09-28→10-07 inclusive is 8 working
+days. **From today it is 7.**
+
+**The 2026-09-28 entry above is closed.** The pilot is Wed Oct 7 and the "21 working days" in it is
+void.
+
+## C1 — A4.8's three measures now exist, and most of them are UNDEFINED
+
+`opens` · `completionRate` · `timeToComplete` are built, each printing its denominator.
+
+**A RATE WITH A ZERO DENOMINATOR RENDERS `UNDEFINED`, NEVER 0%.** They are different claims about a
+roof: 0% says work was assigned and none was done; undefined says none was assigned. The distinction is
+enforced in both directions — a real denominator with a zero numerator still renders **0%**, so
+"always print UNDEFINED" fails the suite too.
+
+**Calibration 22 of 22 FIRED**, up from 15, including four new zero-denominator checks. **Mutant test
+(rules 20, 22):** collapsing `rate()`'s undefined branch to `{pct: 0}` — mutation verified present in
+the file that runs — fails exactly the two checks that exist to catch it.
+
+**Two of my own errors, found by running it:** I predicted `time-to-complete` = 55 min (13:05→14:00)
+and the correct answer is **660** (03:00→14:00) — the measure takes the *first* open of the day and the
+fixture has a deliberate dawn open. The counter was right and the prediction wrong (rule 21), and the
+mechanism generalises: a crew member who opens a job at dawn and checks in after lunch scores the whole
+morning. And my "renders as undefined" assertion tested `!includes("0%")` against text that
+deliberately ends *"Not 0%."* — a test failing on its own explanatory string.
+
+## C2 — what R10 needs
+
+**One line:** R10 needs the Vercel team off **Hobby**; **Pro at $20/user/month** flips it, because
+runtime-log retention goes **1 hour → 1 day** (Vercel docs, read 2026-09-29), and the check passes any
+plan that is not `hobby`.
+
+**$20 is not the whole of it, in two directions.** *Thin:* 1 day barely outlives a pilot day looked at
+the following morning — **Observability Plus** is the 30-day option and is a separate add-on. *Wider:*
+Hobby is documented non-commercial/personal-use, so a paid client pilot on it is a **terms** problem as
+well as an observability one, and the readiness check does not measure that at all. Nothing was bought.
+
+## C4 — the grace-time test cannot be run by me, AND IT HAS ALREADY HAPPENED ONCE
+
+**Why it cannot be run:** its pass condition is *an email arriving at an address, at a time*. I have no
+access to that inbox, no Healthchecks credential (no such variable name exists in either env file), and
+changing Period/Grace on a live alerting system is a config change to the thing that pages someone.
+
+**But the item has now been re-measured, without touching anything.** The dead-man ping fires only on a
+successful scheduled run (`DEADMAN_PING_URL`, confirmed set as a repo secret). Over the 60 scheduled
+runs from 2026-09-18 to 2026-09-29, **one gap exceeded the 8-hour alert threshold** (1h period + 7h
+grace):
+
+> **2026-09-28, 06:59:37Z → 22:05:19Z — a 15.1-hour gap. The alert window opened at 14:59Z = 10:59 EDT.**
+
+**And the mechanism is not the obvious one.** There was a failed run at 15:33Z, but the threshold was
+crossed **34 minutes before that run even started** — GitHub simply did not run the cron between 06:59Z
+and 15:33Z. So the window opened from **schedule drift, not from a detected fault**: if alerting works,
+the email said the site was down while the site was fine. That is what a 7-hour grace exists to absorb
+and it did not, because 29 of the 31 inter-ping gaps in this window already exceed 4 hours — the
+"hourly" cron delivers roughly every 5–6 hours.
+
+**The question for Jacob is now free and specific, and it replaces the test:** *did a Healthchecks
+"down" email arrive on Monday 2026-09-28 at about 11:00 EDT?* **Yes** closes §6.9 with a real arrival
+time. **No** is the finding the test was meant to produce. **Either way this is delivery-independent —
+delivery has been ARMED since 09-19 and is still not alerting.**
