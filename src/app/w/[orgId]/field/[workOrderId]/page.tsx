@@ -5,6 +5,9 @@ import { FieldShell } from "@/components/field/FieldShell";
 import { OUTDOOR_COOKIE, parseOutdoorCookie } from "@/lib/field/outdoor";
 import { CheckInRow } from "@/components/field/CheckInRow";
 import { AddCheckInForm } from "@/components/field/AddCheckInForm";
+import { SpecialTripPanel } from "@/components/field/SpecialTripPanel";
+import { recordSpecialTrip, deleteSpecialTrip } from "@/lib/field/special-trip-actions";
+import { specialTripReason } from "@/lib/field/special-trip";
 import { ProductionPacketView } from "@/components/field/ProductionPacketView";
 import { todayInNewYork } from "@/lib/home/model";
 import { FIELD_ERROR_COPY, isFieldError } from "@/lib/field/field-errors";
@@ -88,7 +91,7 @@ export default async function FieldJobPage({
     workOrderId: workOrder.id,
   });
 
-  const [{ data: fieldJobsData }, { data: jobRows }, { data: checkInsData }, materialsRes] = await Promise.all([
+  const [{ data: fieldJobsData }, { data: jobRows }, { data: checkInsData }, materialsRes, tripsRes] = await Promise.all([
     // The same money-free read the Today list uses. It covers a work order with
     // a schedule block ending today or later; a work order with no such block
     // falls back to the job's address below, and says so rather than guessing
@@ -115,6 +118,13 @@ export default async function FieldJobPage({
       .select("id, name, quantity, unit, ready_by, ready_by_source", { count: "exact" })
       .eq("work_order_id", workOrder.id)
       .order("sort_order", { ascending: true }),
+    // U-W1.42 — the trips already recorded on this job. List query (rule 5);
+    // the crew's own RLS scopes it. Nothing here is money.
+    supabase
+      .from("special_trips")
+      .select("id, reason_code, occurred_on, note")
+      .eq("work_order_id", workOrder.id)
+      .order("occurred_on", { ascending: false }),
   ]);
 
   type FieldJob = { work_order_id: string; job_title: string | null; site_address: string | null; squares: number | null; pitch: string | null };
@@ -126,6 +136,14 @@ export default async function FieldJobPage({
         .join(", ")
     : "";
   const checkIns = (checkInsData ?? []) as CheckIn[];
+  // An unreadable trip list renders as NO list rather than as "no trips" — the
+  // same rule the materials tab and the QC panel already follow.
+  const trips = (!tripsRes.error && tripsRes.data ? tripsRes.data : []) as {
+    id: string;
+    reason_code: string;
+    occurred_on: string;
+    note: string | null;
+  }[];
   // A read that came back short is not a read (PostgREST max_rows): the count and
   // the rows must agree, or the tab says it could not be read.
   const materials =
@@ -209,6 +227,50 @@ export default async function FieldJobPage({
            using, never the FACTS you came to read; here the form IS what they
            came for, so it is the history that moves down. */
         <div className="flex flex-col gap-4">
+          {/* U-W1.42 — MOUNTED. Held on 2026-09-23 and 09-25 because the log did
+              not exist; S landed 20260929025035 and the hold is released. The
+              seven codes were verified against the APPLIED CHECK constraint
+              before this was wired: 7 of 7, same strings, same order. */}
+          <SpecialTripPanel orgId={params.orgId} workOrderId={workOrder.id} action={recordSpecialTrip} />
+
+          {/* §2.6 — what a crew can record, a crew can remove. A trip is a
+              COUNTED thing, so a mis-tap nobody can undo becomes a number
+              somebody defends in a meeting later. */}
+          {trips.length > 0 && (
+            <div className="flex flex-col gap-2">
+              <p className="text-sm font-semibold uppercase tracking-wide text-muted group-data-[outdoor=true]/field:text-white/80">
+                Special trips on this job · {trips.length}
+              </p>
+              {trips.map((trip) => (
+                <div
+                  key={trip.id}
+                  data-special-trip={trip.reason_code}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border p-3 group-data-[outdoor=true]/field:border-white/40"
+                >
+                  <div className="min-w-0">
+                    <p className="text-base font-medium text-text group-data-[outdoor=true]/field:text-white">
+                      {specialTripReason(trip.reason_code)?.label ?? "Reason not recognised"}
+                    </p>
+                    <p className="font-mono text-sm text-muted group-data-[outdoor=true]/field:text-white/80">
+                      {trip.occurred_on}
+                    </p>
+                  </div>
+                  <form action={deleteSpecialTrip}>
+                    <input type="hidden" name="orgId" value={params.orgId} />
+                    <input type="hidden" name="workOrderId" value={workOrder.id} />
+                    <input type="hidden" name="specialTripId" value={trip.id} />
+                    <button
+                      type="submit"
+                      className="min-h-14 rounded-lg border border-border px-3 text-sm font-medium text-text group-data-[outdoor=true]/field:border-white/60 group-data-[outdoor=true]/field:text-white"
+                    >
+                      Remove
+                    </button>
+                  </form>
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* 2026-09-21 — OFF RENDERS NOTHING. A screen says what the person can
               do; when the checklist does not exist here it has nothing to offer, so
               the section is absent rather than explaining a feature flag. */}

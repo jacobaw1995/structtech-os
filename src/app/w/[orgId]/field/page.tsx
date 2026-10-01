@@ -3,7 +3,14 @@ import { requireModuleAccess } from "@/lib/workspace/context";
 import { cookies } from "next/headers";
 import { FieldShell } from "@/components/field/FieldShell";
 import { OUTDOOR_COOKIE, parseOutdoorCookie } from "@/lib/field/outdoor";
-import { scheduleBlockStatus } from "@/lib/field/today";
+import { formatDateRange, scheduleBlockStatus } from "@/lib/field/today";
+import {
+  resolveOwnership,
+  OWNERSHIP_HEADING,
+  NONE_ASSIGNED_HEADING,
+  NONE_ASSIGNED_DETAIL,
+  type OwnershipRead,
+} from "@/lib/field/job-ownership";
 import { todayInNewYork } from "@/lib/home/model";
 import { EmptyDay, type LastJob } from "@/components/field/EmptyDay";
 
@@ -92,9 +99,18 @@ export default async function FieldTodayPage({
 
   return (
     <FieldShell initialOutdoor={parseOutdoorCookie(cookies().get(OUTDOOR_COOKIE)?.value)}>
+      {/* U-W1.40 (2026-09-28) — "TODAY" WAS THE WRONG WORD, AND THE FUNCTION WAS
+          RIGHT. fetch_field_jobs filters `end_date >= p_today` with NO UPPER
+          BOUND and a limit of 20, so what it returns is WORK NOT YET FINISHED:
+          jobs on site now, and jobs that have not started. Under a heading that
+          said "Today", a crew member seeing a job two days before it starts had
+          to conclude the app was wrong — when the app was right and the heading
+          was lying. A roofer wanting to know what is coming is correct
+          behaviour, so the surface is renamed to what it returns and each job
+          now carries its dates. */}
       <div>
         <p className="text-2xl font-bold text-text group-data-[outdoor=true]/field:text-white">
-          Today
+          On the schedule
         </p>
         <p className="font-mono text-sm text-muted group-data-[outdoor=true]/field:text-white/80">
           {/* Parsed and printed in UTC on purpose: todayIso is already the New
@@ -125,7 +141,64 @@ export default async function FieldTodayPage({
         <EmptyDay orgId={params.orgId} lastJob={lastJob} />
       ) : (
         <div className="flex flex-col gap-3">
-          {jobs.map((job) => {
+          {/* GROUPED, so the heading never has to be qualified. A job on site
+              today and a job that starts on Thursday are different facts, and
+              the list used to present them as one. */}
+          {(["active", "upcoming"] as const).map((group) => {
+            const inGroup = jobs.filter(
+              (j) => scheduleBlockStatus(j.start_date, j.end_date, todayIso).state === group
+            );
+            if (inGroup.length === 0) return null;
+            // U-W1.41 — WHOSE JOB IS IT. The seam, and today it answers
+            // "unknown" for every job, ON PURPOSE: measured 2026-09-28,
+            // work_order_crew_assignments holds ZERO rows in both orgs with the
+            // field module, and crew_people and crew_memberships are empty too.
+            // So nothing is known, groupByOwnership returns ONE flat list, and
+            // this screen makes no claim about ownership at all — rather than
+            // telling every crew member that none of the work is theirs, which
+            // would be false. Track S owns the scoping and starts today; when
+            // the assignment read lands it replaces this one function and the
+            // grouping below already renders it.
+            // U-W1.43 — THREE STATES, and today the read is `scoping_off`
+            // because S's switch defaults OFF and nothing is assigned anywhere.
+            // NOT WIRED to the real function until S reports it applied; this
+            // is the one line that changes.
+            const ownershipRead: OwnershipRead<FieldJob> = { state: "scoping_off" };
+            const grouped = resolveOwnership(inGroup, ownershipRead);
+            const sections: { key: string; heading: string | null; jobs: FieldJob[] }[] =
+              grouped.kind === "grouped"
+                ? [
+                    { key: "mine", heading: OWNERSHIP_HEADING.mine, jobs: grouped.mine },
+                    { key: "others", heading: OWNERSHIP_HEADING.others, jobs: grouped.others },
+                    { key: "unknown", heading: OWNERSHIP_HEADING.unknown, jobs: grouped.unknown },
+                  ].filter((sec) => sec.jobs.length > 0)
+                : [{ key: grouped.kind, heading: null, jobs: grouped.all }];
+            return (
+              <div key={group} className="flex flex-col gap-3">
+                <p className="text-sm font-semibold uppercase tracking-wide text-muted group-data-[outdoor=true]/field:text-white/80">
+                  {group === "active" ? "On site today" : "Coming up"}
+                </p>
+                {/* SCOPING ON, NOTHING YOURS — said once, ABOVE jobs that are
+                    still listed, never instead of them. "No work today" would
+                    be false while the company is on five roofs. */}
+                {grouped.kind === "none_assigned" && (
+                  <div data-ownership-state="none_assigned" className="flex flex-col gap-1">
+                    <p className="text-base font-semibold text-text group-data-[outdoor=true]/field:text-white">
+                      {NONE_ASSIGNED_HEADING}
+                    </p>
+                    <p className="text-sm text-muted group-data-[outdoor=true]/field:text-white/80">
+                      {NONE_ASSIGNED_DETAIL}
+                    </p>
+                  </div>
+                )}
+                {sections.map((section) => (
+                  <div key={section.key} data-ownership={section.key} className="flex flex-col gap-3">
+                    {section.heading && (
+                      <p className="text-xs font-medium uppercase tracking-wide text-muted group-data-[outdoor=true]/field:text-white/70">
+                        {section.heading}
+                      </p>
+                    )}
+                    {section.jobs.map((job) => {
             const jobTitle = job.job_title || "Untitled job";
             const status = scheduleBlockStatus(job.start_date, job.end_date, todayIso);
             const active = status.state === "active" && !job.ready_by_conflict;
@@ -163,9 +236,18 @@ export default async function FieldTodayPage({
                       {job.site_address}
                     </p>
                   )}
+                  {/* THE DATES, on every card. "Day 2 of 3" and "Starts in 5
+                      days" are relative and useful, but a crew planning a week
+                      needs the actual days — and a relative label alone was
+                      what let the heading's lie pass unnoticed. */}
                   <p className="font-mono text-sm text-muted group-data-[outdoor=true]/field:text-white/80">
-                    {job.crew_name} · {status.label}
+                    {formatDateRange(job.start_date, job.end_date)} · {status.label}
                   </p>
+                  {job.crew_name && (
+                    <p className="text-sm text-muted group-data-[outdoor=true]/field:text-white/80">
+                      {job.crew_name}
+                    </p>
+                  )}
                 </div>
 
                 {job.ready_by_conflict && (
@@ -180,6 +262,11 @@ export default async function FieldTodayPage({
                   </span>
                 )}
               </Link>
+            );
+                    })}
+                  </div>
+                ))}
+              </div>
             );
           })}
         </div>

@@ -13,6 +13,25 @@ export type ScheduleBlockStatus = {
   label: string;
 };
 
+/**
+ * The days a job actually runs, in the crew's words. U-W1.40, 2026-09-28.
+ *
+ * Parsed and printed in UTC ON PURPOSE: both dates are already New York
+ * calendar dates ("YYYY-MM-DD"), so a second timezone shift here would move
+ * them. Same rule as the date under the heading, and the same rule that made
+ * fetch_field_jobs ask for todayInNewYork() rather than a UTC date.
+ */
+export function formatDateRange(startDate: string, endDate: string): string {
+  const day = (d: string) =>
+    new Date(`${d}T00:00:00Z`).toLocaleDateString("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      timeZone: "UTC",
+    });
+  return startDate === endDate ? day(startDate) : `${day(startDate)} – ${day(endDate)}`;
+}
+
 export function scheduleBlockStatus(
   startDate: string,
   endDate: string,
