@@ -246,3 +246,108 @@ and it did not, because 29 of the 31 inter-ping gaps in this window already exce
 "down" email arrive on Monday 2026-09-28 at about 11:00 EDT?* **Yes** closes §6.9 with a real arrival
 time. **No** is the finding the test was meant to produce. **Either way this is delivery-independent —
 delivery has been ARMED since 09-19 and is still not alerting.**
+
+---
+
+# 2026-09-30 — §6.9 CLOSED AS A PASS. ALERTING IS PROVED.
+
+**Date verified `Wed Sep 30 20:20:29 EDT 2026`.** Today's directive is headed Thursday 2026-10-01; it is
+Wednesday. 20:20 EDT is 00:20 UTC, the same rollover CLAUDE.md names, and the second directive in three
+days to carry it.
+
+## §6.9 — PROVED, with the arrival on the record
+
+Open since 2026-09-11. **Closed 2026-09-30 as a PASS.** The test was never run deliberately; the system
+ran it on itself and the email exists:
+
+| | |
+|---|---|
+| **DOWN** | **Mon 28 Sep 2026 10:59:51 -0400** |
+| **UP** | **Mon 28 Sep 2026 18:05:35 -0400**, downtime 7h 05m |
+| **Destination** | **`jacob@structtek.com`** — *not* the gmail |
+| Counter at the two emails | Total pings 70 → 71 since Sep 15 |
+
+**Delivery and alerting are now both PROVED, and they were proved separately.** Delivery ARMED
+2026-09-19; alerting by the arrival above.
+
+**THE MAILBOX IS PART OF THE FINDING.** The controller swept the gmail, found nothing, and published a
+wrong conclusion from it. The alert went to `jacob@structtek.com`. **A negative result from the wrong
+container is not a negative result** — rule 18 (state the axis) in its plainest form, and the axis here
+was *which inbox*.
+
+**My 2026-09-29 prediction was right to the minute.** I computed the window opened at 14:59:37Z from
+the run history; the DOWN email is stamped 14:59:51Z. **14 seconds.**
+
+## The defect the pass exposes — the alert was CORRECT and the site was FINE
+
+Measured over **156 scheduled runs, 2026-09-03 → 2026-09-30**.
+
+**Gap distribution between successive dead-man pings** (a ping is sent only on a successful scheduled
+run):
+
+| Window | n gaps | median | p90 | max | >4h | >8h (current threshold) |
+|---|---|---|---|---|---|---|
+| **Sep 15 → Sep 30** (the check's lifetime) | **84** | **4.62 h** | **6.27 h** | **15.10 h** | 48 of 84 | **1** |
+| Sep 5 → Sep 30 (since the ping step existed) | 145 | 4.14 h | 6.16 h | 15.10 h | 79 of 145 | **3** |
+
+**Alert windows across the whole measured period: 3** — 2026-09-07 (10.2 h), 2026-09-13 (9.6 h),
+2026-09-28 (15.1 h). **Only the last fell inside the check's lifetime**, so only one produced an email.
+**One alert in the fifteen days the check has existed; three in the twenty-six days the ping has
+existed.** That is not a pager anybody has learned to ignore — but it is also one false alarm per two
+weeks, and on Oct 7 a false "down" is a phone call during a roof.
+
+**The cause is schedule drift, not a fault.** The threshold was crossed at 14:59Z and the only failing
+run that day started at 15:33Z — **34 minutes later**. GitHub simply did not run the cron between
+06:59Z and 15:33Z. A monitor advertised as hourly delivers at a **median of 4.62 h**.
+
+**Cross-check, and a correction to my own first pass.** I first compared 85 successful runs (to Sep 30)
+against a counter snapshotted on Sep 28 and called the 14-run difference "small deltas". Wrong
+comparison. Counted to the moment of each email: **75 and 76 successful runs** against Healthchecks'
+**70 and 71**. The residual 5 is exactly the number of successful runs on Sep 15 itself, so a check
+created partway through that day explains it precisely — **arithmetically available, not confirmed**,
+because I cannot read the creation time.
+
+## What Period and Grace would NOT have alerted — and why I do not recommend them
+
+| Setting | Threshold | Alerts in the window | Worst-case detection delay |
+|---|---|---|---|
+| Period 1h + Grace 7h (**current**) | 8 h | 1 | 8 h |
+| Period 1h + Grace 11h | 12 h | 1 | 12 h |
+| Period 1h + Grace 14h | 15 h | 1 | 15 h |
+| **Period 1h + Grace 15h** | **16 h** | **0** | **16 h** |
+
+**Grace 15h is the first setting that would have stayed quiet, and it buys 0.90 h of headroom over the
+worst observed gap — less than one median drift event (4.62 h).** So the next slightly worse drift
+re-alerts, and the price is a **16-hour** worst-case detection delay: a front door that fails at 6 p.m.
+is reported at 10 a.m. On a pilot day that is not monitoring.
+
+### RECOMMENDATION: move the ping off GitHub Actions cron. Do not widen the thresholds.
+
+- **Widening — cost:** detection falls to 16 h worst case, it does not actually stop the alarms (0.90 h
+  of margin against a 4.62 h median), and the monitor stops being able to tell anyone about Oct 7 on
+  Oct 7. It is free and it buys nothing durable.
+- **Moving — cost:** one external scheduler that runs when it says it will (a cron-as-a-service hitting
+  the same ping URL, or Vercel Cron if the team is on Pro — which R10 wants anyway). Setup is tens of
+  minutes, it is a new dependency, and **it is Jacob's to configure, not mine.** In exchange Period 1h
+  + Grace 1h becomes honest and detection drops from 8 h to ~2 h.
+- The workflow's own comments already reached this conclusion on 2026-09-04: *"if hourly delivers no
+  better, the answer is an external scheduler, not a cron."* The data since then says hourly delivers
+  **4.62 h**.
+
+## C3 — readiness, re-run whole. NOTHING MOVED.
+
+`ANSWERED 6 of 11 checks; 5 UNANSWERED: R4–R8` · `NOT READY: 4 FAIL, 5 UNDETERMINED, 2 PASS — of 11`.
+R1 **PASS `b52c163`** (moved — production redeployed) · R2 FAIL · R3 FAIL · R9 FAIL 0 objects · R10 FAIL
+Hobby · R11 PASS. Every item was **run**, not inferred.
+
+**`ORG_FILES_ENABLED`: TENTH READING. Absent in production, preview AND development** — production holds
+5 names, preview 2, development 0, and it is in none of them. **First measured 2026-09-16; 14 days open.**
+
+**Crew scoping re-measured, because `20260929153659_crew_scoped_field_jobs` changed `fetch_field_jobs`
+and rule 15 says call it rather than read it.** Called as the synthetic `field` member: **1 job on
+2026-09-30, 0 on 2026-10-07.** Control R4–R8 all still execute: 4 PASS, R6 and R7 still 0 masters and 0
+estimates. `crews` 0, `crew_memberships` 0 — the scoping is built and off, as its commit says.
+
+**R10 — should it be split?** **Yes: a plan check and a terms check.** They have different owners and
+different failure modes — retention is an observability number, and Hobby's non-commercial clause
+against a paying client is a contractual one that no amount of retention fixes. Left there, as asked.
