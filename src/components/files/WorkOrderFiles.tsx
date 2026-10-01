@@ -1,6 +1,6 @@
 import { listOrgFiles, signOrgFiles } from "@/lib/storage/org-files";
 import { deleteWorkOrderFile } from "@/lib/storage/work-order-file-actions";
-import { FILES_COPY, orgFilesEnabled, type FilesState } from "@/lib/storage/work-order-files-states";
+import { FILES_COPY, FILES_OFF_VIEW_ONLY, orgFilesEnabled, type FilesState } from "@/lib/storage/work-order-files-states";
 import { WorkOrderFileUpload } from "@/components/files/WorkOrderFileUpload";
 
 // Roof data and photos attached to one work order. X-W1.15 (A4.7).
@@ -31,7 +31,10 @@ export async function WorkOrderFiles({
     return (
       <section id="files" data-files-state="off" className="rounded-lg border border-border bg-surface p-3">
         <h2 className={`mb-2 ${heading}`}>Roof data + photos</h2>
-        <p className="text-sm text-muted">{FILES_COPY.off.text}</p>
+        {/* U-W1.45 — the crew screen cannot add files (canManage is literally
+            false there), so it is not told what it cannot do. The office gets
+            the sentence about adding, where adding is true. */}
+        <p className="text-sm text-muted">{canManage ? FILES_COPY.off.text : FILES_OFF_VIEW_ONLY}</p>
       </section>
     );
   }
