@@ -39,6 +39,27 @@ function jobHref(orgId: string, workOrderId: string, error?: FieldError) {
   return `/w/${orgId}/field/${workOrderId}?${qs.toString()}`;
 }
 
+/**
+ * U-W1.47 (2026-10-01) — WHERE TO COME BACK TO WHEN THE CALLER IS THE OFFICE.
+ *
+ * The office now reads these trips on the coordination work order, and the
+ * office has no `field` module — redirecting them to /w/<org>/field/... after a
+ * delete would be bounced by requireModuleAccess back to the workspace root.
+ * Same seam, same shape and same guard as the production packet's returnTo
+ * (U-W1.36): CHECKED, not trusted — a relative path inside this org's own
+ * workspace, so a crafted form cannot turn a delete into an open redirect.
+ */
+function returnHref(formData: FormData, orgId: string, fallback: string, error?: FieldError): string {
+  const raw = formData.get("returnTo");
+  const prefix = `/w/${orgId}/`;
+  const safe =
+    typeof raw === "string" && raw.startsWith(prefix) && !raw.startsWith("//") && !raw.includes("://")
+      ? raw
+      : null;
+  if (!safe) return fallback;
+  return error ? `${safe}${safe.includes("?") ? "&" : "?"}error=${error}` : safe;
+}
+
 async function client() {
   const supabase = createClient();
   const {
@@ -81,7 +102,10 @@ export async function deleteSpecialTrip(formData: FormData) {
     p_special_trip_id: str(formData, "specialTripId"),
   });
 
-  if (error) redirect(jobHref(orgId, workOrderId, classifyFieldError(error)));
+  if (error) {
+    redirect(returnHref(formData, orgId, jobHref(orgId, workOrderId, classifyFieldError(error)), classifyFieldError(error)));
+  }
   revalidatePath(`/w/${orgId}/field/${workOrderId}`);
-  redirect(jobHref(orgId, workOrderId));
+  revalidatePath(`/w/${orgId}/coordination/${workOrderId}`);
+  redirect(returnHref(formData, orgId, jobHref(orgId, workOrderId)));
 }

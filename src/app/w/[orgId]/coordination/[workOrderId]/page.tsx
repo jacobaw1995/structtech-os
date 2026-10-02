@@ -3,6 +3,7 @@ import Link from "next/link";
 import { requireModuleAccess } from "@/lib/workspace/context";
 import { coordinationStages } from "@/lib/coordination/stage";
 import { ProgressChips } from "@/components/coordination/ProgressChips";
+import { SpecialTripsPanel, type OfficeTrip } from "@/components/coordination/SpecialTripsPanel";
 import { SignOffPanel } from "@/components/coordination/SignOffPanel";
 import { MaterialItemRow } from "@/components/coordination/MaterialItemRow";
 import { AddMaterialItemForm } from "@/components/coordination/AddMaterialItemForm";
@@ -15,7 +16,7 @@ import { AddTradeWorkOrderForm } from "@/components/coordination/AddTradeWorkOrd
 import { TakeOffReview } from "@/components/takeoff/TakeOffReview";
 import { buildReview, type DecisionRow, type TakeOffLineRow } from "@/lib/takeoff/review";
 import { WorkOrderFiles } from "@/components/files/WorkOrderFiles";
-import { isFilesState } from "@/lib/storage/work-order-files-states";
+import { isFilesStateFor } from "@/lib/storage/work-order-files-states";
 import type { Database } from "@/lib/supabase/database.types";
 
 type WorkOrder = Database["public"]["Tables"]["work_orders"]["Row"];
@@ -99,7 +100,7 @@ export default async function WorkOrderPage({
   // above is unchanged and still returns the row itself: its `setof
   // work_orders` shape is what the deployed page reads, and narrowing it would
   // have broken production between the migration and the deploy (rule 5b).
-  const [{ data: fetchedEstimate }, { data: materialsData }, { data: scheduleData }, { data: activityData }, { data: memberRows }, { data: treeData }, { data: tradeNameData }, { data: canViewFinancials }, { data: canScheduleData }, { data: canPurchaseData }] =
+  const [{ data: fetchedEstimate }, { data: materialsData }, { data: scheduleData }, { data: activityData }, { data: memberRows }, tripsRes, { data: treeData }, { data: tradeNameData }, { data: canViewFinancials }, { data: canScheduleData }, { data: canPurchaseData }] =
     await Promise.all([
       supabase.rpc("fetch_estimate", { p_estimate_id: workOrder.estimate_id }),
       supabase
@@ -118,6 +119,15 @@ export default async function WorkOrderPage({
         .eq("work_order_id", workOrder.id)
         .order("created_at", { ascending: true }),
       supabase.rpc("list_org_members", { p_org_id: params.orgId }),
+      // U-W1.47 — the office half of A4.2. List query (rule 5); the SELECT
+      // policy on special_trips is org-scoped (org_id in my_org_ids()) despite
+      // being NAMED "member read own special_trips", so the office sees every
+      // trip in the workspace.
+      supabase
+        .from("special_trips")
+        .select("id, reason_code, occurred_on, note, recorded_by")
+        .eq("work_order_id", params.workOrderId)
+        .order("occurred_on", { ascending: false }),
       supabase.rpc("fetch_work_order_tree", { p_work_order_id: workOrder.id }),
       // Trade names this org has already used — the datalist's only source.
       // Not a fixed vocabulary: it is empty on a tenant's first job and never
@@ -147,6 +157,9 @@ export default async function WorkOrderPage({
   const scheduleBlocks = (scheduleData ?? []) as ScheduleBlock[];
   const activity = (activityData ?? []) as WorkOrderActivity[];
   const members = memberRows ?? [];
+  // A failed read is NOT an empty list — null travels to the panel, which says
+  // it could not be read rather than reporting zero trips.
+  const officeTrips: OfficeTrip[] | null = tripsRes.error ? null : ((tripsRes.data ?? []) as OfficeTrip[]);
 
   // Closed default, matching has_capability(): anything that is not an explicit
   // TRUE is a no. A null here (RPC error, network) must not read as permission.
@@ -517,6 +530,23 @@ export default async function WorkOrderPage({
           </Link>
         )}
 
+        {/* U-W1.47 — THE OFFICE HALF OF THE SPECIAL-TRIP LOG. Trades only: a
+            trip belongs to a trade work order, the level a check-in belongs
+            to, so the master has none to show. */}
+        {!isMaster && (
+          <SpecialTripsPanel
+            orgId={params.orgId}
+            workOrderId={workOrder.id}
+            trips={officeTrips}
+            memberName={(id) =>
+              id
+                ? members.find((m: { user_id: string; full_name: string | null }) => m.user_id === id)?.full_name ??
+                  null
+                : null
+            }
+          />
+        )}
+
         {!isMaster && (
         <div className="rounded-lg border border-border bg-surface p-3">
           <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
@@ -570,7 +600,7 @@ export default async function WorkOrderPage({
         orgId={params.orgId}
         workOrderId={workOrder.id}
         canManage={(await supabase.rpc("can_view_master_work_order", { p_org_id: params.orgId })).data === true}
-        state={isFilesState(searchParams.files) ? searchParams.files : null}
+        state={isFilesStateFor("office", searchParams.files) ? searchParams.files : null}
       />
 
       <WorkOrderDangerZone
