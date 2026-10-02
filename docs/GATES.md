@@ -74,6 +74,37 @@ all**; **0 of 200 deals can distinguish "the client declined this" from "nobody 
 on all six gated sections; and `lib/estimating/scope-line-items.ts` has **no concept of a
 gate**, so a section marked *not on this job* would still price its lines.
 
+### G5 CUT — ACCEPTED 2026-10-01, and the ruling that unblocked it
+
+**THE §2.8 RULING, verified against `docs/SCOPE.md` before being recorded.** The controller's
+reading survives the file. §2.8 forbids *"prevent[ing] navigation or data entry based on the
+completeness or order of other data"* and names its own escape hatch, verbatim: *"Where a tenant
+genuinely wants enforced process, that is **per-tenant config, defaulted OFF**
+(`enforce_stage_gating`), never the shipped default."*
+
+> **A "never" and a "must refuse" are reconciled by a SWITCH, not by a winner.** The Done-when
+> tests that the refusal EXISTS and fires when a tenant turns enforcement on. The default tests
+> the principle. **Fifteen days were spent treating them as a contest.**
+
+**A4.6's refusal was built the same day the ruling landed** — `20261002025107_crew_vehicle_refusal`,
+following the shape set three days earlier by `20260929153659_crew_scoped_field_jobs`.
+
+**THE CUT, as proposed on 2026-09-30 and accepted:**
+
+| | items |
+|---|---|
+| **KEEP in G5** | **A4.2** special trips · **A4.6** crew model · **A4.7** office upload |
+| **MOVE to November** | **A4.1** daily objective · **A4.3's blocking clause** · **A4.4** packet v2 · **A4.5** acknowledgment · **A4.8** adoption |
+
+**Cause on the record:** *a stage whose Done-whens predate §2.8 being made non-negotiable,
+measured against a product no crew has used.* **A4.8's reason is separate and unarguable: its
+Done-when is a week of field use, and it cannot precede the pilot it measures.**
+
+**What the kept three still need**, from the 2026-09-30 grading: `ORG_FILES_ENABLED` turned on
+(an env var, not a build) · a real BMR crew with one person and one membership (Jacob's Oct 1
+item) · and an office view of special trips. **A4.6's refusal is now built but has nothing to
+fire on: crews, crew_people, crew_memberships and work_order_crew_assignments are all 0.**
+
 ### What did not move, and did not move back
 
 **The real crew account is still Oct 1** — three days out again rather than twenty-five.
