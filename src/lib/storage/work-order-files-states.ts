@@ -24,6 +24,18 @@ export type FilesState =
   | "open_failed";
 
 export const FILES_COPY: Record<FilesState, { tone: "info" | "warn"; text: string }> = {
+  // U-W1.45 (2026-09-30) — ONE STATE, TWO TRUTHS, so it is two sentences.
+  //
+  // The crew job screen passes canManage={false} — view only, by design, and
+  // WorkOrderFileUpload renders only under canManage, so there is no upload
+  // control there and never was. VERIFIED BEFORE CHANGING ANYTHING: the literal
+  // canManage={false} is in field/[workOrderId]/page.tsx, and the office page
+  // passes can_view_master_work_order instead.
+  //
+  // So "can't be added here" was FALSE on the crew screen — it told a roofer he
+  // could not do a thing he was never able to do, and implied a control existed
+  // somewhere above him. On the OFFICE screen the same sentence is TRUE, which
+  // is why the fix is a second sentence rather than a reword of the first.
   off: {
     tone: "warn",
     text: "File storage for work orders isn't switched on yet. Roof data and photos can't be added here until it is.",
@@ -47,6 +59,14 @@ export const FILES_COPY: Record<FilesState, { tone: "info" | "warn"; text: strin
     text: "We couldn't confirm the file was removed. Refresh to check whether it's still listed.",
   },
 };
+
+/**
+ * What the "off" state says on the CREW screen, where nothing can be added by
+ * anyone: the office has not switched it on, so there is nothing to see yet.
+ * No mention of adding, because adding was never on offer here.
+ */
+export const FILES_OFF_VIEW_ONLY =
+  "The office hasn't switched on roof data and photos yet, so there's nothing to see here.";
 
 export function isFilesState(v: unknown): v is FilesState {
   return typeof v === "string" && Object.prototype.hasOwnProperty.call(FILES_COPY, v);
