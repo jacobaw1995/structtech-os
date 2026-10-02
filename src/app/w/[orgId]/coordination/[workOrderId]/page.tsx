@@ -120,9 +120,13 @@ export default async function WorkOrderPage({
         .order("created_at", { ascending: true }),
       supabase.rpc("list_org_members", { p_org_id: params.orgId }),
       // U-W1.47 — the office half of A4.2. List query (rule 5); the SELECT
-      // policy on special_trips is org-scoped (org_id in my_org_ids()) despite
-      // being NAMED "member read own special_trips", so the office sees every
-      // trip in the workspace.
+      // policy on special_trips is org-scoped (org_id in my_org_ids()), so the
+      // office sees every trip in the workspace.
+      // U wrote this noting the policy was NAMED "member read own
+      // special_trips" despite being org-scoped. Track S renamed it on
+      // 2026-10-02 to "members read every special_trip in their org" — the
+      // name now matches the body, and this comment is updated with it rather
+      // than left pointing at a policy that no longer exists.
       supabase
         .from("special_trips")
         .select("id, reason_code, occurred_on, note, recorded_by")
