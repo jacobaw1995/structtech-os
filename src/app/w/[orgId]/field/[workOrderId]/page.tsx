@@ -18,7 +18,7 @@ import { QcPanel } from "@/components/field/QcPanel";
 import { fetchQcRows, photoRef } from "@/lib/field/qc-data";
 import { isQcResult } from "@/lib/field/qc";
 import { recordFieldEvent } from "@/lib/observability/field-events";
-import { isFilesState } from "@/lib/storage/work-order-files-states";
+import { isFilesStateFor } from "@/lib/storage/work-order-files-states";
 import type { Database } from "@/lib/supabase/database.types";
 
 type WorkOrder = Database["public"]["Tables"]["work_orders"]["Row"];
@@ -322,7 +322,9 @@ export default async function FieldJobPage({
           orgId={params.orgId}
           workOrderId={workOrder.id}
           canManage={false}
-          state={isFilesState(searchParams.files) ? searchParams.files : null}
+          /* U-W1.48 — the crew set, not the whole map: a hand-typed URL must not
+             put a sentence about uploading on a screen with no upload. */
+          state={isFilesStateFor("field", searchParams.files) ? searchParams.files : null}
           outdoor
           surface="field"
         />

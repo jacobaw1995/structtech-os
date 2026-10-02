@@ -72,6 +72,38 @@ export function isFilesState(v: unknown): v is FilesState {
   return typeof v === "string" && Object.prototype.hasOwnProperty.call(FILES_COPY, v);
 }
 
+/**
+ * U-W1.48 (2026-10-01) — WHICH STATES EACH SURFACE MAY RENDER, AND IT IS NOT
+ * THE SAME SET. A NARROWING OF THE `?files=` URL CONTRACT, deliberately.
+ *
+ * Reported on 2026-09-30 and not fixed then: `isFilesState` accepted the whole
+ * map on either surface, so a hand-typed query string could show a CREW member
+ * "That upload wasn't allowed for your account" — on a screen with no upload
+ * control, about an action they cannot perform. Five states were reachable that
+ * way: upload_refused, upload_failed, wrong_type, delete_refused, delete_failed.
+ *
+ * THE CREW SET IS DERIVED FROM WHAT CAN ACTUALLY HAPPEN THERE, not from taste.
+ * The crew screen passes canManage={false}, so no upload and no delete control
+ * renders. The only file action it offers is OPENING one, and the open route
+ * (app/w/[orgId]/files/open/route.ts) sends back exactly one code:
+ * `open_failed`. So that is the crew's whole set.
+ *
+ * `off` is not in it because it is not a URL state at all — it is read from
+ * configuration before any query string is consulted.
+ *
+ * An out-of-set value renders NOTHING, exactly as an unknown code already did.
+ * Nothing legitimate is lost: no path in this application sends a crew any
+ * other code.
+ */
+export const FILES_STATES_BY_SURFACE: Record<"office" | "field", readonly FilesState[]> = {
+  office: Object.keys(FILES_COPY) as FilesState[],
+  field: ["open_failed"],
+};
+
+export function isFilesStateFor(surface: "office" | "field", v: unknown): v is FilesState {
+  return isFilesState(v) && FILES_STATES_BY_SURFACE[surface].includes(v);
+}
+
 /** Configuration fact: have the org-files storage policies been applied? */
 export function orgFilesEnabled(): boolean {
   return process.env.ORG_FILES_ENABLED === "true";
