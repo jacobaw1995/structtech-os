@@ -20,6 +20,8 @@ export function ScheduleBlockRow({
   workOrderId,
   block,
   canSchedule,
+  crews,
+  crewsReadable,
 }: {
   orgId: string;
   workOrderId: string;
@@ -37,6 +39,8 @@ export function ScheduleBlockRow({
    * the server will reject anyway.
    */
   canSchedule: boolean;
+  crews: { id: string; name: string }[];
+  crewsReadable: boolean;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const [isPending, startTransition] = useTransition();
@@ -74,6 +78,30 @@ export function ScheduleBlockRow({
           <input type="hidden" name="orgId" value={orgId} />
           <input type="hidden" name="workOrderId" value={workOrderId} />
           <input type="hidden" name="scheduleBlockId" value={block.id} />
+          {/* U-W1.50 — RELINK OR DETACH AN EXISTING BLOCK. Three meanings, so
+              three kinds of option: leave it alone (the default, which sends
+              nothing), point it at a crew record, or drop back to the typed
+              name. update_schedule_block carries p_crew_id AND p_unlink_crew
+              precisely so the second is undoable, and a module ships the
+              controls to undo what it lets you do. */}
+          {crewsReadable && crews.length > 0 && (
+            <select
+              name="crew_choice"
+              defaultValue=""
+              aria-label="Crew record"
+              disabled={isPending}
+              onChange={submit}
+              className="min-h-14 w-full rounded-md border border-border bg-bg px-2 text-base text-text outline-none focus:border-accent disabled:opacity-60 sm:min-h-0 sm:w-36 sm:py-2 sm:text-sm"
+            >
+              <option value="">{block.crew_id ? "Linked to a crew" : "Not linked to a crew"}</option>
+              {crews.map((c) => (
+                <option key={c.id} value={c.id}>
+                  Link to {c.name}
+                </option>
+              ))}
+              {block.crew_id && <option value="__unlink">Unlink — keep the name only</option>}
+            </select>
+          )}
           <input
             name="crew_name"
             defaultValue={block.crew_name}

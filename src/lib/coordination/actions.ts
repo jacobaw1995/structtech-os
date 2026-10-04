@@ -263,11 +263,16 @@ export async function addScheduleBlock(formData: FormData) {
   } = await supabase.auth.getSession();
   if (!session) redirect("/login");
 
+  // U-W1.50 — the crew RECORD, when one was chosen. `crew_name` is no longer
+  // required here: add_schedule_block refuses only when BOTH are empty, with
+  // its own named reason, and requireString() would have thrown a 500 instead
+  // of letting that sentence reach the person.
   const { error } = await supabase.rpc("add_schedule_block", {
     p_work_order_id: workOrderId,
-    p_crew_name: requireString(formData, "crew_name"),
+    p_crew_name: optionalString(formData, "crew_name") ?? "",
     p_start_date: requireString(formData, "start_date"),
     p_end_date: requireString(formData, "end_date"),
+    p_crew_id: optionalString(formData, "crew_id"),
   });
 
   if (error) {
@@ -289,11 +294,17 @@ export async function updateScheduleBlock(formData: FormData) {
   } = await supabase.auth.getSession();
   if (!session) redirect("/login");
 
+  // U-W1.50 — one select carries three meanings, so it is read into two
+  // arguments: "" leaves the link alone (neither is sent), "__unlink" clears it,
+  // anything else is a crew id. A resubmitted "" is not a deliberate write.
+  const crewChoice = optionalString(formData, "crew_choice");
   const { error } = await supabase.rpc("update_schedule_block", {
     p_schedule_block_id: scheduleBlockId,
     p_crew_name: optionalString(formData, "crew_name"),
     p_start_date: optionalString(formData, "start_date"),
     p_end_date: optionalString(formData, "end_date"),
+    p_crew_id: crewChoice && crewChoice !== "__unlink" ? crewChoice : undefined,
+    p_unlink_crew: crewChoice === "__unlink" ? true : undefined,
   });
 
   if (error) {

@@ -100,7 +100,7 @@ export default async function WorkOrderPage({
   // above is unchanged and still returns the row itself: its `setof
   // work_orders` shape is what the deployed page reads, and narrowing it would
   // have broken production between the migration and the deploy (rule 5b).
-  const [{ data: fetchedEstimate }, { data: materialsData }, { data: scheduleData }, { data: activityData }, { data: memberRows }, tripsRes, { data: treeData }, { data: tradeNameData }, { data: canViewFinancials }, { data: canScheduleData }, { data: canPurchaseData }] =
+  const [{ data: fetchedEstimate }, { data: materialsData }, { data: scheduleData }, { data: activityData }, { data: memberRows }, crewsRes, tripsRes, { data: treeData }, { data: tradeNameData }, { data: canViewFinancials }, { data: canScheduleData }, { data: canPurchaseData }] =
     await Promise.all([
       supabase.rpc("fetch_estimate", { p_estimate_id: workOrder.estimate_id }),
       supabase
@@ -119,6 +119,15 @@ export default async function WorkOrderPage({
         .eq("work_order_id", workOrder.id)
         .order("created_at", { ascending: true }),
       supabase.rpc("list_org_members", { p_org_id: params.orgId }),
+      // U-W1.50 (2026-10-04) — the crews the schedule can be attached to. Live
+      // ones only: crew_name_from_crew refuses an archived crew by name, so
+      // offering one would be offering a refusal.
+      supabase
+        .from("crews")
+        .select("id, name")
+        .eq("org_id", params.orgId)
+        .is("archived_at", null)
+        .order("name"),
       // U-W1.47 — the office half of A4.2. List query (rule 5); the SELECT
       // policy on special_trips is org-scoped (org_id in my_org_ids()), so the
       // office sees every trip in the workspace.
@@ -161,6 +170,10 @@ export default async function WorkOrderPage({
   const scheduleBlocks = (scheduleData ?? []) as ScheduleBlock[];
   const activity = (activityData ?? []) as WorkOrderActivity[];
   const members = memberRows ?? [];
+  // A failed read offers no crews rather than an empty picker that reads as
+  // "this workspace has no crews".
+  const crewOptions = (!crewsRes.error && crewsRes.data ? crewsRes.data : []) as { id: string; name: string }[];
+  const crewsReadable = !crewsRes.error;
   // A failed read is NOT an empty list — null travels to the panel, which says
   // it could not be read rather than reporting zero trips.
   const officeTrips: OfficeTrip[] | null = tripsRes.error ? null : ((tripsRes.data ?? []) as OfficeTrip[]);
@@ -571,10 +584,12 @@ export default async function WorkOrderPage({
               workOrderId={workOrder.id}
               block={block}
               canSchedule={canSchedule}
+              crews={crewOptions}
+              crewsReadable={crewsReadable}
             />
           ))}
           {canSchedule ? (
-            <AddScheduleBlockForm orgId={params.orgId} workOrderId={workOrder.id} />
+            <AddScheduleBlockForm orgId={params.orgId} workOrderId={workOrder.id} crews={crewOptions} crewsReadable={crewsReadable} />
           ) : (
             /* NOT a disabled button. SCOPE §2.8 forbids blocking an action the
                user is PERMITTED to take because other data is incomplete —
