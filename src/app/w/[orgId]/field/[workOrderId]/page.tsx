@@ -128,7 +128,7 @@ export default async function FieldJobPage({
       .order("occurred_on", { ascending: false }),
   ]);
 
-  type FieldJob = { work_order_id: string; job_title: string | null; site_address: string | null; squares: number | null; pitch: string | null };
+  type FieldJob = { work_order_id: string; job_title: string | null; site_address: string | null; squares: number | null; pitch: string | null; crew_name: string | null };
   const header = ((fieldJobsData ?? []) as unknown as FieldJob[]).find((j) => j.work_order_id === workOrder.id);
   const job = (jobRows ?? [])[0];
   const jobAddress = job
@@ -153,7 +153,22 @@ export default async function FieldJobPage({
       : null;
   const jobTitle = header?.job_title || "Job";
   const siteAddress = header?.site_address || jobAddress || null;
-  const lastCrewName = checkIns[0]?.crew_name;
+  // WHAT THE CREW BOX STARTS WITH, in order, and why that order (2026-10-04).
+  // 1. the crew named on the LAST check-in on this job — what the people
+  //    actually doing this work called themselves, most recently;
+  // 2. failing that, the crew on the SCHEDULE BLOCK — which is the same name
+  //    the crew just read on the job card they tapped to get here, so the box
+  //    agrees with the screen they came from rather than introducing a name;
+  // 3. failing both, EMPTY, with its placeholder. Not a guess, and not a
+  //    blocked submit: the server refuses a blank by name (crew_required).
+  // TWO LIMITS OF (2), stated because the fallback looks more complete than it
+  // is. It comes from fetch_field_jobs, which keeps a job from creation until
+  // end_date — so after end_date `header` is undefined and the box is empty
+  // again. And that RPC projects sb.crew_name RAW, with no coalesce onto the
+  // crews record, so a block attached by crew_id alone (crew_name null) gives
+  // nothing here even though the crew has a name. Both land on (3), which is
+  // safe; neither is fixed by this change.
+  const lastCrewName = checkIns[0]?.crew_name ?? header?.crew_name ?? undefined;
 
   // get_or_create is idempotent (migration header note) — only called when
   // the Packet tab is actually open, not on every visit to the job.

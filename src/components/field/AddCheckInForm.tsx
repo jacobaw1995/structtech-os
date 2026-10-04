@@ -60,9 +60,24 @@ export function AddCheckInForm({
 
       <label className="flex flex-col gap-1">
         <span className="text-sm font-medium text-muted group-data-[outdoor=true]/field:text-white/80">Crew</span>
+        {/* NO `required`, DELIBERATELY — removed 2026-10-04 by controller ruling.
+            createCheckIn's own comment already named the server as the single
+            authority on what counts as a crew name and rejected an HTML
+            `pattern` for putting the refusal "behind a browser-native bubble
+            whose wording we do not control". `required` was that same bubble,
+            left in place: it blocked an empty box with Chrome's sentence while
+            three spaces travelled on to meet OURS. Two refusals for one
+            mistake, and the roofer met whichever one their typing happened to
+            trigger.
+            AND IT WAS THE COMMON PATH, NOT AN EDGE. defaultCrewName falls back
+            through the prior check-in and the schedule block (see the job
+            page); when neither exists the box is empty, which is EVERY FIRST
+            CHECK-IN ON EVERY JOB THAT HAS NO SCHEDULED CREW NAME. The server
+            refuses an empty or spaces-only crew by name — hint crew_required,
+            rendered as "Choose a crew, or type who is doing the work."
+            (SCOPE §2.8: the submit is never blocked; the answer comes back.) */}
         <input
           name="crew_name"
-          required
           defaultValue={defaultCrewName}
           placeholder="Crew A"
           className="min-h-14 rounded-lg border border-border bg-bg px-3 text-base text-text outline-none focus:border-accent group-data-[outdoor=true]/field:border-white/40 group-data-[outdoor=true]/field:bg-black group-data-[outdoor=true]/field:text-white"
