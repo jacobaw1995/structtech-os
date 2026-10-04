@@ -46,15 +46,26 @@ export function CheckInRow({
         </span>
         {confirming ? (
           <div className="flex items-center gap-2">
-            <form action={deleteCheckIn}>
+            {/* U-W1.52 — THE ROW ALREADY HAD A PENDING FLAG AND THIS CONTROL
+                WAS NOT ON IT. Every field above disables while a save is in
+                flight; the one button that destroys the record did not, so a
+                second tap was queued and replayed against a row that no longer
+                existed — an error banner for an action that had worked. Same
+                transition as the edits, deliberately, so a delete in flight
+                quiets the fields too. */}
+            <form
+              action={(formData) => startTransition(() => deleteCheckIn(formData))}
+            >
               <input type="hidden" name="orgId" value={orgId} />
               <input type="hidden" name="workOrderId" value={workOrderId} />
               <input type="hidden" name="checkInId" value={checkIn.id} />
               <button
                 type="submit"
-                className="flex min-h-14 items-center justify-center rounded-lg bg-warn px-3 text-sm font-semibold text-white"
+                disabled={isPending}
+                aria-busy={isPending}
+                className="flex min-h-14 items-center justify-center rounded-lg bg-warn px-3 text-sm font-semibold text-white disabled:opacity-70"
               >
-                Delete
+                {isPending ? "Deleting…" : "Delete"}
               </button>
             </form>
             <button

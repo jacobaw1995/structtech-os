@@ -2,6 +2,7 @@ import { clearQcItem, recordQcItem } from "@/lib/field/qc-actions";
 import { QC_RESULT_COPY, qcLines, qcLinesUnknown, outstandingBlocking, qcAttestationLine, type QcResult } from "@/lib/field/qc";
 import type { QcRead } from "@/lib/field/qc-data";
 import { QcPhotoButton } from "@/components/field/QcPhotoButton";
+import { ActionForm } from "@/components/field/ActionForm";
 
 // The QC checklist for one job. X-W1.20 (A4.3).
 //
@@ -145,7 +146,13 @@ export function QcPanel({
                 )}
 
                 {requirement.kind === "count" && (
-                  <form action={recordQcItem} className="flex items-center gap-2">
+                  <ActionForm
+                    action={recordQcItem}
+                    className="flex items-center gap-2"
+                    label={state === "satisfied" ? "Update" : "Record"}
+                    pendingLabel="Saving…"
+                    buttonClassName="min-h-14 rounded-md bg-accent-strong px-4 text-sm font-medium text-white"
+                  >
                     <input type="hidden" name="orgId" value={orgId} />
                     <input type="hidden" name="workOrderId" value={workOrderId} />
                     <input type="hidden" name="requirementKey" value={requirement.key} />
@@ -157,34 +164,35 @@ export function QcPanel({
                       aria-label={`${requirement.label} count`}
                       className="min-h-14 w-28 rounded-md border border-border bg-bg px-3 text-base text-text"
                     />
-                    <button type="submit" className="min-h-14 rounded-md bg-accent-strong px-4 text-sm font-medium text-white">
-                      {state === "satisfied" ? "Update" : "Record"}
-                    </button>
-                  </form>
+                  </ActionForm>
                 )}
 
                 {requirement.kind === "confirm" && state !== "satisfied" && (
-                  <form action={recordQcItem}>
+                  <ActionForm
+                    action={recordQcItem}
+                    label={<>Confirm {requirement.label.toLowerCase()}</>}
+                    pendingLabel="Confirming…"
+                    buttonClassName="min-h-14 w-full rounded-md bg-accent-strong px-4 text-sm font-medium text-white"
+                  >
                     <input type="hidden" name="orgId" value={orgId} />
                     <input type="hidden" name="workOrderId" value={workOrderId} />
                     <input type="hidden" name="requirementKey" value={requirement.key} />
-                    <button type="submit" className="min-h-14 w-full rounded-md bg-accent-strong px-4 text-sm font-medium text-white">
-                      Confirm {requirement.label.toLowerCase()}
-                    </button>
-                  </form>
+                  </ActionForm>
                 )}
 
                 {state === "satisfied" && (
-                  <form action={clearQcItem}>
+                  <ActionForm
+                    action={clearQcItem}
+                    label="Undo"
+                    pendingLabel="Undoing…"
+                    /* §2.4 — 56dp. Measured at 44px before 2026-09-23, on a screen
+                       whose spec is one thumb, gloves, bright sun. */
+                    buttonClassName="min-h-14 px-1 text-sm text-muted underline group-data-[outdoor=true]/field:text-white/80"
+                  >
                     <input type="hidden" name="orgId" value={orgId} />
                     <input type="hidden" name="workOrderId" value={workOrderId} />
                     <input type="hidden" name="requirementKey" value={requirement.key} />
-                    {/* §2.4 — 56dp. Measured at 44px before today, on a screen
-                        whose spec is one thumb, gloves, bright sun. */}
-                    <button type="submit" className="min-h-14 px-1 text-sm text-muted underline group-data-[outdoor=true]/field:text-white/80">
-                      Undo
-                    </button>
-                  </form>
+                  </ActionForm>
                 )}
               </li>
             ))}

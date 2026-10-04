@@ -1,5 +1,6 @@
 import { addProductionPacketCallout } from "@/lib/field/actions";
 import { ROOF_PLACES } from "@/lib/field/roof-callouts";
+import { ActionForm } from "@/components/field/ActionForm";
 
 // U-W1.36 (2026-09-27) — ONE PLACE VOCABULARY, RECONCILED WITH WHAT IS STORED.
 //
@@ -26,9 +27,14 @@ export function AddCalloutForm({
   returnTo?: string;
 }) {
   return (
-    <form
+    // ActionForm, not <form>: a second tap used to add a second callout saying
+    // the same thing. See that file's header for the measurement.
+    <ActionForm
       action={addProductionPacketCallout}
       className="flex flex-col gap-2 border-t border-border pt-2 group-data-[outdoor=true]/field:border-white/30"
+      label="+ Add callout"
+      pendingLabel="Adding…"
+      buttonClassName="flex min-h-14 items-center justify-center rounded-lg bg-accent-strong text-base font-medium text-white"
     >
       <input type="hidden" name="orgId" value={orgId} />
       <input type="hidden" name="workOrderId" value={workOrderId} />
@@ -51,12 +57,6 @@ export function AddCalloutForm({
         placeholder="What goes there (optional)"
         className="min-h-14 rounded-lg border border-border bg-bg px-3 text-base text-text outline-none focus:border-accent group-data-[outdoor=true]/field:border-white/40 group-data-[outdoor=true]/field:bg-black group-data-[outdoor=true]/field:text-white"
       />
-      <button
-        type="submit"
-        className="flex min-h-14 items-center justify-center rounded-lg bg-accent-strong text-base font-medium text-white"
-      >
-        + Add callout
-      </button>
-    </form>
+    </ActionForm>
   );
 }

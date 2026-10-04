@@ -7,6 +7,7 @@ import { CalloutRow } from "@/components/field/CalloutRow";
 import { parseCallouts } from "@/lib/field/callouts";
 import { TwoTapDelete } from "@/components/field/TwoTapDelete";
 import type { Database } from "@/lib/supabase/database.types";
+import { ActionForm } from "@/components/field/ActionForm";
 
 type ProductionPacket = Database["public"]["Tables"]["production_packets"]["Row"];
 
@@ -86,9 +87,12 @@ export function ProductionPacketView({
         )}
       </div>
 
-      <form
+      <ActionForm
         action={updateProductionPacketNotes}
         className="flex flex-col gap-2 rounded-2xl border border-border p-4 group-data-[outdoor=true]/field:border-white/30"
+        label="Save notes"
+        pendingLabel="Saving…"
+        buttonClassName="flex min-h-14 items-center justify-center rounded-lg bg-accent-strong text-base font-medium text-white"
       >
         <input type="hidden" name="orgId" value={orgId} />
         <input type="hidden" name="workOrderId" value={workOrderId} />
@@ -104,13 +108,7 @@ export function ProductionPacketView({
           placeholder="General packet notes…"
           className="min-h-14 rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text outline-none focus:border-accent group-data-[outdoor=true]/field:border-white/40 group-data-[outdoor=true]/field:bg-black group-data-[outdoor=true]/field:text-white"
         />
-        <button
-          type="submit"
-          className="flex min-h-14 items-center justify-center rounded-lg bg-accent-strong text-base font-medium text-white"
-        >
-          Save notes
-        </button>
-      </form>
+      </ActionForm>
 
       <div>
         <p className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted group-data-[outdoor=true]/field:text-white/80">
