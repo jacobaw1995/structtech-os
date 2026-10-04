@@ -106,3 +106,26 @@ export function classifyFieldError(error: { code?: string; message?: string; hin
   if (/not signed in/i.test(m)) return "not_signed_in";
   return "save_failed";
 }
+
+// ── WHAT WENT RIGHT ──────────────────────────────────────────────────────────
+// U-W1.52 (2026-10-04) — A FIELD SURFACE THAT RECORDS SOMETHING SILENTLY WILL
+// BE TAPPED AGAIN. Jacob submitted the first check-ins in this product's
+// history and got four rows, because nothing on the screen said the first one
+// had worked.
+//
+// A CODE, LOOKED UP — the same contract as the failures above, for the same
+// reason (controller ruling 2026-09-15: a URL parameter is never rendered as
+// text). An unknown value renders nothing.
+//
+// IT IS DELIBERATELY NOT THE SAME SHAPE AS A FAILURE. A failure that looks like
+// a success is worse than either: this one is role="status" on accent-soft,
+// the failures are role="alert" on warn-soft.
+export type FieldNotice = "check_in_saved";
+
+export const FIELD_NOTICE_COPY: Record<FieldNotice, string> = {
+  check_in_saved: "Check-in saved.",
+};
+
+export function isFieldNotice(v: unknown): v is FieldNotice {
+  return typeof v === "string" && Object.prototype.hasOwnProperty.call(FIELD_NOTICE_COPY, v);
+}

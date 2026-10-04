@@ -6,11 +6,12 @@ import { OUTDOOR_COOKIE, parseOutdoorCookie } from "@/lib/field/outdoor";
 import { CheckInRow } from "@/components/field/CheckInRow";
 import { AddCheckInForm } from "@/components/field/AddCheckInForm";
 import { SpecialTripPanel } from "@/components/field/SpecialTripPanel";
+import { ActionForm } from "@/components/field/ActionForm";
 import { recordSpecialTrip, deleteSpecialTrip } from "@/lib/field/special-trip-actions";
 import { specialTripReason } from "@/lib/field/special-trip";
 import { ProductionPacketView } from "@/components/field/ProductionPacketView";
 import { todayInNewYork } from "@/lib/home/model";
-import { FIELD_ERROR_COPY, isFieldError } from "@/lib/field/field-errors";
+import { FIELD_ERROR_COPY, isFieldError, FIELD_NOTICE_COPY, isFieldNotice } from "@/lib/field/field-errors";
 import { MaterialsList, type FieldMaterial } from "@/components/field/MaterialsList";
 import { WorkOrderFiles } from "@/components/files/WorkOrderFiles";
 import { FieldReadyBeacon } from "@/components/field/FieldReadyBeacon";
@@ -61,7 +62,7 @@ export default async function FieldJobPage({
   searchParams,
 }: {
   params: { orgId: string; workOrderId: string };
-  searchParams: { tab?: string; error?: string; files?: string; qc?: string };
+  searchParams: { tab?: string; error?: string; files?: string; qc?: string; saved?: string };
 }) {
   const ctx = await requireModuleAccess(params.orgId, "field");
   const supabase = ctx.supabase;
@@ -214,6 +215,19 @@ export default async function FieldJobPage({
         </p>
       )}
 
+      {/* U-W1.52 — IT SAYS IT WORKED, in the same place a failure appears and
+          deliberately NOT in the same clothes: status on accent-soft, where a
+          failure is alert on warn-soft. A failure that reads like a success is
+          worse than either. The count beside it is the honest second half — it
+          is read from the list, so if it says 3 there are 3, and a roofer who
+          tapped twice can SEE that he did. */}
+      {!isFieldError(searchParams.error) && isFieldNotice(searchParams.saved) && (
+        <p role="status" data-saved={searchParams.saved} className="rounded-md bg-accent-soft px-3 py-2 text-sm text-accent-strong">
+          {FIELD_NOTICE_COPY[searchParams.saved]} {checkIns.length}{" "}
+          {checkIns.length === 1 ? "check-in" : "check-ins"} on this job.
+        </p>
+      )}
+
       {tab === "check-in" && (
         /* U-W1.10 — THE NEW CHECK-IN COMES FIRST. Measured at 375x812 with
            four past check-ins: the form sat 2,224px down, 3.01 SCREENS of
@@ -255,17 +269,16 @@ export default async function FieldJobPage({
                       {trip.occurred_on}
                     </p>
                   </div>
-                  <form action={deleteSpecialTrip}>
+                  <ActionForm
+                    action={deleteSpecialTrip}
+                    label="Remove"
+                    pendingLabel="Removing…"
+                    buttonClassName="min-h-14 rounded-lg border border-border px-3 text-sm font-medium text-text group-data-[outdoor=true]/field:border-white/60 group-data-[outdoor=true]/field:text-white"
+                  >
                     <input type="hidden" name="orgId" value={params.orgId} />
                     <input type="hidden" name="workOrderId" value={workOrder.id} />
                     <input type="hidden" name="specialTripId" value={trip.id} />
-                    <button
-                      type="submit"
-                      className="min-h-14 rounded-lg border border-border px-3 text-sm font-medium text-text group-data-[outdoor=true]/field:border-white/60 group-data-[outdoor=true]/field:text-white"
-                    >
-                      Remove
-                    </button>
-                  </form>
+                  </ActionForm>
                 </div>
               ))}
             </div>

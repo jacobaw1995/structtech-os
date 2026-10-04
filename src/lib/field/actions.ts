@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { classifyFieldError, type FieldError } from "@/lib/field/field-errors";
+import { classifyFieldError, type FieldError, type FieldNotice } from "@/lib/field/field-errors";
 import { recordFieldEvent } from "@/lib/observability/field-events";
 
 // Same conventions as src/lib/coordination/actions.ts: server actions
@@ -36,9 +36,17 @@ function optionalNumber(formData: FormData, key: string): number | undefined {
 
 // `error` is a CODE (lib/field/field-errors.ts), never a message: the job page
 // looks it up and renders our sentence, so no URL can put words on a crew screen.
-function jobHref(orgId: string, workOrderId: string, tab: "check-in" | "packet", error?: FieldError) {
+function jobHref(
+  orgId: string,
+  workOrderId: string,
+  tab: "check-in" | "packet",
+  error?: FieldError,
+  saved?: FieldNotice
+) {
   const params = new URLSearchParams({ tab });
   if (error) params.set("error", error);
+  // U-W1.52 — the success code. Never both: an outcome is one thing.
+  if (!error && saved) params.set("saved", saved);
   return `/w/${orgId}/field/${workOrderId}?${params.toString()}`;
 }
 
@@ -130,7 +138,7 @@ export async function createCheckIn(formData: FormData) {
   }
 
   revalidateJob(orgId, workOrderId);
-  redirect(jobHref(orgId, workOrderId, "check-in"));
+  redirect(jobHref(orgId, workOrderId, "check-in", undefined, "check_in_saved"));
 }
 
 export async function updateCheckIn(formData: FormData) {
