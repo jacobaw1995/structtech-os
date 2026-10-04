@@ -52,11 +52,21 @@ export function PersonCard({
   person,
   crews,
   todayIso,
+  orgMembers,
+  membersReadable,
+  attachedUserId,
+  takenUserIds,
 }: {
   orgId: string;
   person: RosterPerson;
   crews: RosterCrew[];
   todayIso: string;
+  /** Everyone who has ACCEPTED their invite to this workspace. */
+  orgMembers: { user_id: string; full_name: string | null }[];
+  /** False = the member list could not be read. Not the same as nobody works here. */
+  membersReadable: boolean;
+  attachedUserId: string | null;
+  takenUserIds: Set<string>;
 }) {
   const availability = personAvailability(person, todayIso);
   const onCrews = crews.filter((c) => person.crew_ids.includes(c.id));
@@ -106,6 +116,7 @@ export function PersonCard({
             <input type="hidden" name="skills_was" value={person.skills?.join(", ") ?? ""} />
             <input type="hidden" name="has_vehicle_was" value={vehicleValue(person.has_vehicle)} />
             <input type="hidden" name="vehicle_note_was" value={person.vehicle_note ?? ""} />
+            <input type="hidden" name="user_id_was" value={attachedUserId ?? ""} />
 
             <label className="flex flex-col gap-1">
               <span className={label}>Name</span>
@@ -130,6 +141,57 @@ export function PersonCard({
               <span className={label}>Skills, separated by commas</span>
               <input name="skills" defaultValue={person.skills?.join(", ") ?? ""} className={input} />
             </label>
+            {/* U-W1.49 (2026-10-02) — ATTACHING A LOGIN, WHICH IS WHAT CREW
+                SCOPING KEYS ON.
+                Crew scoping reads crew_people.user_id. A crew person with no
+                linked login is a name in a table: the scoping refusal fires
+                forever and reads as a bug. The create form deliberately omits
+                it — crew_check_login refuses a login that is not yet a member —
+                and its own design note says a login is attached by EDITING the
+                person. This is that control, and until today it did not exist.
+
+                NOBODY TYPES A USER ID. The list is the workspace's own members,
+                minus logins already attached to somebody else. The person's
+                current login stays in the list so it can be seen and so
+                detaching is a choice rather than a disappearance.
+
+                `_was` CARRIES IT like every other field: a resubmitted value is
+                not a deliberate write, and update_crew_person's contract is
+                "key PRESENT = set, key ABSENT = leave". A form nobody touched
+                sends no p_user_id at all. */}
+            <label className="flex flex-col gap-1">
+              <span className={label}>Login for this person</span>
+              {membersReadable ? (
+                <>
+                  <select name="user_id" defaultValue={attachedUserId ?? ""} className={input}>
+                    <option value="">No login attached</option>
+                    {orgMembers
+                      .filter((m) => m.user_id === attachedUserId || !takenUserIds.has(m.user_id))
+                      .map((m) => (
+                        <option key={m.user_id} value={m.user_id}>
+                          {m.full_name?.trim() || "Unnamed member"}
+                          {m.user_id === attachedUserId ? " — attached now" : ""}
+                        </option>
+                      ))}
+                  </select>
+                  {/* THE COMMON CASE, SAID BEFORE IT BECOMES A REFUSAL. Somebody
+                      invited but not yet accepted is NOT in org_members, so they
+                      simply are not in this list — and an office user staring at
+                      a list that lacks the person they just invited needs to be
+                      told why, not left to conclude the control is broken. */}
+                  <span className="text-xs text-muted">
+                    Only people who have accepted their invite to this workspace appear here. If you don&apos;t
+                    see someone, invite them first and come back.
+                  </span>
+                </>
+              ) : (
+                <span className="text-sm text-[var(--warn-strong)]">
+                  The list of people in this workspace couldn&apos;t be read just now, so there is nobody to
+                  choose from. That isn&apos;t the same as there being nobody — reload and try again.
+                </span>
+              )}
+            </label>
+
             <div className="flex flex-col gap-2 sm:flex-row">
               <label className="flex flex-col gap-1 sm:w-48">
                 <span className={label}>Vehicle</span>

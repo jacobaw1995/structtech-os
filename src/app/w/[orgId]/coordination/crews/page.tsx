@@ -33,7 +33,7 @@ export default async function CrewsPage({
   const supabase = ctx.supabase;
   const today = todayInNewYork();
 
-  const [{ data: rosterData }, { data: stateRows }, { data: woRows }, { data: canSchedule }] =
+  const [{ data: rosterData }, { data: stateRows }, { data: woRows }, { data: canSchedule }, { data: memberRows }, linksRes] =
     await Promise.all([
       supabase.rpc("fetch_crew_roster", { p_org_id: params.orgId }),
       // S's view, security_invoker — the caller's own RLS scopes it.
@@ -50,9 +50,27 @@ export default async function CrewsPage({
         .is("voided_at", null)
         .order("created_at", { ascending: false }),
       supabase.rpc("has_capability", { p_org_id: params.orgId, p_capability: "schedule" }),
+      // U-W1.49 (2026-10-02) — WHO CAN BE ATTACHED AS A LOGIN. The office must
+      // never have to know or type a user id, so the picker is built from the
+      // workspace's own members.
+      supabase.rpc("list_org_members", { p_org_id: params.orgId }),
+      // WHICH LOGIN a person already has. fetch_crew_roster returns `has_login`
+      // — a boolean — which is enough to say "has one" and not enough to say
+      // WHICH, so the select could neither preselect the current value nor
+      // exclude logins already taken. List query (rule 5); crew_people's SELECT
+      // policy is org-scoped.
+      supabase.from("crew_people").select("id, user_id").eq("org_id", params.orgId),
     ]);
 
   const roster = parseRoster(rosterData);
+  // A failed read is NOT an empty roster of members: with no member list the
+  // picker offers nothing, and the card says why rather than showing an empty
+  // dropdown that looks like "nobody works here".
+  const orgMembers = (memberRows ?? []) as { user_id: string; full_name: string | null }[];
+  const membersReadable = !!memberRows;
+  const links = (!linksRes.error && linksRes.data ? linksRes.data : []) as { id: string; user_id: string | null }[];
+  const loginByPerson = new Map(links.map((l) => [l.id, l.user_id]));
+  const takenUserIds = new Set(links.map((l) => l.user_id).filter((u): u is string => !!u));
   const states = (stateRows ?? []) as unknown as AssignmentState[];
   const workOrders: AssignableWorkOrder[] = (woRows ?? []).map((w) => {
     const job = w.job as
@@ -124,6 +142,10 @@ export default async function CrewsPage({
                     person={person}
                     crews={roster.crews}
                     todayIso={today}
+                    orgMembers={orgMembers}
+                    membersReadable={membersReadable}
+                    attachedUserId={loginByPerson.get(person.id) ?? null}
+                    takenUserIds={takenUserIds}
                   />
                 ))}
               </div>

@@ -106,6 +106,12 @@ export async function updateCrewPerson(formData: FormData) {
   if (changed("skills")) patch.skills = splitSkills(str(formData, "skills"));
   if (changed("has_vehicle")) patch.has_vehicle = triState(str(formData, "has_vehicle"));
   if (changed("vehicle_note")) patch.vehicle_note = optional(formData, "vehicle_note");
+  // U-W1.49 — the login. `user_id` IS in update_crew_person's allow-list, and
+  // null CLEARS it, so detaching is the same write as attaching with an empty
+  // choice. crew_check_login returns immediately on null, so a detach is never
+  // refused — which is what makes "every module ships the controls to undo what
+  // it lets you do" true here rather than aspirational.
+  if (changed("user_id")) patch.user_id = optional(formData, "user_id");
 
   if (Object.keys(patch).length === 0) {
     redirect(crewsHref(orgId, undefined, `person-${required(formData, "personId")}`));
