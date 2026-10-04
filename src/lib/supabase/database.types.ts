@@ -2592,6 +2592,7 @@ export type Database = {
       }
       special_trips: {
         Row: {
+          client_token: string | null
           created_at: string
           id: string
           note: string | null
@@ -2603,6 +2604,7 @@ export type Database = {
           work_order_id: string
         }
         Insert: {
+          client_token?: string | null
           created_at?: string
           id?: string
           note?: string | null
@@ -2614,6 +2616,7 @@ export type Database = {
           work_order_id: string
         }
         Update: {
+          client_token?: string | null
           created_at?: string
           id?: string
           note?: string | null
@@ -4355,6 +4358,7 @@ export type Database = {
       }
       record_special_trip: {
         Args: {
+          p_client_token?: string
           p_note?: string
           p_occurred_on?: string
           p_reason_code: string
