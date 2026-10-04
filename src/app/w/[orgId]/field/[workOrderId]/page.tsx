@@ -317,6 +317,7 @@ export default async function FieldJobPage({
             orgId={params.orgId}
             workOrderId={workOrder.id}
             defaultCrewName={lastCrewName}
+            checkInCount={checkIns.length}
           />
           {checkIns.length > 0 && (
             <p className="text-sm font-semibold uppercase tracking-wide text-muted group-data-[outdoor=true]/field:text-white/80">

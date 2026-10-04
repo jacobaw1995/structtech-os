@@ -108,6 +108,13 @@ export async function createCheckIn(formData: FormData) {
     // submit behind a browser-native bubble whose wording we do not control,
     // which is a second copy of the refusal and a worse one.
     p_crew_name: trimmed(formData, "crew_name"),
+    // U-W1.53 — ONE ATTEMPT, ONE TOKEN. S's create_check_in returns the
+    // ORIGINAL row's id when it has seen this token before, so a resend of a
+    // request whose answer was lost writes nothing and still answers "saved".
+    // optionalString, so a form that somehow sends nothing sends NULL, which
+    // the function documents as "never deduplicated" — the behaviour before
+    // today, unchanged, rather than a blank string pretending to be a token.
+    p_client_token: optionalString(formData, "client_token"),
     p_hours: optionalNumber(formData, "hours"),
     p_materials_used: optionalString(formData, "materials_used"),
     p_blockers: optionalString(formData, "blockers"),

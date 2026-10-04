@@ -1,7 +1,8 @@
 "use client";
 
-import { useRef, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { createCheckIn } from "@/lib/field/actions";
+import { newSubmissionToken } from "@/lib/field/submission-token";
 
 // Stacked, single-thumb-column, ≥56dp inputs — the "sub-60-second submit"
 // requirement means this form has to be fast to fill with gloves on, not
@@ -12,10 +13,16 @@ export function AddCheckInForm({
   orgId,
   workOrderId,
   defaultCrewName,
+  checkInCount,
 }: {
   orgId: string;
   workOrderId: string;
   defaultCrewName?: string;
+  /**
+   * How many check-ins this job already has, as the SERVER last rendered it.
+   * This is the only thing that rotates the idempotency token — see below.
+   */
+  checkInCount: number;
 }) {
   // U-W1.52 (2026-10-04) — THE BUTTON STOPS TAKING TAPS WHILE ONE IS IN FLIGHT.
   //
@@ -39,6 +46,50 @@ export function AddCheckInForm({
   const [isPending, startTransition] = useTransition();
   const formRef = useRef<HTMLFormElement>(null);
 
+  // U-W1.53 (2026-10-04) — AND THE PART THE BUTTON CANNOT DO.
+  //
+  // Disabling the button stops a tap being TAKEN. It cannot help the case it
+  // was never able to reach: the request that left the phone and whose ANSWER
+  // never came back. An offline resend, a reload-and-resubmit, a second tab —
+  // each delivers the same payload again, with no second tap involved. S's
+  // function deduplicates those by token; this is where the token comes from.
+  //
+  // THE RULE, and it is the whole judgement: THE TOKEN CHANGES WHEN A CHECK-IN
+  // ACTUALLY LANDS, AND FOR NOTHING ELSE.
+  //
+  // It is keyed on `checkInCount` — the number of rows the SERVER last rendered
+  // — because that is the only fact that distinguishes "my attempt was
+  // recorded" from "my attempt was not recorded", and a client that lost the
+  // response cannot know the difference any other way. Deliberately NOT keyed
+  // on the submission completing: a completion is something the client
+  // observes, and the case that matters is the one where it observes nothing.
+  //
+  // What that gives, case by case:
+  //   · a row lands        -> the page re-renders with a bigger count -> new
+  //                           token, so the next check-in is a new attempt;
+  //   · the answer is lost -> the stale client's count is unchanged -> SAME
+  //                           token -> a resend returns the original row's id
+  //                           and writes nothing;
+  //   · REFUSED (no crew)  -> no row, so the count is unchanged and the token
+  //                           is reused. Harmless and in fact correct: the
+  //                           function only dedups against a row that EXISTS,
+  //                           so the corrected resubmit inserts under the same
+  //                           token. Nothing is swallowed.
+  //
+  // WHAT SHOULD STILL PRODUCE TWO ROWS: a second genuine check-in — the
+  // afternoon one after a morning one, or a second crew on the same job —
+  // which the crew makes after the first appears in the list above. The count
+  // has changed by then, so the token has too. Identical content is not
+  // treated as a duplicate; only an identical ATTEMPT is.
+  const [token, setToken] = useState(newSubmissionToken);
+  const landed = useRef(checkInCount);
+  useEffect(() => {
+    if (checkInCount > landed.current) {
+      landed.current = checkInCount;
+      setToken(newSubmissionToken());
+    }
+  }, [checkInCount]);
+
   return (
     // Tightened rhythm (phone-test feedback): thinner card chrome
     // (border-2→border, rounded-2xl→rounded-xl, p-4→p-3), gap-3→gap-2.5
@@ -53,6 +104,7 @@ export function AddCheckInForm({
     >
       <input type="hidden" name="orgId" value={orgId} />
       <input type="hidden" name="workOrderId" value={workOrderId} />
+      <input type="hidden" name="client_token" value={token} />
 
       <p className="text-sm font-semibold text-text group-data-[outdoor=true]/field:text-white">
         New check-in
