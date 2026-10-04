@@ -124,6 +124,7 @@ export type Database = {
         Row: {
           blockers: string | null
           check_in_date: string
+          client_token: string | null
           created_at: string
           created_by: string | null
           crew_id: string | null
@@ -140,6 +141,7 @@ export type Database = {
         Insert: {
           blockers?: string | null
           check_in_date?: string
+          client_token?: string | null
           created_at?: string
           created_by?: string | null
           crew_id?: string | null
@@ -156,6 +158,7 @@ export type Database = {
         Update: {
           blockers?: string | null
           check_in_date?: string
+          client_token?: string | null
           created_at?: string
           created_by?: string | null
           crew_id?: string | null
@@ -3752,6 +3755,7 @@ export type Database = {
         Args: {
           p_blockers?: string
           p_check_in_date?: string
+          p_client_token?: string
           p_crew_id?: string
           p_crew_name: string
           p_hours?: number
