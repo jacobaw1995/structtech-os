@@ -1,5 +1,5 @@
 -- RESTORE: the "Fake Lead" chain in Brothers Metal Roofing.
--- Written 2026-10-04 ~01:0x EDT by Track S, BEFORE anything was changed, per the
+-- Written 2026-10-04 ~00:45 EDT by Track S — BEFORE the 00:47:33 apply — per the
 -- controller's instruction: "A delete without a restore is not reversible and this
 -- is a client's tenant."
 --
