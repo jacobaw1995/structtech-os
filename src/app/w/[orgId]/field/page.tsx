@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { FieldShell } from "@/components/field/FieldShell";
 import { OUTDOOR_COOKIE, parseOutdoorCookie } from "@/lib/field/outdoor";
 import { formatDateRange, scheduleBlockStatus } from "@/lib/field/today";
+import { readyByFreshness, READY_BY_STALE_TEXT } from "@/lib/field/ready-by-staleness";
 import {
   resolveOwnership,
   OWNERSHIP_HEADING,
@@ -87,6 +88,26 @@ export default async function FieldTodayPage({
   // assigned to it -> RETURNED 0 rows and no refusal. The refusal keys on the
   // CALLER having no crew rows, not on the result being empty, so a genuinely
   // free day still renders as a free day.
+  // U-W1.51 — IS THE STORED MATERIALS WARNING STILL TRUE? The trigger that
+  // computes it fires only on a write to schedule_blocks, so a material changed
+  // afterwards leaves the stored sentence saying whatever it said before. These
+  // two list reads (rule 5; measured readable as the crew account) give the
+  // screen the one comparison it needs: was the block written after the last
+  // material change. A failed read yields `unknown`, which changes nothing —
+  // not knowing whether a warning is stale is not evidence that it is.
+  const [blockRowsRes, materialRowsRes] = await Promise.all([
+    supabase.from("schedule_blocks").select("id, updated_at").eq("org_id", params.orgId),
+    supabase.from("material_items").select("work_order_id, updated_at").eq("org_id", params.orgId),
+  ]);
+  const blockUpdatedAt = new Map(
+    (!blockRowsRes.error && blockRowsRes.data ? blockRowsRes.data : []).map((b) => [b.id, b.updated_at])
+  );
+  const latestMaterialByWorkOrder = new Map<string, string>();
+  for (const m of !materialRowsRes.error && materialRowsRes.data ? materialRowsRes.data : []) {
+    const seen = latestMaterialByWorkOrder.get(m.work_order_id);
+    if (m.updated_at && (!seen || m.updated_at > seen)) latestMaterialByWorkOrder.set(m.work_order_id, m.updated_at);
+  }
+
   const notOnACrew = jobsError?.hint === "crew_not_assigned";
   const jobs: FieldJob[] | null =
     notOnACrew ? [] : jobsError || !Array.isArray(jobsData) ? null : (jobsData as unknown as FieldJob[]);
@@ -266,11 +287,26 @@ export default async function FieldTodayPage({
                   )}
                 </div>
 
-                {job.ready_by_conflict && (
-                  <p className="rounded-md bg-warn-soft px-2 py-1 text-xs text-text">
-                    {job.ready_by_conflict_reason ?? "materials are not ready yet"}
-                  </p>
-                )}
+                {/* U-W1.51 — A STALE WARNING IS NOT A DATE. The stored reason
+                    names a day; if a material changed after this block was last
+                    written, that day is whatever it was before the change — the
+                    defect a roofer hit at 00:32 on 2026-10-04, four minutes
+                    after the material was corrected. When we can see it is
+                    stale we say so and send them to the live list; we do not
+                    repeat the date with a hedge in front of it. */}
+                {job.ready_by_conflict &&
+                  (readyByFreshness(
+                    blockUpdatedAt.get(job.schedule_block_id),
+                    latestMaterialByWorkOrder.get(job.work_order_id)
+                  ).state === "stale" ? (
+                    <p data-ready-by="stale" className="rounded-md bg-warn-soft px-2 py-1 text-xs text-text">
+                      {READY_BY_STALE_TEXT}
+                    </p>
+                  ) : (
+                    <p data-ready-by="stored" className="rounded-md bg-warn-soft px-2 py-1 text-xs text-text">
+                      {job.ready_by_conflict_reason ?? "materials are not ready yet"}
+                    </p>
+                  ))}
 
                 {active && (
                   <span className="flex min-h-14 items-center justify-center rounded-lg bg-accent-strong text-base font-semibold text-white">
