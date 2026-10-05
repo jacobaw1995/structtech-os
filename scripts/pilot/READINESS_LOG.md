@@ -351,3 +351,100 @@ estimates. `crews` 0, `crew_memberships` 0 — the scoping is built and off, as 
 **R10 — should it be split?** **Yes: a plan check and a terms check.** They have different owners and
 different failure modes — retention is an observability number, and Hobby's non-commercial clause
 against a paying client is a contractual one that no amount of retention fixes. Left there, as asked.
+
+---
+
+# 2026-10-05 — TWO DAYS OUT. THE FLAG MOVED AND IT IS STILL OFF.
+
+Date verified `Mon Oct  5 14:01:48 EDT 2026`. Last reading 2026-09-30.
+
+## THE FINDING: `ORG_FILES_ENABLED` IS SET, THE FEATURE IS DARK, AND R2 WENT GREEN
+
+**Eleventh reading. It MOVED** — present in production for the first time since 09-16, and production
+redeployed 19 h ago at `97fc598`, so the variable is in the running build.
+
+**Its value is not `"true"`.** Asserted without ever printing it: 11 characters after quote-stripping,
+**no lowercase letters, and no `true` substring in any casing**. The app tests
+`process.env.ORG_FILES_ENABLED === "true"`, so `orgFilesEnabled()` returns **false** and A4.7 is still
+off on the crew's job screen.
+
+**And R2 PASSED on it**, because R2 checks names. **A false green is worse than a red:** a red is a
+task, a green is a decision to stop looking. For eleven days R2 measured the only thing that had moved,
+and the first time it moved, R2 reported success on a feature nobody can use.
+
+**Closed by R2b**, added today: every flag whose app semantics are `=== "true"` has its VALUE verified.
+The value is pulled to a temp file, asserted, then overwritten and deleted in a `finally` — including on
+the error path, because a secrets file left behind by a crashed check is worse than the bug it hunts.
+Only the verdict is reported. **It fires correctly in both directions on real data: `AUTH_EMAIL_ENABLED`
+PASSES (it really is `"true"`) and `ORG_FILES_ENABLED` FAILS** — so the check is not merely pessimistic.
+
+> **Jacob — one edit:** set `ORG_FILES_ENABLED` in Vercel → Settings → Environment Variables →
+> Production to exactly `true`: four lowercase letters, no quotes, no spaces. Then redeploy. R2b will
+> flip to PASS, and it is the check to watch, not R2.
+
+## Reading — 2026-10-05. NOW 12 ITEMS.
+
+`ANSWERED 7 of 12; 5 UNANSWERED: R4–R8` · `NOT READY: 4 FAIL, 5 UNDETERMINED, 3 PASS — of 12`.
+
+| Item | 09-30 | 10-05 | Moved? |
+|---|---|---|---|
+| R1 | PASS `b52c163` | **PASS `97fc598`** | MOVED — redeployed |
+| R2 names | FAIL absent | **PASS** | MOVED — **and it is a false green** |
+| **R2b values** | *(did not exist)* | **FAIL** | NEW — the check that tells the truth |
+| R3 crew named | FAIL | FAIL | NOT MOVED — needs `pilot.config.json`, Jacob's |
+| R4–R8 | UNDETERMINED | UNDETERMINED | NOT MOVED — R3 names nobody |
+| R9 office uploads | FAIL 0 | FAIL 0 | NOT MOVED — downstream of R2b |
+| R10 retention | FAIL Hobby | **FAIL Hobby** | NOT MOVED — plan re-read today, still Hobby |
+| R11 | PASS | PASS | — |
+
+## The other two the controller could not see
+
+**Vercel plan: HOBBY.** Unchanged. R10's retention failure and the separate non-commercial-terms
+problem both still stand, and BMR is a paying client.
+
+**The Healthchecks ping STILL RIDES GITHUB ACTIONS CRON.** `cron: '23 * * * *'`, workflow untouched
+since 2026-09-13. Re-measured over 177 scheduled runs:
+
+| Window | n gaps | median | p90 | max | >8h |
+|---|---|---|---|---|---|
+| **Since 09-30** | 23 | **5.61 h** | 6.96 h | **7.37 h** | **0** |
+| Check lifetime (Sep 15→now) | 103 | 4.74 h | 6.28 h | 15.10 h | 1 |
+
+**The median has WORSENED, 4.62 h → 5.61 h, and the worst gap since 09-30 is 7.37 h against an 8 h
+threshold — 38 minutes of margin.** A false "down" on Wednesday is now a coin-flip away, and it pages a
+phone during a roof.
+
+## THE CREW ARRIVED, AND THE PILOT ALREADY HAD ITS FIRST REAL SESSION
+
+**BMR now has 1 `field` member, 1 `crews` row and 1 `crew_memberships` row.** Jacob's Oct 1 item is
+done. Two `field` logins now exist in the database where there was one.
+
+**And a real roofer used it on 2026-10-04.** Every funnel stage for BMR that day is a measurement, with
+no UNEXERCISED marker anywhere: `signed in 1 of 1` · `opened a work order 1 of 1` · `page became usable
+1 of 1` · `recorded something 1 of 1`. Time-to-complete **2 minutes**.
+
+## C3 — THE DEDUP DRIFT, MEASURED. IT IS ZERO, AND THE PREMISE INVERTS.
+
+**`completionRate` does not read `field_events`.** It reads `public.check_ins` with
+`count(distinct work_order_id)`. `funnel.recorded` counts distinct ACTOR; `timeToComplete` takes
+`min(occurred_at)`. **No counter in the instrument reads a raw `check_in_saved` count**, so a duplicated
+event cannot move any of them.
+
+**Proved on seeded behaviour rather than argued:** the fixture now contains a second `check_in_saved`
+for the same actor, work order and `subject_ref`, 40 s after the first. Completion rate, `recorded` and
+time-to-complete are all unchanged — and a fourth check asserts the duplicate **is** present, so the
+three are not vacuous. **Calibration 26 of 26 FIRED.**
+
+**On production data the drift is zero for a second reason, and it is the more interesting one.** The 8
+`check_in_saved` events in the database have **8 DISTINCT `subject_ref`s, not one repeated** — all from
+the roofer, within 4 seconds on 2026-10-04, before `6a85e6a` wired the idempotency token. They were
+eight **separate** check-ins, of which **one survives** (the other seven went with the voided fake-lead
+chain). A dedup resend returns the *same* id; these returned eight. **The mechanism the worry describes
+has never fired in production: 0 repeated subject_refs out of 8 events.**
+
+**Recommendation: neither fix, for the counters — but record the dedup distinctly anyway, for the
+report.** Counting distinct `subject_ref` would change nothing (they are already distinct) and would
+silently hide a real retry when one happens. The thing actually worth having on Wednesday is the ability
+to tell *"one crew member fighting bad signal"* from *"eight check-ins, seven deleted"* — and today
+those two look identical. That is a distinct `outcome` code on the resend, not a change to a counter.
+**Not built: C1 and C2 came first, as instructed.**
