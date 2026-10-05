@@ -72,11 +72,39 @@ try {
 // stop looking. So every flag whose app semantics are `=== "true"` now has its
 // VALUE verified here.
 //
+// AND A FALSE RED SENDS A HUMAN TO FIX SOMETHING THAT IS NOT BROKEN. It did,
+// twice, on 2026-10-05 — and the first of those two reports was mine.
+//
+// A Vercel variable typed SENSITIVE cannot be read back: `vercel env pull`
+// writes the literal string `[SENSITIVE]` in place of the value. That string is
+// 11 characters, has no lowercase letter and contains no "true" in any casing —
+// so the first version of this check reported it as `SET BUT NOT "true" (11
+// chars)`, which is indistinguishable from a genuinely wrong value. ORG_FILES_
+// ENABLED had been set correctly; the report said it was wrong and sent someone
+// to a settings page.
+//
+// THE THIRD VERDICT IS KEYED ON THE LITERAL, NOT ON ITS SHAPE. Matching on
+// length 11, or on "no lowercase", would be matching coincidences of this one
+// placeholder: a genuinely wrong value of `DEVELOPMENT` is also 11 uppercase
+// characters, and Vercel is free to change the placeholder's wording without
+// changing that it is a placeholder. `value === '[SENSITIVE]'` says what is
+// actually meant — this is the string the tool writes when it will not tell us —
+// and it fails closed if the wording ever changes, into the FAIL branch, which
+// is the safe direction.
+//
+// ITS MESSAGE NAMES THE FIX, AND THE FIX IS NOT "EDIT THE VALUE". A sensitive
+// variable's value cannot be edited back into readability; it has to be removed
+// and recreated as a normal variable. A message that says "wrong value" invites
+// exactly the action that will not work.
+//
 // THE VALUE IS NEVER PRINTED AND NEVER KEPT. It is pulled to a temp file, read,
 // asserted, and the file is overwritten and deleted in a finally — including on
 // the error path, because a secrets file left behind by a crashed check is a
 // worse bug than the one this check exists to find. Only the verdict is reported.
 const BOOLEAN_FLAGS = ['ORG_FILES_ENABLED', 'AUTH_EMAIL_ENABLED'];
+// Exactly what `vercel env pull` writes for a variable typed Sensitive. Compared
+// as a literal, never pattern-matched: see the note above.
+const SENSITIVE_PLACEHOLDER = '[SENSITIVE]';
 const tmpEnv = path.join(tmpdir(), `readiness-env-${process.pid}-${Date.now()}`);
 try {
   execFileSync('vercel', ['env', 'pull', tmpEnv, '--environment=production', '--yes', '--scope', cfg.vercelScope],
@@ -84,16 +112,23 @@ try {
   const lines = readFileSync(tmpEnv, 'utf8').split('\n');
   const wrong = [];
   const absent = [];
+  const unreadable = [];
   for (const key of BOOLEAN_FLAGS) {
     const line = lines.find((l) => l.startsWith(`${key}=`));
     if (!line) { absent.push(key); continue; }
     // Strip surrounding quotes the dotenv writer may add; compare what the app compares.
     const value = line.slice(key.length + 1).trim().replace(/^["']+|["']+$/g, '');
-    if (value !== 'true') wrong.push(`${key} (${value.length} chars, not the string "true")`);
+    if (value === SENSITIVE_PLACEHOLDER) unreadable.push(key);
+    else if (value !== 'true') wrong.push(`${key} (${value.length} chars, not the string "true")`);
   }
-  if (absent.length && !wrong.length) record('R2b', 'FAIL', 'flag VALUES are the string "true"', `not set: ${absent.join(', ')}`);
-  else if (wrong.length) record('R2b', 'FAIL', 'flag VALUES are the string "true"',
+  // Order matters: a genuinely wrong value is a defect and outranks an unreadable
+  // one, which is a gap in what this check can see rather than a fault in the app.
+  if (wrong.length) record('R2b', 'FAIL', 'flag VALUES are the string "true"',
     `SET BUT NOT "true", so the feature is OFF while R2 reads green: ${wrong.join('; ')}`);
+  else if (absent.length) record('R2b', 'FAIL', 'flag VALUES are the string "true"', `not set: ${absent.join(', ')}`);
+  else if (unreadable.length) record('R2b', 'UNREADABLE', 'flag VALUES are the string "true"',
+    `${unreadable.join(', ')} ${unreadable.length === 1 ? 'is' : 'are'} typed SENSITIVE in Vercel, so the value cannot be read back and this check CANNOT say whether the feature is on. `
+    + `THE FIX IS NOT TO EDIT THE VALUE — a sensitive variable's value cannot be read or corrected in place. Remove it and recreate it as a normal (non-sensitive) variable, then redeploy.`);
   else record('R2b', 'PASS', 'flag VALUES are the string "true"', `${BOOLEAN_FLAGS.join(', ')} all === "true"`);
 } catch (e) {
   record('R2b', 'UNDETERMINED', 'flag VALUES are the string "true"', `could not pull production env (${e.code || e.name})`);
@@ -188,7 +223,14 @@ try {
 // ── report ──────────────────────────────────────────────────────────────────
 for (const r of results) console.log(`${r.verdict.padEnd(12)} ${r.id.padEnd(7)} ${r.what} — ${r.fact}`);
 const fails = results.filter((r) => r.verdict === 'FAIL').length;
-const unknown = results.filter((r) => r.verdict === 'UNDETERMINED').length;
+// UNREADABLE JOINS UNDETERMINED AS "NOT ANSWERED", AND THAT IS THE WHOLE POINT
+// OF IT. Adding a verdict without telling the summary about it would have made
+// an unreadable check count as ANSWERED — the same defect as the one fixed on
+// 2026-09-27, where R4-R8 did not run and the last line could not say so. A new
+// verdict is not finished until the line that counts verdicts knows it exists.
+const UNANSWERED = new Set(['UNDETERMINED', 'UNREADABLE']);
+const unansweredRows = results.filter((r) => UNANSWERED.has(r.verdict));
+const unknown = unansweredRows.length;
 console.log('------------------------------------------------------------------------');
 // THE SUMMARY STATES ITS DENOMINATOR AND WHAT IT COULD NOT LOOK AT. A line reading
 // "4 FAIL, 2 PASS" is a verdict on six things; said without the six, it reads as a
@@ -196,7 +238,7 @@ console.log('-------------------------------------------------------------------
 // because the ones that cannot be answered are not the unimportant ones — on
 // 2026-09-27 they were the five that ask what a crew member can actually reach.
 const answered = results.length - unknown;
-console.log(`ANSWERED ${answered} of ${results.length} checks` + (unknown ? `; ${unknown} UNANSWERED: ${results.filter((r) => r.verdict === 'UNDETERMINED').map((r) => r.id).join(', ')}` : ''));
-if (fails) { console.log(`NOT READY: ${fails} FAIL, ${unknown} UNDETERMINED, ${results.length - fails - unknown} PASS — of ${results.length}`); process.exit(1); }
-if (unknown) { console.log(`UNDETERMINED: ${unknown} of ${results.length} check(s) could not be answered`); process.exit(2); }
+console.log(`ANSWERED ${answered} of ${results.length} checks` + (unknown ? `; ${unknown} UNANSWERED: ${unansweredRows.map((r) => `${r.id}(${r.verdict === 'UNREADABLE' ? 'unreadable' : 'not run'})`).join(', ')}` : ''));
+if (fails) { console.log(`NOT READY: ${fails} FAIL, ${unknown} UNANSWERED, ${results.length - fails - unknown} PASS — of ${results.length}`); process.exit(1); }
+if (unknown) { console.log(`UNANSWERED: ${unknown} of ${results.length} check(s) could not be answered`); process.exit(2); }
 console.log(`READY: ${results.length} of ${results.length} PASS`); process.exit(0);

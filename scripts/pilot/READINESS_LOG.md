@@ -448,3 +448,107 @@ silently hide a real retry when one happens. The thing actually worth having on 
 to tell *"one crew member fighting bad signal"* from *"eight check-ins, seven deleted"* — and today
 those two look identical. That is a distinct `outcome` code on the resend, not a change to a counter.
 **Not built: C1 and C2 came first, as instructed.**
+
+---
+
+# 2026-10-05, SECOND SESSION — R2b GETS A THIRD VERDICT, BECAUSE MY FIRST RED WAS FALSE
+
+Date verified `Mon Oct  5 17:04:56 EDT 2026`.
+
+## THE CORRECTION, AND IT IS MINE
+
+**This morning I reported `ORG_FILES_ENABLED` as "SET BUT NOT \"true\"" and told Jacob to go and edit
+it. That was wrong.** The variable had been typed **Sensitive** in Vercel, which means `vercel env pull`
+writes the literal string `[SENSITIVE]` in place of the value. That string is **exactly 11 characters,
+has no lowercase letter, and contains no "true" in any casing** — which is precisely the shape I
+measured and reported as a wrong value.
+
+**A false red sends a human to a settings page to fix something that is not broken.** Mine did.
+
+**Measured now:** `ORG_FILES_ENABLED` is readable, 4 characters, `=== "true"` → **true**. R2b **PASSES**,
+and the feature is live.
+
+## THE THIRD VERDICT
+
+`UNREADABLE`, keyed on `value === '[SENSITIVE]'` — **the literal, not its shape.** Matching on length 11
+or "no lowercase" would be matching coincidences of this one placeholder: `DEVELOPMENT` is also 11
+uppercase characters and is a genuinely wrong value. Keying on the literal also **fails closed** — if
+Vercel ever reworded the placeholder, the check drops into FAIL, which is the safe direction.
+
+Its message names the variable and names the fix, and **the fix is not "edit the value"**: a sensitive
+variable's value cannot be read or corrected in place. It must be removed and recreated as a normal
+variable, then redeployed. A message saying "wrong value" invites exactly the action that cannot work.
+
+**Precedence:** a genuinely wrong value outranks an unreadable one — a defect in the app beats a gap in
+what the check can see.
+
+**And the summary was taught the new verdict in the same change.** `UNREADABLE` now joins `UNDETERMINED`
+as *not answered*; otherwise an unreadable check would have counted as ANSWERED, which is the identical
+defect fixed on 2026-09-27 when R4–R8 did not run and the last line could not say so. **A new verdict is
+not finished until the line that counts verdicts knows it exists.**
+
+**Shown the defect, on real production keys (rule 20), not on a stub:**
+
+| Control | Key | Verdict |
+|---|---|---|
+| A — genuinely Sensitive | `RESEND_API_KEY` | **UNREADABLE**, and the summary read `6 UNANSWERED: R2b(unreadable), R4…R8` |
+| B — readable but not "true" | `EMAIL_FROM` (39 chars) | **FAIL**, not UNREADABLE |
+
+The two branches are distinguished on live data, so the third verdict is not a blanket softening of the
+red.
+
+## THE SWEEP — axis stated, and what the axis cannot see
+
+**Axis: source that reads an env value and compares it to an expected string literal.** Containers:
+`src/`, `scripts/`, `.github/`, repo root. **Positive control fired** — the sweep found both sites R2b
+already knows about before I trusted anything else it said.
+
+**THE AXIS WAS TOO NARROW ON ITS OWN AND I WIDENED IT THREE TIMES.** A `===` sweep cannot see a
+presence-only gate, a shell test, or an env read that goes through a helper.
+
+**And the finding that decides all of them: `[SENSITIVE]` NEVER REACHES A RUNTIME.** Vercel's Sensitive
+typing restricts *reading the value back*; the deployment still receives the real value — proved by
+production being live at `a35b783` with the feature on. So **every site that reads `process.env` in a
+deployed runtime is safe**, and the only exposure is tooling that reads a **pulled** file.
+
+| Site | Reads | Would `[SENSITIVE]` be misreported? |
+|---|---|---|
+| `src/lib/storage/work-order-files-states.ts:109` | runtime env | **No** — real value at runtime |
+| `src/lib/auth/reset-states.ts:173` | runtime env | **No** — same |
+| `scripts/monitor/frontdoor-monitor.mjs:71` (`MONITOR_SELFTEST === '1'`) | CI/local env | **No** — never pulled from Vercel |
+| **`scripts/email/verify-email-send.mjs:92`** | `RESEND_API_KEY` from **`.env.local`** | **YES — and it is the same class of false red.** A placeholder key is a syntactically valid bearer token, so Resend answers 4xx and the script reports **`rejected` — "the request is wrong; retrying won't help"** — when the key is fine |
+| `scripts/pilot/db.mjs:20,24` | `SUPABASE_DB_URL` from `.env.local` | **No — fails safe.** The key is not in Vercel at all, so a pull removes it and `dbAvailable()` reports "not available", which the readiness check renders UNDETERMINED |
+| `scripts/storage/org-files-live-proof.mjs:32`, `scripts/probe-storage-front-door.mjs:29` | `.env.local` / `.env.proof.local` | **No** — would fail loudly on a malformed URL/key |
+| local `npm run dev` | `.env.local` | **No** — crashes on `new URL("[SENSITIVE]")`. Loud, not silent |
+
+**The hazard that makes those reachable at all:** `vercel env pull` **defaults to `.env.local`** and
+**overwrites it**. One bare `vercel env pull` would replace the working local file — losing
+`SUPABASE_DB_URL`, which is not stored in Vercel — and write `[SENSITIVE]` for the three sensitive keys.
+**Reported, not fixed**, per instruction. The cheap guard would be for the scripts that read `.env.local`
+to refuse a `[SENSITIVE]` value with the same sentence R2b now uses.
+
+## THE TWO `NEXT_PUBLIC_` KEYS — typed Sensitive, and it buys nothing
+
+`NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_SUPABASE_URL` and `RESEND_API_KEY` all pull as
+`[SENSITIVE]` today. **The directive's list is exactly right; nothing has changed.**
+
+**Does typing them Sensitive break anything that reads them? No.** Production is live and serving at
+`a35b783`; the runtime gets real values, and `NEXT_PUBLIC_` vars are inlined at build time from the real
+values, not from a pull.
+
+**Are they secrets? The anon key is designed not to be — RLS is the control, not obscurity. But measured
+in this build they are not even shipped:** 0 of 44 client chunks contain either value; 3 of 98 **server**
+chunks do. Positive control: 3 of 44 client chunks contain `__next`, so the search works. The reason is
+that nothing in a client component imports the browser Supabase client — its only importers are lib
+files. **So marking them Sensitive protects values that are currently server-only anyway, at the cost of
+making them unreadable to our own tooling.**
+
+**Is any check blind to them? Yes, completely.** R2's `REQUIRED_ENV` is `ORG_FILES_ENABLED`,
+`AUTH_EMAIL_ENABLED`, `RESEND_API_KEY`, `EMAIL_FROM`; R2b's flag list is the first two. **Neither
+`NEXT_PUBLIC_` key is named by any readiness item** — if one were deleted tomorrow, no check here would
+notice, and the first sign would be a production page failing to construct a Supabase client.
+
+**Recommendation, not a change — production env edits are not mine:** recreate the two `NEXT_PUBLIC_`
+variables as normal variables (the anon key is public by design and the URL is in every request), leave
+`RESEND_API_KEY` Sensitive since it genuinely is a secret and R2b now reports it honestly, and add both
+`NEXT_PUBLIC_` names to R2's `REQUIRED_ENV` so their absence is visible.
