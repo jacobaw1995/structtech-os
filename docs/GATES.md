@@ -130,6 +130,62 @@ raised today rather than on Oct 6: A4.2's "office dashboard" moves to November**
 the office the same day" — which is what shipped and what was proved. **Trigger: the day BMR runs two live
 trade work orders at once.**
 
+### ORG_FILES_ENABLED — CAUSE FOUND AND THE FEATURE IS LIVE (2026-10-05, Track S)
+
+**IT IS NO LONGER DARK. A real file is in the bucket.** `storage.objects` in `org-files`:
+**1** — a 937 KB `image/png` at
+`9d32b5a9…/office-uploads/d76d8664…/95721c6f-iron-operator-unit-one-pager.png`, created
+**2026-10-05 16:54:37 EDT**. **That is A4.7's clause 1 observed for the first time**, and it
+replaces "0 objects, in every org."
+
+**THE CAUSE WAS TWO THINGS INTERLOCKED, not one.** The variable was created on **2026-10-03
+23:47:30 EDT as a Vercel *Sensitive* variable**, and a Sensitive variable is **write-only — nobody
+can read it back: not the dashboard, not the API, not `vercel env pull`.** So when the value was
+wrong, **nothing could see that it was wrong**, and it survived two corrections.
+
+**`vercel env pull` writes the literal `[SENSITIVE]` for such a variable. `[SENSITIVE]` is exactly
+11 characters, contains 0 lowercase letters, and contains no "true" in any casing** — which is,
+character for character, the measurement Track X took on 2026-10-05. **X measured the wrapper, not
+the content.** Measured today, the 3 keys that still come back as that placeholder are
+`NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_SUPABASE_URL` and `RESEND_API_KEY`.
+
+**The timeline, from Vercel's own timestamps:**
+
+| EDT | event |
+|---|---|
+| 10-03 23:47:30 | created as **Sensitive** — unreadable from that moment on |
+| 10-05 16:45:56 | edited, still Sensitive |
+| 10-05 16:46:02 | redeploy #1 READY (6 s later) — **still dark** |
+| 10-05 16:52:48 | **recreated as a normal `encrypted`/`config` variable** |
+| 10-05 16:52:52 | redeploy #2 |
+| 10-05 16:54:37 | **a file uploads. It works.** |
+
+**TWO CANDIDATES ARE DEAD ON MEASUREMENT.** *Wrong target/project:* no —
+`os.structtek.com` is a **verified production domain of `prj_uQxpxqic2U8ILQzc0aqTIjUZqpXI` on
+`team_74kVRvGdxVf5lHxYkBrjQdiv`**, the same project that carries the variable, whose only target is
+`production`. *Stale deployment:* no — redeploy #1 was created **6 seconds AFTER** the env change,
+and #2 after that.
+
+### STANDING FACTS, so this is never diagnosed again
+
+1. **NEVER MARK A FEATURE FLAG "SENSITIVE" IN VERCEL.** Sensitive is for secrets. On a flag it buys
+   nothing and costs the ability to verify it — **the blindness, not the wrong value, is what made
+   this take two days.** Secrets stay sensitive; booleans do not.
+2. **THE GATE IS READ AT REQUEST TIME, NOT INLINED AT BUILD TIME.** Proved from the built output:
+   the server bundles contain the literal `process.env.ORG_FILES_ENABLED` (2 occurrences, in
+   `files/upload-url/route.js` and `chunks/9109.js`) and the client bundles contain **0**. So a value
+   change needs **no code change** — **but it does need a NEW DEPLOYMENT**, because Vercel snapshots
+   a deployment's environment when the deployment is created. **Changing the variable alone changes
+   nothing that is already running.**
+3. **R2b's INSTRUMENT HAS THE SAME BLIND SPOT IT WAS BUILT TO CLOSE, and it points the other way.**
+   A Sensitive flag pulls as `[SENSITIVE]` → 11 chars → R2b reports *"SET BUT NOT \"true\""*. That is
+   **indistinguishable from a genuinely wrong value**, so R2b can produce a **false RED** it cannot
+   tell from a true one. It needs a third verdict — UNREADABLE — keyed on the value being exactly
+   `[SENSITIVE]`. Reported to Track X, not fixed here.
+
+**R2b's verdict today: PASS** — `ORG_FILES_ENABLED` and `AUTH_EMAIL_ENABLED` both `=== "true"`,
+asserted without the value being printed, in a file proved gitignored and deleted in a trap.
+
 ### What did not move, and did not move back
 
 **The real crew account is still Oct 1** — three days out again rather than twenty-five.
