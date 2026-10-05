@@ -105,6 +105,31 @@ Done-when is a week of field use, and it cannot precede the pilot it measures.**
 item) · and an office view of special trips. **A4.6's refusal is now built but has nothing to
 fire on: crews, crew_people, crew_memberships and work_order_crew_assignments are all 0.**
 
+### G5 acceptance case — assembled 2026-10-05 (one day out)
+
+**Full evidence: `docs/G5_ACCEPTANCE_CASE_2026-10-05.md`.** Every Done-when read from §5.4 today.
+
+| item | verdict |
+|---|---|
+| **A4.6** crew model | **MET** — refusal re-proved today by mutation test (PASS on the real object, FAIL on the mutant, mutant-reach gone). **The 10-01 "crews = 0" caveat is STALE: BMR now has 1 crew / 1 person / 1 membership / 1 assignment.** The refusal cannot be demonstrated on BMR's rows because its one member HAS a vehicle — correct, not a gap. |
+| **A4.2** special trips | **MET on "≤2 taps"** (summary + reason, nothing typed) **and on same-day office visibility** (proved cross-identity: field logs → `agency_admin` and `owner` both read it same day → a Material Matrix member reads 0). **NOT MET on the word "dashboard"** — no such surface; the office reads trips per work order. Second finding: the item describes `type` and `impact`, **neither column exists**, and the Done-when cannot see that. |
+| **A4.7** office upload + file permissions | **Write half MET as far as SQL reaches** — crew INSERT refused `42501` with the office's identical statement accepted as control, crew READ still works, DELETE predicate evaluates `field → false` / `agency_admin → true`. **DELETE could not be EXERCISED: `storage.protect_objects_delete` refuses every role, so my first "field delete refused" was the WRONG refusal** (RULE 11). **Clause 1 CANNOT BE PROVED FROM HERE: `org-files` holds 0 objects and `ORG_FILES_ENABLED`'s value is secret.** |
+
+**`ORG_FILES_ENABLED` NO LONGER ABSENT — created in Vercel production 2026-10-03 23:47:30 EDT**, ending
+the twelve-day absence recorded below. **Its value was NOT decrypted and cannot be verified from here**,
+and the code requires exactly `=== "true"`.
+
+**THE LOGIN MIS-ATTACHMENT IS FIXED.** `crew_people."Anderson Reyes"` carried Isaac's (`owner`) login on
+2026-10-04; it now carries the field account, **updated 2026-10-04 18:43:42 EDT**.
+
+**VERDICT: G5 cannot be accepted tomorrow as the three Done-whens are written, and is not blocked on a
+build.** The smallest remaining set is **three screen acts, all Jacob's, ~10 minutes**: open the office
+work order and report whether an upload control or the "isn't switched on yet" sentence shows · upload one
+file · open the job as Anderson and confirm the file is visible with no remove control. **PROPOSED CUT,
+raised today rather than on Oct 6: A4.2's "office dashboard" moves to November**, restated as "visible to
+the office the same day" — which is what shipped and what was proved. **Trigger: the day BMR runs two live
+trade work orders at once.**
+
 ### What did not move, and did not move back
 
 **The real crew account is still Oct 1** — three days out again rather than twenty-five.
