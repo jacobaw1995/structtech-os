@@ -247,3 +247,106 @@ and `work_order_crew_assignments` → `crews` → `crew_memberships` → `crew_p
 `assignee_ref` a foreign key" but **which of the two models is the product**, which is exactly the
 decision §6.6 filed as owed before A4 on 2026-08-25 — **and A4's gate is tomorrow.** Forty-one days
 open.
+
+---
+
+# THE ACCEPTANCE RUN — 2026-10-05, 17:0x EDT, Track S
+
+Run end to end after the A4.7 close. **Every verdict below names the query or the screen act that
+produced it. An item that could not be measured is UNDETERMINED, never PASS.**
+
+## A4.7 — **MET on both clauses**
+
+> **Done when:** roof data and photos load from the office and a crew role cannot delete them.
+
+**EVERY CLAIM VERIFIED BY JOIN, NOT BY EYE:**
+
+| claim | verdict | what was read |
+|---|---|---|
+| `org-files` held 0 objects before 2026-10-05 | **CONFIRMED** | `count(*) filter (where created_at < '2026-10-05')` = **0**; earliest `created_at` = 2026-10-05 |
+| holds 1 now | **CONFIRMED** | **1** |
+| name segment 1 = BMR's org_id | **CONFIRMED** | joined `organizations` → **"Brothers Metal Roofing"**, `9d32b5a9-e11e-401b-8fa7-969065b004ce` |
+| segment 3 = a `work_orders.id` **in that org** | **CONFIRMED** | joined `work_orders` → `d76d8664…`, `kind='trade'`, trade "Test Roofing", and **`w.org_id = o.id` evaluated `true` in the same row** |
+| segment 2 | **CONFIRMED** | `office-uploads` — one of the two the policy allows |
+| filename | **CONFIRMED** | `95721c6f-iron-operator-unit-one-pager.png` |
+| 937021 bytes | **CONFIRMED** | `937021` |
+| `image/png` | **CONFIRMED** | `image/png` |
+| created 2026-10-05 16:54:37 America/New_York | **CONFIRMED** | `2026-10-05 16:54:37` |
+
+*Unasked, and worth recording: the bucket is **private** (`storage.buckets.public = false`).*
+
+**ONE LIMIT ON THE "0 BEFORE" CLAIM, stated rather than left implied:** that instrument counts
+**surviving** objects. An object uploaded and deleted before 16:54:37 would be invisible to it. The
+claim is therefore "0 surviving objects before 2026-10-05", which is what the evidence supports.
+
+### Who observed each clause
+
+- **Write half — the office upload.** Observed by **Jacob, desktop browser, 2026-10-05 16:54:37 EDT**,
+  and the row it produced is the one verified above.
+- **Refusal half — a crew role cannot delete.** Observed by **Jacob on an iOS phone signed in as the
+  `field` role**: the same file renders on the job screen **with no remove control**.
+- **Both screens were observed and reported. No further glance is required and none should be
+  requested.**
+
+### Why a screen act was the only instrument that could grade the refusal half
+
+**SQL CANNOT GRADE IT.** `storage.protect_objects_delete` raises *"Direct deletion from storage
+tables is not allowed. Use the Storage API instead."* **for every role, including the owner's** — so a
+SQL `DELETE` as the field account is refused by a trigger that has nothing to do with the policy under
+test. Track S recorded on 2026-10-05 that grading that refusal as a pass would have certified the
+policy from an unrelated barrier (§7.1 RULE 11). The policy *expression* can be evaluated
+(`field → false`, `agency_admin → true`) and the INSERT path *can* be exercised (crew refused `42501`,
+office's identical statement accepted as control) — **but the DELETE path itself is reachable only
+through the Storage API, which means a browser, which means a person.** That is what rule 17 is for.
+
+**Independent corroboration of the crew's READ, measured as the field identity rather than reported:**
+`R8.1 PASS — crew #1 can open roof data / photos from the office: 1 file(s) visible to them.`
+
+## A4.2 — **MET on clause 1. NOT MET on clause 2 as written; MET on the clause as restated.**
+
+> **Done when:** logged in ≤2 taps and visible on the office dashboard the same day.
+
+- **≤2 taps — PASS.** Axis: the rendered controls in `SpecialTripPanel`. `<summary>` "Log a special
+  trip" = tap 1; the reason button = tap 2; nothing is typed. **2 taps from an open work order, 3 from
+  the job list**, which the Done-when does not disambiguate.
+- **Same-day office visibility — PASS, re-proved today rather than carried.** In one rolled-back
+  transaction: the `field` account logged a trip → **the office (`agency_admin`) read it back the same
+  day: 1** → **a Material Matrix member read 0**, which is the control that makes the read mean
+  something.
+- **"office dashboard" — FAIL.** Re-measured today: the only routes under `src/app` that read
+  `special_trips` are `w/[orgId]/coordination/[workOrderId]/page.tsx` and
+  `w/[orgId]/field/[workOrderId]/page.tsx`. **There is no dashboard.** Per the controller's cut
+  (§5.4 ruling 5) the clause is restated for the pilot as **"visible to the office the same day"**,
+  which passes.
+- **The item's described fields — `type` ABSENT, `impact` ABSENT**, `reason_code` present. Measured
+  today against `information_schema`. Ruled: `impact` is a real gap deferred to November; **`type` is
+  NOT a gap, because `reason_code` carries it** (§5.4 ruling 6).
+
+## A4.6 — **MET**
+
+> **Done when:** the scheduler refuses to assign a crew with no vehicle to a job requiring transport.
+
+- **The refusal is in the body of `assign_crew_to_work_order`** — `crew_has_no_vehicle`, re-read today:
+  **PRESENT**.
+- **Re-proved today by mutation test** (`scripts/pilot/crew-vehicle-fixture/run.sh`): PHASE 1 **PASS**
+  against what the database holds, PHASE 2 **FAIL on the mutant** ("ASSIGNED with
+  vehicle_state=no_vehicle"), PHASE 3 **mutant-reach GONE** — the mutant lands on the text the
+  database runs.
+- **The gate is `enforce_stage_gating`, re-read today as `false`** for BMR, which is the shipped
+  default and what §2.8 requires.
+- **BMR's real crew: crews 1 · crew_people 1 · memberships 1 · assignments 1 · `vehicle_state =
+  has_vehicle`.** So the refusal **cannot be demonstrated against BMR's own rows** — its one member
+  has a vehicle. That is the correct outcome, not a gap.
+
+## G5 verdict
+
+**ACCEPTED, on the cut recorded as §5.4 ruling 5.** Three of three kept items are MET: A4.6 and A4.7
+against their Done-whens as written, A4.2 against clause 1 as written and clause 2 as restated. **The
+only clause that fails is the word "dashboard"**, which is cut to November with an observable trigger.
+
+**Nothing here is UNDETERMINED.** The item that was UNDETERMINED yesterday — A4.7's DELETE half — is
+closed by a screen act, which is the only instrument that could close it.
+
+**Separately, and NOT part of G5: readiness is 11 PASS / 1 FAIL of 12. The one FAIL is R10 — Vercel
+plan `hobby`, 1 hour of runtime log retention and no log drains, so pilot-day evidence expires inside
+the hour it is produced.** That is G6's problem, not G5's, and it is on Jacob's list.

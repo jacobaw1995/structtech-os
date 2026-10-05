@@ -1,0 +1,8 @@
+{
+  "_comment": "Track S, 2026-10-05. Written to close R3, which left R4-R8 UNDETERMINED - five of twelve checks, and the five that ask what a crew member can actually reach. Every id below was READ FROM THE DATABASE, not supplied: BMR's organizations.id; and crewUserIds is the one auth identity attached to BMR's only crew person (crew_people.user_id for 'Anderson Reyes', whose org_members.role is 'field'), reached through crews 'Install Crew' -> crew_memberships -> crew_people. Ids only: no names, no emails, no secrets.",
+  "pilotOrgId": "9d32b5a9-e11e-401b-8fa7-969065b004ce",
+  "productionUrl": "https://os.structtek.com",
+  "vercelScope": "jacob-walkers-projects",
+  "vercelProject": "structtech-os",
+  "crewUserIds": ["e1cd8efd-574f-4d6e-9007-f3c31edad0e9"]
+}
