@@ -28,6 +28,11 @@ import { todayInNewYork } from "@/lib/home/model";
 // COUNTED — "nine trips back for missing material last month" is a number
 // somebody acts on, and a day either side of a month boundary moves it.
 
+function optionalStr(formData: FormData, key: string): string | undefined {
+  const v = formData.get(key);
+  return typeof v === "string" && v.trim().length > 0 ? v : undefined;
+}
+
 function str(formData: FormData, key: string): string {
   const v = formData.get(key);
   return typeof v === "string" ? v : "";
@@ -86,6 +91,13 @@ export async function recordSpecialTrip(formData: FormData) {
     p_work_order_id: workOrderId,
     p_reason_code: reason,
     p_occurred_on: todayInNewYork(),
+    // U-W1.54 — ONE ARGUMENT. S's function returns the ORIGINAL trip's id when
+    // it has seen this token, so a resend of a request whose answer was lost
+    // records nothing and still reads as recorded. optionalStr, so a form that
+    // somehow sends nothing sends NULL — which the function documents as "no
+    // token, never deduplicated", i.e. yesterday's behaviour unchanged rather
+    // than a blank string posing as a token.
+    p_client_token: optionalStr(formData, "client_token"),
   });
 
   if (error) redirect(jobHref(orgId, workOrderId, classifyFieldError(error)));
