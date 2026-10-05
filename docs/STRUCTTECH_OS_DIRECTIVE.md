@@ -755,6 +755,14 @@ this state holding a sentence with no action in it.** **FIX THE MESSAGE, NOT THE
 it alongside **G10 (second contractor tenant, Oct 29)** — the first time a tenant other than BMR
 actually walks into it, which is when the fix can be **proved instead of imagined**.
 
+**3 · RATIFIED: "every trade work order requires transport" IS A SUBSTITUTION, recorded as one.**
+A4.6's Done-when says *"a job requiring transport"* and **no column anywhere records that** — 0
+hits for `transport|requires_vehicle|needs_vehicle` across every table. Track S substituted "every
+trade work order", because every one is at a site address and a crew with no vehicle reaches none
+of them. **TRIGGER FOR WHEN IT STOPS HOLDING: the day a trade work order exists that nobody drives
+to** — an in-shop fabricator, or a tenant whose trades do not travel. On that day the qualifier
+becomes a real column and A4.6's refusal needs it.
+
 **4 · CREW SCOPING STAYS OFF FOR THE PILOT.** *(Controller ruling, 2026-10-05 — asked three times and
 now decided rather than asked again.)* BMR has **one crew and one job**, so scoping solves a problem
 that does not exist at that size, and switching it on adds a setup step that can fail on pilot
@@ -771,14 +779,6 @@ outright. **Jacob fixed it at 2026-10-04 18:43:42 EDT** — the row now carries 
 transaction: the roofer now sees 1 job, "The Contracting Company", instead of a refusal.** The
 ruling's other three reasons stand on their own; the cited danger does not, and a ruling resting on
 a stale risk is the thing RULE 21 exists to catch.
-
-**3 · RATIFIED: "every trade work order requires transport" IS A SUBSTITUTION, recorded as one.**
-A4.6's Done-when says *"a job requiring transport"* and **no column anywhere records that** — 0
-hits for `transport|requires_vehicle|needs_vehicle` across every table. Track S substituted "every
-trade work order", because every one is at a site address and a crew with no vehicle reaches none
-of them. **TRIGGER FOR WHEN IT STOPS HOLDING: the day a trade work order exists that nobody drives
-to** — an in-shop fabricator, or a tenant whose trades do not travel. On that day the qualifier
-becomes a real column and A4.6's refusal needs it.
 
 ---
 

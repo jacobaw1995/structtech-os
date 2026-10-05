@@ -207,3 +207,43 @@ trade work orders at once**, which is the first moment per-work-order visibility
 **If that cut is accepted, G5 turns on nothing but Jacob's three screen acts, and the honest statement
 of the gate is: not blocked on a build.** If it is not accepted, G5 slips — and the slip is one
 surface, not a stage, so it is a day or two and not the three that would force a re-dating.
+
+---
+
+## A4 — the November items, verified rather than re-recorded (report only)
+
+**Three rulings of record sit in §5.4 from 2026-10-02, with triggers and no dates. All three are
+present and unchanged; nothing was re-recorded.** Today's crew-scoping ruling was appended as **4**.
+
+| # | item | trigger | state today |
+|---|---|---|---|
+| 1 | **Split `enforce_stage_gating` into two keys** — a vehicle check is dispatch validation, not stage gating | **before any tenant turns it ON** | No tenant has it on (BMR reads `false`). Crews are no longer 0, but the coupling still has no live consequence. |
+| 2 | **"Lead Control Center is not configured for this workspace" is an onboarding dead end — fix the MESSAGE, not the refusal** | **alongside G10, the second contractor tenant, Oct 29** | Unchanged. Still the first sentence a new tenant meets, still with no action in it. |
+| 3 | **"Every trade work order requires transport" is a ratified SUBSTITUTION** | **the day a trade work order exists that nobody drives to** | Unchanged. 0 columns matching `transport｜requires_vehicle｜needs_vehicle`. |
+| 4 | **Crew scoping stays OFF for the pilot** *(new, 2026-10-05)* | **after G6, or the day BMR sends more than one crew to more than one job** | Recorded today, with the note that its headline risk was closed on 2026-10-04. |
+
+### The brief's third item is not one of these, and the thing it names is live
+
+**`assignee_ref` is NOT a recorded November ruling.** It is recorded in two other places — the
+**2026-08-17** A1.2 decision ("the pairing rule … is what makes the **A4.6 upgrade to a resolvable
+reference** safe") and the **2026-08-25** §6.6 entry filing the per-user-vs-org assignment decision
+as **owed BEFORE A4**. Those are a decision owed and a planned upgrade, not a ruling with a trigger.
+
+**And it stopped being a tidiness item at some point nobody logged.** Measured today:
+
+- `work_orders.assignee_ref` is **`text`**, `assignee_type` is `text` CHECK-constrained to
+  `crew｜department｜subcontractor` — **the schema cannot express "assigned to this person"**.
+- It now holds real values: **`crew`/"Anderson" ×3, `crew`/"Osman" ×1, `subcontractor`/"Rollin True"
+  ×1**, and 7 rows with both null.
+- Meanwhile `crew_people` holds **"Anderson Reyes"** and `crews` holds **"Install Crew"**.
+
+**So the same human is "Anderson" in `assignee_ref` and "Anderson Reyes" in `crew_people`, and
+nothing links them** — `assignee_type='crew'` names a crew that is a string while a real `crews` row
+exists beside it. Two parallel assignment models are live at once: the text pair on `work_orders`,
+and `work_order_crew_assignments` → `crews` → `crew_memberships` → `crew_people`, which is what
+`fetch_field_jobs` and the vehicle refusal actually read.
+
+**Reported, not fixed, and worth a ruling rather than a migration:** the question is not "make
+`assignee_ref` a foreign key" but **which of the two models is the product**, which is exactly the
+decision §6.6 filed as owed before A4 on 2026-08-25 — **and A4's gate is tomorrow.** Forty-one days
+open.
