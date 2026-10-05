@@ -207,7 +207,16 @@ try {
     insert into public.tenant_modules values ('${ORG_QUIET}', 'field', true, '{}');
     insert into public.org_members values ('${ORG_QUIET}','${CREW_QUIET}','field','{}');
     insert into public.field_events (org_id, actor_id, event, work_order_id, outcome, duration_ms, occurred_at) values
-      ('${ORG_QUIET}','${CREW_QUIET}','signed_in',null,null,null,'${DAY} 13:00-04');`);
+      ('${ORG_QUIET}','${CREW_QUIET}','signed_in',null,null,null,'${DAY} 13:00-04');
+    -- A DEDUPLICATED RESEND, 2026-10-05. Track S's 20261004213144 makes a repeat
+    -- tap return the ORIGINAL check_in's id without inserting a second row, while
+    -- the app still records a check_in_saved EVENT per attempt — honest, because
+    -- it counts attempts answered. The worry is that an adoption counter reading
+    -- those events drifts high the first time a crew retries on bad signal.
+    -- Seeded here so the claim is measured rather than argued: a second
+    -- check_in_saved for the SAME actor, work order and subject_ref, 40 s later.
+    insert into public.field_events (org_id, actor_id, event, work_order_id, subject_ref, outcome, occurred_at) values
+      ('${ORG}','${CREW_USED}','check_in_saved','${WO}','11111111-1111-1111-1111-111111111111','ok','${DAY} 14:00:40-04');`);
   const calQ = (sql) => psql("cal", `begin read only; ${sql}; rollback;`).replace(/\n?(BEGIN|ROLLBACK)\n?/g, "");
   console.log(report(calQ, ORG, "CALIBRATION TENANT", DAY, { calibrating: true }));
   // Each expectation is a behaviour that is definitely in the seed above.
@@ -261,6 +270,13 @@ try {
     ["and it RENDERS as undefined, not as a percentage", (() => { const l = report(calQ, ORG_QUIET, "QUIET", DAY, { calibrating: true }).split("\n").find((x) => x.includes("completion rate")); return Boolean(l) && l.includes("UNDEFINED") && !/\d+(\.\d+)?%\s+\(/.test(l); })()],
     ["time-to-complete with no pairs is UNDEFINED, not 0 minutes", isUndefined(timeToComplete(calQ, ORG_QUIET, DAY))],
     // ...and the converse, so "always print UNDEFINED" cannot pass either:
+    // THE DEDUP DRIFT, SIZED. Every one of these runs against a fixture that
+    // CONTAINS a duplicate check_in_saved (seeded above). If any counter moved,
+    // these numbers would differ from the single-event case.
+    ["a duplicate check_in_saved does not move completion rate", completionRate(calQ, ORG, DAY, c.scheduled).pct === 100],
+    ["a duplicate check_in_saved does not move 'recorded'", funnel(calQ, ORG, DAY, c.crew).recorded.n === 1],
+    ["a duplicate check_in_saved does not move time-to-complete", timeToComplete(calQ, ORG, DAY).median === 660],
+    ["the duplicate IS present, so the three above are not vacuous", Number(calQ(`select count(*) from public.field_events where org_id='${ORG}' and event='check_in_saved'`).trim()) === 2],
     ["a real denominator with a zero numerator IS 0%, not undefined", (() => { const r = completionRate(calQ, ORG, "2026-10-09", containers(calQ, ORG, "2026-10-09").scheduled); return isUndefined(r) === false ? r.pct === 0 : false; })()],
   ];
   console.log("\nCALIBRATION — can each counter report behaviour that is definitely there?");

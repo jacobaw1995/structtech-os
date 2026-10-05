@@ -21,7 +21,9 @@
 // exit 0 READY (every check PASS) · 1 NOT READY (any FAIL) · 2 UNDETERMINED (no FAIL,
 // but at least one check could not be answered)
 
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, writeFileSync, unlinkSync, statSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { q, dbAvailable } from './db.mjs';
 
@@ -57,6 +59,48 @@ try {
     record('R2', missing.length ? 'FAIL' : 'PASS', 'production env names', missing.length ? `missing: ${missing.join(', ')}` : `present: ${REQUIRED_ENV.join(', ')}`);
   }
 } catch (e) { record('R2', 'UNDETERMINED', 'production env names', `vercel CLI unavailable (${e.code || e.name})`); }
+
+// ── R2b A FLAG'S VALUE, NOT ONLY ITS NAME ───────────────────────────────────
+// 2026-10-05: ORG_FILES_ENABLED was set in production for the first time in 19
+// days, and R2 went green — while the feature stayed DARK, because the app tests
+// `process.env.X === "true"` and the stored value is not that string in any
+// casing. A name-only check cannot see this, so for eleven days R2 measured the
+// one thing that had moved and would have reported READY on a feature nobody
+// could use.
+//
+// A FALSE GREEN IS WORSE THAN A RED. A red is a task; a green is a decision to
+// stop looking. So every flag whose app semantics are `=== "true"` now has its
+// VALUE verified here.
+//
+// THE VALUE IS NEVER PRINTED AND NEVER KEPT. It is pulled to a temp file, read,
+// asserted, and the file is overwritten and deleted in a finally — including on
+// the error path, because a secrets file left behind by a crashed check is a
+// worse bug than the one this check exists to find. Only the verdict is reported.
+const BOOLEAN_FLAGS = ['ORG_FILES_ENABLED', 'AUTH_EMAIL_ENABLED'];
+const tmpEnv = path.join(tmpdir(), `readiness-env-${process.pid}-${Date.now()}`);
+try {
+  execFileSync('vercel', ['env', 'pull', tmpEnv, '--environment=production', '--yes', '--scope', cfg.vercelScope],
+    { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 60000 });
+  const lines = readFileSync(tmpEnv, 'utf8').split('\n');
+  const wrong = [];
+  const absent = [];
+  for (const key of BOOLEAN_FLAGS) {
+    const line = lines.find((l) => l.startsWith(`${key}=`));
+    if (!line) { absent.push(key); continue; }
+    // Strip surrounding quotes the dotenv writer may add; compare what the app compares.
+    const value = line.slice(key.length + 1).trim().replace(/^["']+|["']+$/g, '');
+    if (value !== 'true') wrong.push(`${key} (${value.length} chars, not the string "true")`);
+  }
+  if (absent.length && !wrong.length) record('R2b', 'FAIL', 'flag VALUES are the string "true"', `not set: ${absent.join(', ')}`);
+  else if (wrong.length) record('R2b', 'FAIL', 'flag VALUES are the string "true"',
+    `SET BUT NOT "true", so the feature is OFF while R2 reads green: ${wrong.join('; ')}`);
+  else record('R2b', 'PASS', 'flag VALUES are the string "true"', `${BOOLEAN_FLAGS.join(', ')} all === "true"`);
+} catch (e) {
+  record('R2b', 'UNDETERMINED', 'flag VALUES are the string "true"', `could not pull production env (${e.code || e.name})`);
+} finally {
+  try { writeFileSync(tmpEnv, '\0'.repeat(statSync(tmpEnv).size)); } catch { /* never existed */ }
+  try { unlinkSync(tmpEnv); } catch { /* already gone */ }
+}
 
 // ── R3.. crew — named, and checked AS each person ───────────────────────────
 const crew = Array.isArray(cfg.crewUserIds) ? cfg.crewUserIds.filter((id) => UUID.test(id)) : [];
