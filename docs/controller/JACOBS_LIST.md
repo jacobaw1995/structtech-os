@@ -22,9 +22,28 @@ report is not an open item until you check the commit it came with.**
 | 2 | **Vercel Pro, $20/mo.** Four distinct costs, not one: **1 hour** of runtime log retention · **no log drains** · non-commercial Hobby terms while serving a paying client · **no Vercel Cron**. | **Plan is `hobby`**, read from the Vercel API's `billing.plan` by `scripts/pilot/pilot-readiness.mjs`, which records **`FAIL R10`** on exactly that value. **This is now pilot-relevant, not just exposure: pilot-day evidence expires inside the hour it is produced**, so a question asked Wednesday evening about Wednesday morning has no logs to answer it. | **Before Wed Oct 7** | G6 · pilot · R10 |
 | 3 | **Make `github.com/jacobaw1995/structtech-os` private.** `CROSS_TENANT_AUDIT_20260901.md` — six unfixed authorization defects, function names, the project ref — was publicly readable for ~24 hrs before the 9/02 fix. Also public: the proving queries, the incident history, 107 archived migrations. **Check Settings → Pages first** — a `CNAME` sits at the repo root and Pages on a private repo needs GitHub Pro. | **Still public**: `gh repo view` returns `{"isPrivate": false, "visibility": "PUBLIC"}`. | overdue | none — worsens with every push |
 | 4 | **Stripe account under the StructTech entity.** The existing account is Material Matrix's; `create-payment-intent` and `stripe-webhook` are theirs. SCOPE §3 keeps billing separate, so a second account is required. Business verification is usually 2 days, occasionally weeks. | `docs/GATES.md` carries **G11 · BLOCKED — NO DATE**, and the ruling that the gate gets a date the day the account exists, counted forward from there. | **Sep 25 — overdue, and not re-dated** | **G11 · BLOCKED, NO DATE** |
-| 5 | **Healthchecks margin — 38 minutes.** The GitHub Actions schedule drifts, and the monitor's grace period is what absorbs it. | `scripts/pilot/READINESS_LOG.md:410`, 23 runs since 09-30: **median 5.61 h · p90 6.96 h · max 7.37 h · 0 failures**, against an **8 h** threshold. **8 − 7.37 = 0.63 h = 38 minutes of margin.** The median has *worsened* (4.62 h → 5.61 h). **One more drift of that size and the monitor cannot report on Oct 7 at all** — and a monitor whose silence depends on a scheduler being punctual is measuring the scheduler, not the site. | **Before Wed Oct 7** | G6 · pilot evidence |
+| 5 | **🔴 SUPABASE PRO, $25/mo — RULED KEEP 2026-10-05, AND IT IS THE ONLY ITEM ON THIS FILE WITH NO UNDO.** A paying client's data sits in a **shared** free-plan Postgres with **no backups**, alongside a second project's schema. | **The migration count is NOT 66 — that was a nine-day window figure from 2026-09-22 and it has been carried ever since. MEASURED TODAY: the shared ledger holds 265 rows — 107 Material Matrix's (`wh_%`), 158 ours.** September alone took 112, August 94. **THE PLAN ITSELF IS NOT MEASURABLE FROM THIS SESSION** and is reported as such rather than asserted: the Supabase MCP is disconnected and no management token is available. Indicative only, from `pg_settings`: `max_connections = 60`, `shared_buffers = 224 MB`, PG 17.6 — consistent with a small instance, **not proof of a tier**. The instrument that would settle it is the Supabase dashboard's billing page or a management-API read, and **a human glance at it is one of the cheapest checks on this file**. | **TODAY — the pilot is TOMORROW** | G6 · pilot · and everything after it |
+| 6 | **Healthchecks margin — 38 minutes.** The GitHub Actions schedule drifts, and the monitor's grace period is what absorbs it. | `scripts/pilot/READINESS_LOG.md:410`, 23 runs since 09-30: **median 5.61 h · p90 6.96 h · max 7.37 h · 0 failures**, against an **8 h** threshold. **8 − 7.37 = 0.63 h = 38 minutes of margin.** The median has *worsened* (4.62 h → 5.61 h). **One more drift of that size and the monitor cannot report on Oct 7 at all** — and a monitor whose silence depends on a scheduler being punctual is measuring the scheduler, not the site. | **Before Wed Oct 7** | G6 · pilot evidence |
 
 ---
+
+### Why item 5 is urgent, which was not stated when it was raised
+
+**TOMORROW — Wednesday 2026-10-07 — is the first day that database receives real field records.**
+Until now everything in it is a build artifact, a migration fixture or a 946-row import that exists
+elsewhere. **From tomorrow it holds a roofer's check-ins, hours, blockers, special trips and photos
+of a real customer's roof** — facts that exist nowhere else and cannot be re-derived. **The window
+in which there is something to lose opens in ONE day, not two:** today is Tuesday 2026-10-06,
+computed from `TZ=America/New_York date`, and the controller's "two days" was written against
+2026-10-05.
+
+**AND NOTHING WATCHES THIS. The controller's statement is CORRECT, verified rather than accepted:**
+`scripts/pilot/pilot-readiness.mjs` records exactly seven check ids — R1, R2, R2b, R3, R9, R10, R11
+(R4–R8 are emitted per crew member) — and **not one of them mentions a plan, a tier, a backup or
+PITR.** The single grep hit for "backup" is a comment about `field_events`. So **the one item here
+with no undo is also the only one with no instrument**: twelve checks can read green on the morning
+of the day the data becomes irreplaceable. Rule 13's shape — closed by an absence, and an absence
+has no owner and no alarm.
 
 ## CLOSED 2026-10-05 — removed from the open list
 
@@ -53,11 +72,6 @@ report is not an open item until you check the commit it came with.**
 here rather than destroyed, because a record removed is a record that cannot be re-raised, and **one
 of them is the only item on this file with no undo.** Each needs a ruling to close or to return.
 
-- **🔴 Supabase Pro, $25/mo — FLAGGED BACK TO THE CONTROLLER RATHER THAN DROPPED.** A client's data
-  sits in a shared free-plan database **with no backups**, 66 migrations deep in nine days, roughly
-  half of them Material Matrix's with no file in this repo. Open since 2026-09-17. **Deleting this
-  two days before a pilot is the one removal on this list that could not be undone if it turned out
-  to matter.** Returned for an explicit keep-or-close.
 - **Catalogue browser check-out** (`docs/CHECKOUT_A2_CATALOG_2026-08-26.md`, 12 steps) — G2, overdue.
 - **Resend account** — A6.1 / A6.6.
 - **GitHub Actions schedule drift as its own defect** — distinct from item 5's margin: the 09-28

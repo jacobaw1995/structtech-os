@@ -105,6 +105,40 @@ Done-when is a week of field use, and it cannot precede the pilot it measures.**
 item) · and an office view of special trips. **A4.6's refusal is now built but has nothing to
 fire on: crews, crew_people, crew_memberships and work_order_crew_assignments are all 0.**
 
+### THE CALENDAR AS IT NOW STANDS — every date and day label verified 2026-10-06, not accepted
+
+**Today is Tuesday 2026-10-06**, from `TZ=America/New_York date`. **Every day label in the table
+above was checked against the actual weekday and every one is correct** — the controller's worry
+("I have had the day label wrong three times") does not apply to this file or to the dates it was
+given today.
+
+| what | date | day — claimed vs actual | from today |
+|---|---|---|---|
+| **G5 · A4 Field accepted** | Tue Oct 6 | ✅ **ACCEPTED 2026-10-05**, one day early | — |
+| **PILOT DAY 1** | **Wed 2026-10-07** | Wed / **Wed** ✓ | **+1 day — tomorrow** |
+| **G6 · field pilot closes** | **Tue 2026-10-13** | Tue / **Tue** ✓ | +7 days — **the next gate** |
+| G7 · invoicing live | Fri 2026-10-16 | Fri / **Fri** ✓ | +10 |
+| G8 · Phase A complete | Sat 2026-10-24 | Sat / **Sat** ✓ | +18 |
+| G9 · Phase B complete | Sun 2026-10-25 | Sun / **Sun** ✓ | +19 |
+| G10 · second contractor tenant | Thu 2026-10-29 | Thu / **Thu** ✓ | +23 |
+| **G12 · MVP LAUNCH** | **Sat 2026-10-31** | Sat / **Sat** ✓ | +25 |
+| **G11 · Stripe billing live** | **BLOCKED — NO DATE** | — | unchanged |
+
+**G6 is the next dated gate, and the pilot it closes starts tomorrow.**
+
+### READINESS AFTER `pilot.config.json` — 11 PASS / 1 FAIL / 0 UNDETERMINED of 12
+
+**Before: 5 PASS · 2 FAIL (R3, R10) · 5 UNDETERMINED (R4–R8). After: 11 PASS · 1 FAIL · 0
+UNDETERMINED, 12 of 12 ANSWERED.** The five that moved were the five that ask what a crew member can
+actually reach, and they were unanswerable because a config file did not exist.
+
+**R10 IS THE ONLY REMAINING FAIL, AND IT IS A PURCHASE, NOT CODE.** Vercel plan `hobby` → 1 hour of
+runtime log retention and no log drains. **No commit can close it.** It is item 2 on
+`docs/controller/JACOBS_LIST.md`.
+
+*(There is no R12 in this build. The twelve checks are R1, R2, **R2b**, R3, R4–R8, R9, R10, R11 —
+R2b is what makes the count twelve. CLAUDE.md 31.)*
+
 ### G5 acceptance case — assembled 2026-10-05 (one day out)
 
 **Full evidence: `docs/G5_ACCEPTANCE_CASE_2026-10-05.md`.** Every Done-when read from §5.4 today.
