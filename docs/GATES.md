@@ -43,7 +43,7 @@ table, the external-reference note) is the **capability**, and capabilities are 
 | G2 | Sep 10 | A2 Materials & Purchasing accepted |
 | G3 | Sep 14 | Platform debt clear |
 | G4 | ~~Sep 20~~ → **November** | A3 Standards accepted — **CUT 2026-09-13** |
-| G5 | **Tue Oct 6** | A4 Field Execution accepted ⚠ TRIPWIRE |
+| G5 | **Tue Oct 6** | A4 Field Execution accepted — **✅ ACCEPTED 2026-10-05**, one day early, on the cut |
 | G6 | **Tue Oct 13** | Field pilot closes ⚠ TRIPWIRE |
 | G7 | **Fri Oct 16** | Invoicing live |
 | **G11** | **BLOCKED — NO DATE** | Stripe subscription billing live. **Unchanged by the revert.** |
@@ -122,7 +122,13 @@ and the code requires exactly `=== "true"`.
 **THE LOGIN MIS-ATTACHMENT IS FIXED.** `crew_people."Anderson Reyes"` carried Isaac's (`owner`) login on
 2026-10-04; it now carries the field account, **updated 2026-10-04 18:43:42 EDT**.
 
-**VERDICT: G5 cannot be accepted tomorrow as the three Done-whens are written, and is not blocked on a
+**✅ SUPERSEDED THE SAME DAY — G5 WAS ACCEPTED 2026-10-05, ONE DAY EARLY.** The three screen acts
+below were done by Jacob within the hour: the office upload landed at **16:54:37 EDT** and the same
+file was then seen on a `field`-role phone **with no remove control**. A4.7 is MET on both clauses.
+The verdict as it stood at 14:0x is kept below, unaltered, because a superseded verdict with its
+timestamp is a record and a deleted one is not.
+
+**WAS (14:0x EDT): G5 cannot be accepted tomorrow as the three Done-whens are written, and is not blocked on a
 build.** The smallest remaining set is **three screen acts, all Jacob's, ~10 minutes**: open the office
 work order and report whether an upload control or the "isn't switched on yet" sentence shows · upload one
 file · open the job as Anderson and confirm the file is visible with no remove control. **PROPOSED CUT,
@@ -138,10 +144,28 @@ trade work orders at once.**
 **2026-10-05 16:54:37 EDT**. **That is A4.7's clause 1 observed for the first time**, and it
 replaces "0 objects, in every org."
 
-**THE CAUSE WAS TWO THINGS INTERLOCKED, not one.** The variable was created on **2026-10-03
-23:47:30 EDT as a Vercel *Sensitive* variable**, and a Sensitive variable is **write-only — nobody
-can read it back: not the dashboard, not the API, not `vercel env pull`.** So when the value was
-wrong, **nothing could see that it was wrong**, and it survived two corrections.
+**THE CAUSE WAS THE TYPE. THE VALUE BEFORE 2026-10-05 16:52:48 EDT IS UNKNOWN AND PERMANENTLY
+UNKNOWABLE.** *(Controller ruling, 2026-10-05, correcting Track S's own report the same day.)* The
+variable was created on **2026-10-03 23:47:30 EDT as a Vercel *Sensitive* variable**, and a Sensitive
+variable is **write-only: nobody can read it back — not the dashboard, not the API, not
+`vercel env pull`.**
+
+**UNREADABLE MEANS UNKNOWN IN BOTH DIRECTIONS, AND TRACK S'S FIRST WRITE-UP BROKE ON EXACTLY THAT.**
+It said the value "was wrong until 16:52" and, in the same paragraph, that "because it was Sensitive,
+nothing could see that it was wrong." **Those two sentences cancel.** If nothing could read it, then
+"it was wrong" is as unearned as "it was right all along" — and both readings were in fact taken on
+this one variable within a day of each other, each by a different track, neither measurable.
+
+**AND THE 16:46:02 REDEPLOY CANNOT BREAK THE TIE EITHER, because 6 seconds is inside the race.** A
+deployment snapshots its environment when it is **created**; that deployment was created **6 seconds
+after** the 16:45:56 env write. A correct value that lost the race and a wrong value are **both live
+explanations** and neither can be eliminated.
+
+**THE ONE THING THAT WOULD HAVE DISCRIMINATED, AND WHY IT DOES NOT EXIST.** Between the 10-03 23:47
+write and the 10-05 16:45 write there were **five production deployments, hours apart — no race** —
+so a *screen* observed dark in that window would have settled it. **No such observation was ever
+recorded.** The feature's darkness was reported, not dated, and darkness is a property of the
+composite (value × deployment × type), never of the value alone. So the value stays UNKNOWN.
 
 **`vercel env pull` writes the literal `[SENSITIVE]` for such a variable. `[SENSITIVE]` is exactly
 11 characters, contains 0 lowercase letters, and contains no "true" in any casing** — which is,
@@ -169,15 +193,30 @@ and #2 after that.
 ### STANDING FACTS, so this is never diagnosed again
 
 1. **NEVER MARK A FEATURE FLAG "SENSITIVE" IN VERCEL.** Sensitive is for secrets. On a flag it buys
-   nothing and costs the ability to verify it — **the blindness, not the wrong value, is what made
-   this take two days.** Secrets stay sensitive; booleans do not.
+   nothing and costs the ability to verify it. **The blindness is the cause; "the wrong value" is a
+   story nobody could have checked.** Secrets stay sensitive; booleans do not.
 2. **THE GATE IS READ AT REQUEST TIME, NOT INLINED AT BUILD TIME.** Proved from the built output:
    the server bundles contain the literal `process.env.ORG_FILES_ENABLED` (2 occurrences, in
    `files/upload-url/route.js` and `chunks/9109.js`) and the client bundles contain **0**. So a value
    change needs **no code change** — **but it does need a NEW DEPLOYMENT**, because Vercel snapshots
    a deployment's environment when the deployment is created. **Changing the variable alone changes
    nothing that is already running.**
-3. **R2b's INSTRUMENT HAS THE SAME BLIND SPOT IT WAS BUILT TO CLOSE, and it points the other way.**
+3. **A REDEPLOY FIRED SECONDS AFTER AN ENV WRITE IS A RACE, NOT A DEPLOY.** Vercel snapshots the
+   environment when a deployment is **CREATED**. **Wait for the env write to be acknowledged, then
+   create the deployment, then verify the running deployment's SHA — never infer from ordering
+   alone.** Six seconds separated the 16:45:56 write from the 16:46:02 deployment, and that gap is
+   why the whole episode has no determinable cause on the value axis. The wrong-value framing would
+   have buried this, because a wrong value needs no race to explain anything.
+4. **AN IGNORE RULE CANNOT HIDE A TRACKED FILE. IT CAN ONLY HIDE ITS SUCCESSOR.** *(Correcting Track
+   S, same day.)* `vercel link` appended `.env*` to `.gitignore`, broader than the existing
+   `.env*.local`. Track S reported that this "would silently hide `.env.local.example` from a fresh
+   clone." **That is false.** `.env.local.example` is in the index — verified with
+   `git ls-files --error-unmatch .env.local.example`, exit 0 — and **an ignore rule has no effect on
+   anything already tracked**; a fresh clone gets it. **The revert was still right, for a different
+   reason:** the rule would silently skip **the next** example file, or that one if it is ever
+   deleted and re-added. The defect was in the reasoning, not the action, which is the easier of the
+   two to leave uncorrected.
+5. **R2b's INSTRUMENT HAS THE SAME BLIND SPOT IT WAS BUILT TO CLOSE, and it points the other way.**
    A Sensitive flag pulls as `[SENSITIVE]` → 11 chars → R2b reports *"SET BUT NOT \"true\""*. That is
    **indistinguishable from a genuinely wrong value**, so R2b can produce a **false RED** it cannot
    tell from a true one. It needs a third verdict — UNREADABLE — keyed on the value being exactly
@@ -215,7 +254,7 @@ cannot reach it.
 | **G4 · A3 Standards accepted** | **CUT. DEFERRED TO NOVEMBER** — controller decision 2026-09-13, recorded here 2026-09-25. Not a miss. See below. | Standards & checklists: **0 shipped, 7 planned** of 7. Verified independently 2026-09-25 |
 | G2 · Sep 10 · A2 accepted | Contested — **re-derived from live objects 2026-09-25**, see §G2 below | Materials & purchasing: **1 shipped, 2 in progress, 3 planned** (6 rows). **MY 2026-09-23 FIGURE IN THIS TABLE WAS WRONG** — it said 0 shipped and 4 rows. Three of the six rows are A2.4/A2.5/A2.6, which LEFT A2 on 2026-08-29, so the section is not A2's denominator |
 | G3 · Sep 14 · Platform debt clear | Contested | Platform / multi-tenant: 1 planned, 0 shipped |
-| **G5 · Oct 6 · A4 Field accepted** ⚠ | **At risk: 13 days for 8 items, none shipped** | Field (crew): **0 shipped, 1 in progress, 7 planned** |
+| **G5 · Oct 6 · A4 Field accepted** | **✅ ACCEPTED 2026-10-05** (one day early) | **A4.6 MET** (refusal re-proved by mutation test; BMR crew 1/1/1/1) · **A4.7 MET on both clauses** (office upload observed by Jacob 16:54:37 EDT, file verified by join; crew-role phone shows the file with no remove control — **SQL cannot grade this half**, `storage.protect_objects_delete` fires for every role) · **A4.2 MET** on ≤2 taps and on same-day office visibility, with **"office dashboard" CUT to November** (§5.4 ruling 5). Evidence: `docs/G5_ACCEPTANCE_CASE_2026-10-05.md` |
 | G6 · Oct 13 · pilot closes ⚠ | Blocked on Jacob's Oct 1 item | No real crew account exists; the only `field` login is the synthetic one in the disposable tenant |
 | G7 · Oct 16 · Invoicing live | At risk | Invoicing & payments: 0 shipped, 5 planned |
 | G11 · **NO DATE** · Stripe billing live | Blocked on Jacob's Sep 25 item | Nothing in the schema for subscriptions; Stripe account not yet created |
