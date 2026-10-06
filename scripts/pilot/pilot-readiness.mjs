@@ -49,7 +49,11 @@ try {
 
 // ── R2 production configuration present, by NAME ────────────────────────────
 // ORG_FILES_ENABLED is what turns the office roof-data section on (A4.7).
-const REQUIRED_ENV = ['ORG_FILES_ENABLED', 'AUTH_EMAIL_ENABLED', 'RESEND_API_KEY', 'EMAIL_FROM'];
+// 2026-10-06: the two NEXT_PUBLIC_SUPABASE_* keys were named by NO readiness item
+// at all, while production provably cannot build a Supabase client without them —
+// so deleting either would have taken the whole app down with every check green.
+const REQUIRED_ENV = ['ORG_FILES_ENABLED', 'AUTH_EMAIL_ENABLED', 'RESEND_API_KEY', 'EMAIL_FROM',
+  'NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_ANON_KEY'];
 try {
   const out = execFileSync('vercel', ['env', 'ls', 'production', '--scope', cfg.vercelScope], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 60000 });
   const names = new Set(out.split('\n').map((l) => l.trim().split(/\s+/)[0]).filter((w) => /^[A-Z][A-Z0-9_]+$/.test(w)));
@@ -102,6 +106,14 @@ try {
 // the error path, because a secrets file left behind by a crashed check is a
 // worse bug than the one this check exists to find. Only the verdict is reported.
 const BOOLEAN_FLAGS = ['ORG_FILES_ENABLED', 'AUTH_EMAIL_ENABLED'];
+// R2 CHECKS NAMES. THAT IS WHY R2b EXISTS, AND WHY THESE TWO BELONG HERE TOO.
+// R2 reported PASS on 2026-10-05 for a flag whose value the app rejected — a
+// present name says nothing about a usable value. These two are not booleans, so
+// they cannot join BOOLEAN_FLAGS, but they have the weaker requirement that still
+// matters: the value must be READABLE. Both are typed Sensitive in Vercel today,
+// so this check reports them UNREADABLE — which is the truth, and is the point:
+// no check could previously say anything about them at all.
+const READABLE_REQUIRED = ['NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_ANON_KEY'];
 // Exactly what `vercel env pull` writes for a variable typed Sensitive. Compared
 // as a literal, never pattern-matched: see the note above.
 const SENSITIVE_PLACEHOLDER = '[SENSITIVE]';
@@ -121,17 +133,24 @@ try {
     if (value === SENSITIVE_PLACEHOLDER) unreadable.push(key);
     else if (value !== 'true') wrong.push(`${key} (${value.length} chars, not the string "true")`);
   }
+  for (const key of READABLE_REQUIRED) {
+    const line = lines.find((l) => l.startsWith(`${key}=`));
+    if (!line) { absent.push(key); continue; }
+    const value = line.slice(key.length + 1).trim().replace(/^["']+|["']+$/g, '');
+    if (value === SENSITIVE_PLACEHOLDER) unreadable.push(key);
+    else if (value.length === 0) wrong.push(`${key} (empty)`);
+  }
   // Order matters: a genuinely wrong value is a defect and outranks an unreadable
   // one, which is a gap in what this check can see rather than a fault in the app.
-  if (wrong.length) record('R2b', 'FAIL', 'flag VALUES are the string "true"',
-    `SET BUT NOT "true", so the feature is OFF while R2 reads green: ${wrong.join('; ')}`);
-  else if (absent.length) record('R2b', 'FAIL', 'flag VALUES are the string "true"', `not set: ${absent.join(', ')}`);
-  else if (unreadable.length) record('R2b', 'UNREADABLE', 'flag VALUES are the string "true"',
-    `${unreadable.join(', ')} ${unreadable.length === 1 ? 'is' : 'are'} typed SENSITIVE in Vercel, so the value cannot be read back and this check CANNOT say whether the feature is on. `
+  if (wrong.length) record('R2b', 'FAIL', 'required env VALUES are usable',
+    `SET BUT UNUSABLE, so the feature is OFF while R2 reads green: ${wrong.join('; ')}`);
+  else if (absent.length) record('R2b', 'FAIL', 'required env VALUES are usable', `not set: ${absent.join(', ')}`);
+  else if (unreadable.length) record('R2b', 'UNREADABLE', 'required env VALUES are usable',
+    `${unreadable.join(', ')} ${unreadable.length === 1 ? 'is' : 'are'} typed SENSITIVE in Vercel, so the value cannot be read back and this check CANNOT say whether ${unreadable.length === 1 ? 'it is' : 'they are'} usable. `
     + `THE FIX IS NOT TO EDIT THE VALUE — a sensitive variable's value cannot be read or corrected in place. Remove it and recreate it as a normal (non-sensitive) variable, then redeploy.`);
-  else record('R2b', 'PASS', 'flag VALUES are the string "true"', `${BOOLEAN_FLAGS.join(', ')} all === "true"`);
+  else record('R2b', 'PASS', 'required env VALUES are usable', `${BOOLEAN_FLAGS.join(', ')} === "true"; ${READABLE_REQUIRED.join(', ')} readable and non-empty`);
 } catch (e) {
-  record('R2b', 'UNDETERMINED', 'flag VALUES are the string "true"', `could not pull production env (${e.code || e.name})`);
+  record('R2b', 'UNDETERMINED', 'required env VALUES are usable', `could not pull production env (${e.code || e.name})`);
 } finally {
   try { writeFileSync(tmpEnv, '\0'.repeat(statSync(tmpEnv).size)); } catch { /* never existed */ }
   try { unlinkSync(tmpEnv); } catch { /* already gone */ }
