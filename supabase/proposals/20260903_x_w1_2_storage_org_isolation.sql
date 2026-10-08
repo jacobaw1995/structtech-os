@@ -42,7 +42,32 @@
 -- in for a control, with no owner and no alarm. A4 field execution starts in
 -- nineteen days and its first crew photo is the change.
 
-drop policy if exists "anon deal files all" on storage.objects;
+-- ⚠ VERIFIED ABSENT 2026-10-08 (Track S). THIS LINE IS A NO-OP AND IS KEPT
+-- DELIBERATELY — read this before copying it anywhere.
+--
+--   select * from pg_policies where policyname = 'anon deal files all';
+--   -- 0 rows, in ANY schema or table.
+--
+-- So the policy this line names does not exist and did not exist when it was
+-- measured. `IF EXISTS` means running it succeeds silently, which is exactly the
+-- indistinguishability CLAUDE.md rule 2 is about: "already gone" and "never
+-- there" return the same thing.
+--
+-- WHY THE LINE STAYS RATHER THAN BEING DELETED. This file is a PROPOSAL, dated
+-- 2026-09-03, living in `supabase/proposals/` — a directory on no apply path
+-- (nothing in `supabase/config.toml` or `package.json` references it). It is a
+-- record of what Track X proposed on that date. **Deleting a line from a
+-- historical proposal edits what was proposed**, which is worse than leaving a
+-- no-op in a file that is never executed. The trap was that somebody could
+-- copy-paste it into something that IS executed; this comment is the fix for
+-- that, and it is the whole fix.
+--
+-- IF THIS FILE IS EVER PROMOTED TO A MIGRATION, THIS LINE COMES OUT, and any
+-- surviving `drop policy` is scoped the way
+-- `supabase/rollbacks/20260916_org_files_work_order_policies_rollback.sql` now
+-- scopes its three: assert the policy exists AND that its expression is ours,
+-- then drop; refuse if a policy wearing the name is somebody else's.
+-- drop policy if exists "anon deal files all" on storage.objects;
 
 -- Optional, and Jacob's call, not Track X's: deal-files is an orphan. Created
 -- 2026-07-03, 0 objects, referenced by no code. Once the policy above is gone
