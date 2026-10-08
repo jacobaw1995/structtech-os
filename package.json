@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "predev": "node scripts/env/guard-env-local.mjs",
+    "prebuild": "node scripts/env/guard-env-local.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",

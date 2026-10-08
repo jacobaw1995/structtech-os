@@ -49,7 +49,11 @@ try {
 
 // ── R2 production configuration present, by NAME ────────────────────────────
 // ORG_FILES_ENABLED is what turns the office roof-data section on (A4.7).
-const REQUIRED_ENV = ['ORG_FILES_ENABLED', 'AUTH_EMAIL_ENABLED', 'RESEND_API_KEY', 'EMAIL_FROM'];
+// 2026-10-06: the two NEXT_PUBLIC_SUPABASE_* keys were named by NO readiness item
+// at all, while production provably cannot build a Supabase client without them —
+// so deleting either would have taken the whole app down with every check green.
+const REQUIRED_ENV = ['ORG_FILES_ENABLED', 'AUTH_EMAIL_ENABLED', 'RESEND_API_KEY', 'EMAIL_FROM',
+  'NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_ANON_KEY'];
 try {
   const out = execFileSync('vercel', ['env', 'ls', 'production', '--scope', cfg.vercelScope], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 60000 });
   const names = new Set(out.split('\n').map((l) => l.trim().split(/\s+/)[0]).filter((w) => /^[A-Z][A-Z0-9_]+$/.test(w)));
@@ -102,6 +106,14 @@ try {
 // the error path, because a secrets file left behind by a crashed check is a
 // worse bug than the one this check exists to find. Only the verdict is reported.
 const BOOLEAN_FLAGS = ['ORG_FILES_ENABLED', 'AUTH_EMAIL_ENABLED'];
+// R2 CHECKS NAMES. THAT IS WHY R2b EXISTS, AND WHY THESE TWO BELONG HERE TOO.
+// R2 reported PASS on 2026-10-05 for a flag whose value the app rejected — a
+// present name says nothing about a usable value. These two are not booleans, so
+// they cannot join BOOLEAN_FLAGS, but they have the weaker requirement that still
+// matters: the value must be READABLE. Both are typed Sensitive in Vercel today,
+// so this check reports them UNREADABLE — which is the truth, and is the point:
+// no check could previously say anything about them at all.
+const READABLE_REQUIRED = ['NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_ANON_KEY'];
 // Exactly what `vercel env pull` writes for a variable typed Sensitive. Compared
 // as a literal, never pattern-matched: see the note above.
 const SENSITIVE_PLACEHOLDER = '[SENSITIVE]';
@@ -121,17 +133,24 @@ try {
     if (value === SENSITIVE_PLACEHOLDER) unreadable.push(key);
     else if (value !== 'true') wrong.push(`${key} (${value.length} chars, not the string "true")`);
   }
+  for (const key of READABLE_REQUIRED) {
+    const line = lines.find((l) => l.startsWith(`${key}=`));
+    if (!line) { absent.push(key); continue; }
+    const value = line.slice(key.length + 1).trim().replace(/^["']+|["']+$/g, '');
+    if (value === SENSITIVE_PLACEHOLDER) unreadable.push(key);
+    else if (value.length === 0) wrong.push(`${key} (empty)`);
+  }
   // Order matters: a genuinely wrong value is a defect and outranks an unreadable
   // one, which is a gap in what this check can see rather than a fault in the app.
-  if (wrong.length) record('R2b', 'FAIL', 'flag VALUES are the string "true"',
-    `SET BUT NOT "true", so the feature is OFF while R2 reads green: ${wrong.join('; ')}`);
-  else if (absent.length) record('R2b', 'FAIL', 'flag VALUES are the string "true"', `not set: ${absent.join(', ')}`);
-  else if (unreadable.length) record('R2b', 'UNREADABLE', 'flag VALUES are the string "true"',
-    `${unreadable.join(', ')} ${unreadable.length === 1 ? 'is' : 'are'} typed SENSITIVE in Vercel, so the value cannot be read back and this check CANNOT say whether the feature is on. `
+  if (wrong.length) record('R2b', 'FAIL', 'required env VALUES are usable',
+    `SET BUT UNUSABLE, so the feature is OFF while R2 reads green: ${wrong.join('; ')}`);
+  else if (absent.length) record('R2b', 'FAIL', 'required env VALUES are usable', `not set: ${absent.join(', ')}`);
+  else if (unreadable.length) record('R2b', 'UNREADABLE', 'required env VALUES are usable',
+    `${unreadable.join(', ')} ${unreadable.length === 1 ? 'is' : 'are'} typed SENSITIVE in Vercel, so the value cannot be read back and this check CANNOT say whether ${unreadable.length === 1 ? 'it is' : 'they are'} usable. `
     + `THE FIX IS NOT TO EDIT THE VALUE — a sensitive variable's value cannot be read or corrected in place. Remove it and recreate it as a normal (non-sensitive) variable, then redeploy.`);
-  else record('R2b', 'PASS', 'flag VALUES are the string "true"', `${BOOLEAN_FLAGS.join(', ')} all === "true"`);
+  else record('R2b', 'PASS', 'required env VALUES are usable', `${BOOLEAN_FLAGS.join(', ')} === "true"; ${READABLE_REQUIRED.join(', ')} readable and non-empty`);
 } catch (e) {
-  record('R2b', 'UNDETERMINED', 'flag VALUES are the string "true"', `could not pull production env (${e.code || e.name})`);
+  record('R2b', 'UNDETERMINED', 'required env VALUES are usable', `could not pull production env (${e.code || e.name})`);
 } finally {
   try { writeFileSync(tmpEnv, '\0'.repeat(statSync(tmpEnv).size)); } catch { /* never existed */ }
   try { unlinkSync(tmpEnv); } catch { /* already gone */ }
@@ -206,6 +225,129 @@ if (dbAvailable()) {
   } catch (e) { record('R11', 'UNDETERMINED', 'field events are durably recorded', `query failed (${e.name})`); }
 }
 
+// ═══ R12–R14 · THE GRANT SURFACE ═══════════════════════════════════════════
+// All three exist because NOTHING WATCHED THESE. They came out of the 2026-10-07
+// audit, and each guards a fact that is true by accident rather than by control
+// (CLAUDE.md rule 13: closed by accident is not closed).
+
+// ── R12 A PUBLIC OR anon GRANT ON A SECURITY DEFINER FUNCTION ───────────────
+// MEASURED 2026-10-07, re-verified 2026-10-08: 432 functions in public, 194
+// anon-EXECUTE-able, 189 of those carrying a live PUBLIC "=X" grant. All 189 are
+// SECURITY INVOKER, so they run AS THE CALLER and RLS still applies. That is the
+// only reason they are harmless.
+//
+// SECURITY INVOKER IS DOING THE WORK AND NOTHING ENFORCES IT. Converting any one
+// of those 189 to SECURITY DEFINER — an ordinary thing to do while fixing
+// something else — makes it an anon-callable function that bypasses RLS, and no
+// check would have noticed. This is the tripwire for that.
+//
+// THE BASELINE IS ZERO, which is what makes it a tripwire and not a gauge: today
+// PUBLIC-granted AND SECURITY DEFINER = 0. The five genuinely anon-reachable
+// definers get there by an EXPLICIT anon grant, never through PUBLIC, and they are
+// allowlisted BY NAME so a sixth appears as a diff in this file rather than as a
+// number nobody re-derives.
+const SIGNING_LINK_ALLOWLIST = [
+  'sign_estimate_by_link',                // the homeowner signs from an emailed link
+  'signed_copy_by_link',                  // and reads the signed copy back
+  'signing_link_view',                    // the link's own landing view
+  'record_signed_copy_outcome_by_link',   // records whether that copy was delivered
+  'wh_order_by_token',                    // Material Matrix's order tracking — theirs, reported not diagnosed
+];
+if (dbAvailable()) {
+  try {
+    const list = SIGNING_LINK_ALLOWLIST.map((n) => "'" + n + "'").join(',');
+    const PUBGRANT = "(p.proacl::text ~ '\\{=X' or p.proacl::text ~ ',=X')";
+    const offenders = q(
+      "select coalesce(string_agg(p.proname || ' (' || case when " + PUBGRANT + " then 'PUBLIC' else 'anon' end || ')', ', ' order by p.proname), '')" +
+      " from pg_proc p join pg_namespace n on n.oid = p.pronamespace" +
+      " where n.nspname = 'public' and p.prosecdef" +
+      "   and (has_function_privilege('anon', p.oid, 'EXECUTE') or " + PUBGRANT + ")" +
+      "   and p.proname not in (" + list + ")").trim();
+    // The denominator prints beside the result: a zero with nothing examined
+    // refutes itself; a zero out of 100-odd does not (rule 24).
+    const scanned = q("select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.prosecdef").trim();
+    record('R12', offenders ? 'FAIL' : 'PASS', 'no SECURITY DEFINER function is reachable by PUBLIC or anon',
+      offenders
+        ? offenders + ' — anon-callable AND bypasses RLS. Revoke the grant, or add it to SIGNING_LINK_ALLOWLIST with a reason.'
+        : '0 offenders of ' + scanned + ' SECURITY DEFINER functions scanned; ' + SIGNING_LINK_ALLOWLIST.length + ' allowlisted by name');
+  } catch (e) { record('R12', 'UNDETERMINED', 'no SECURITY DEFINER function is reachable by PUBLIC or anon', 'query failed (' + e.name + ')'); }
+}
+
+// ── R13 THE PROJECT DEFAULT THAT IS DOING THE PROTECTING ────────────────────
+// CREATE FUNCTION grants EXECUTE to PUBLIC by default in PostgreSQL. The reason
+// most functions here are not anon-callable is NOT our discipline — it is two rows
+// in pg_default_acl, keyed on WHICH ROLE creates the function. A change to either
+// silently changes the posture of every function created afterwards, and nothing
+// in this repo would show it.
+//
+// THE TWO ROWS DISAGREE, and that is the fragile part: a function created by
+// postgres comes out WITHOUT anon; the identical function created by
+// supabase_admin comes out WITH it. The protection is conditional on authorship.
+//
+// ACCEPTING A LEGITIMATE CHANGE: edit DEFAULT_ACL_EXPECTED below to the new shape
+// and name in the commit message who changed it and why. Deliberately a code edit
+// rather than a flag — a check you can silence without a diff is a check everybody
+// learns to ignore, and being reviewable is the entire point of this one.
+const DEFAULT_ACL_EXPECTED = [
+  'postgres => {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}',
+  'supabase_admin => {postgres=X/supabase_admin,anon=X/supabase_admin,authenticated=X/supabase_admin,service_role=X/supabase_admin}',
+];
+if (dbAvailable()) {
+  try {
+    const actual = q(
+      "select coalesce(string_agg(pg_get_userbyid(d.defaclrole) || ' => ' || d.defaclacl::text, chr(10) order by pg_get_userbyid(d.defaclrole)), '(no rows)')" +
+      " from pg_default_acl d join pg_namespace ns on ns.oid = d.defaclnamespace" +
+      " where ns.nspname = 'public' and d.defaclobjtype = 'f'")
+      .trim().split('\n').map((l) => l.trim()).filter(Boolean);
+    const same = actual.length === DEFAULT_ACL_EXPECTED.length && actual.every((l, i) => l === DEFAULT_ACL_EXPECTED[i]);
+    record('R13', same ? 'PASS' : 'FAIL', 'pg_default_acl for public functions is unchanged',
+      same
+        ? actual.length + ' row(s), both matching the recorded shape'
+        : 'CHANGED. recorded ' + DEFAULT_ACL_EXPECTED.length + ' row(s), found ' + actual.length + ': ' + actual.join(' | ') +
+          ' — if intended, update DEFAULT_ACL_EXPECTED in this file and say who changed it');
+  } catch (e) { record('R13', 'UNDETERMINED', 'pg_default_acl for public functions is unchanged', 'query failed (' + e.name + ')'); }
+}
+
+// ── R14 SECURITY DEFINER FUNCTIONS WITH NO VISIBLE IDENTITY GATE ────────────
+// A GRANT TO authenticated IN A POOLED DATABASE IS A GRANT TO EVERY TENANT'S
+// USERS. Material Matrix staff and BMR crew are both authenticated in this one
+// project, so a SECURITY DEFINER function that never consults identity is callable
+// across the tenant boundary by construction.
+//
+// THE HELPER LIST IS DATA, NOT A PATTERN, and that is the lesson of 2026-10-07: my
+// own screen called 24 functions ungated and eleven were gated through
+// is_platform_admin and crew_assert_can_manage, which my regex did not know.
+// Material Matrix's screen said 64 for the same reason, worse. The next missed
+// helper should be a one-line edit here, not a re-derivation.
+const IDENTITY_HELPERS = [
+  'my_org_ids', 'has_capability', 'is_staff', 'is_pipeline_user', 'is_platform_admin',
+  'can_view_master_work_order', 'can_reach_work_order_files', 'assert_work_order_level',
+  'work_order_is_my_trade', 'default_permissions_for_role', 'crew_assert_can_manage',
+];
+if (dbAvailable()) {
+  try {
+    const BASE =
+      " from pg_proc p join pg_namespace n on n.oid = p.pronamespace" +
+      " where n.nspname = 'public' and p.prosecdef and p.prorettype <> 'trigger'::regtype" +
+      "   and has_function_privilege('authenticated', p.oid, 'EXECUTE')";
+    const UNGATED =
+      " and p.prosrc !~ 'auth[.]uid\\(' and p.prosrc !~* 'token'" +
+      " and p.prosrc !~ '(" + IDENTITY_HELPERS.join('|') + ")\\('";
+    const total = q('select count(*)' + BASE).trim();
+    const ours = q("select coalesce(string_agg(p.proname, ', ' order by p.proname), '')" + BASE + UNGATED + " and p.proname not like 'wh\\_%'").trim();
+    const mm = q('select count(*)' + BASE + UNGATED + " and p.proname like 'wh\\_%'").trim();
+    const oursN = ours ? ours.split(',').length : 0;
+    // wh_% is Material Matrix's. Reported, never diagnosed (rule 9), so it does not
+    // decide OUR verdict — otherwise this check goes red for their code and we learn
+    // to ignore it.
+    record('R14', oursN === 0 ? 'PASS' : 'FAIL', 'no ungated SECURITY DEFINER function of ours is reachable by authenticated',
+      oursN + ' ours ungated of ' + total + ' caller-invokable definers'
+      + (ours ? ': ' + ours : '')
+      + ' · ' + mm + " wh_% ungated (Material Matrix's — reported, not diagnosed)"
+      + ' · screened against ' + IDENTITY_HELPERS.length + ' known identity helpers');
+  } catch (e) { record('R14', 'UNDETERMINED', 'no ungated SECURITY DEFINER function of ours is reachable by authenticated', 'query failed (' + e.name + ')'); }
+}
+
 // ── R10 can we still see what happened after the day ends ───────────────────
 // Runtime logs are the only place a page open or a failed load appears today.
 // Vercel docs (read 2026-09-16): Hobby keeps 1 hour, Pro 1 day; drains Pro only.
@@ -229,9 +371,29 @@ const fails = results.filter((r) => r.verdict === 'FAIL').length;
 // 2026-09-27, where R4-R8 did not run and the last line could not say so. A new
 // verdict is not finished until the line that counts verdicts knows it exists.
 const UNANSWERED = new Set(['UNDETERMINED', 'UNREADABLE']);
+const ANSWERED_VERDICTS = new Set(['PASS', 'FAIL']);
+// AND THE TALLY NOW REFUSES A VERDICT IT HAS NOT BEEN TOLD ABOUT, rather than
+// silently miscounting it. Twice a new verdict was added and the counting line was
+// not updated — R4-R8's "did not run" on 2026-09-27, UNREADABLE on 2026-10-05 —
+// and both times the summary kept printing a confident total over a set it no
+// longer described. A third time is not a thing to remember not to do; it is a
+// thing to make impossible.
+const unknownVerdicts = [...new Set(results.map((r) => r.verdict))].filter((v) => !UNANSWERED.has(v) && !ANSWERED_VERDICTS.has(v));
+if (unknownVerdicts.length) {
+  console.log(`\nTALLY REFUSED: verdict(s) ${unknownVerdicts.join(', ')} are not classified as answered or unanswered.`);
+  console.log(`Add them to ANSWERED_VERDICTS or UNANSWERED in this file. Refusing to print a total over a set this line does not describe.`);
+  process.exit(3);
+}
 const unansweredRows = results.filter((r) => UNANSWERED.has(r.verdict));
 const unknown = unansweredRows.length;
 console.log('------------------------------------------------------------------------');
+// THE ROSTER, ENUMERATED BY THE INSTRUMENT ITSELF. Twice a directive has asked for
+// a check that does not exist — "R1-R12" when there is no R12, because R2b is what
+// makes the count twelve (CLAUDE.md rule 31). A range asserts that the ids are
+// contiguous and that you know where they stop; printing them asserts only what is
+// here. Nobody should have to infer this roster, and now nobody has to read the
+// source to get it either.
+console.log(`CHECKS PRESENT (${results.length}): ${results.map((r) => r.id).join(', ')}`);
 // THE SUMMARY STATES ITS DENOMINATOR AND WHAT IT COULD NOT LOOK AT. A line reading
 // "4 FAIL, 2 PASS" is a verdict on six things; said without the six, it reads as a
 // verdict on readiness. Every count below is "of N", and the unanswered are named,

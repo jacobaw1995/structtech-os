@@ -52,6 +52,7 @@
 // RESEND_API_BASE overrides https://api.resend.com for testing only.
 
 import { readFileSync } from 'node:fs';
+import { isUnreadable, unreadableMessage } from '../lib/sensitive.mjs';
 
 const BASE = process.env.RESEND_API_BASE || 'https://api.resend.com';
 const argAfter = (flag) => {
@@ -94,6 +95,19 @@ const from = process.env.EMAIL_FROM || fromEnvFile('EMAIL_FROM');
 console.log(`RESEND_API_KEY: ${key ? 'present' : 'MISSING'}`);
 console.log(`EMAIL_FROM:     ${from ? `present — ${from}` : 'MISSING'}`);
 if (!key || !from) done(1, 'NOT READY', `missing ${[!key && 'RESEND_API_KEY', !from && 'EMAIL_FROM'].filter(Boolean).join(' and ')}.`);
+
+// REFUSE AN UNREADABLE VALUE BEFORE SPENDING A REQUEST ON IT, because the failure
+// it produces is a LIE. `[SENSITIVE]` is a syntactically valid bearer token: it
+// goes out on the wire, Resend answers 4xx, and this script's three-outcome
+// contract classifies that as `rejected` — "the request is wrong; retrying won't
+// help". Every word of that is false when the stored key is fine and the only
+// problem is that `vercel env pull` would not show it to us. The whole point of
+// keeping not_configured / rejected / unavailable apart is that each wants a
+// different fix in front of a human, and this case wants a fourth.
+for (const [name, value] of [['RESEND_API_KEY', key], ['EMAIL_FROM', from]]) {
+  if (isUnreadable(value)) done(1, 'NOT READY', unreadableMessage(name)
+    + ` Nothing was sent: a placeholder is a valid-looking bearer token, so sending it would produce a 4xx that this script would have to report as "rejected" — which would be wrong about a key that may be perfectly good.`);
+}
 
 const domain = (from.match(/@([^>\s]+)>?\s*$/) || [])[1];
 if (!domain) done(1, 'NOT READY', 'EMAIL_FROM has no @domain — expected e.g. "StructTech OS <documents@structtek.com>".');
