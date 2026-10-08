@@ -1,0 +1,168 @@
+# RULINGS AND CORRECTIONS — week of 2026-10-05
+
+Recorded by Track S on **`Thu Oct  8 13:58:21 EDT 2026`**. Production serving **`0a22464`**, read from
+`/api/health`. Each item carries an observable trigger rather than a date.
+
+---
+
+## 1 · THE FREEZE BREACH — and the correction is to my own report
+
+**Migration `20261007123837 wh_pdf_files_staff_read_and_delivery_claim` applied at 08:38:37 EDT on
+Wednesday 2026-10-07**, inside the 6 AM – 8 PM window Material Matrix **had acknowledged three times.**
+
+### ⚠ CORRECTION TO TRACK S's 2026-10-07 REPORT: THEY WERE TOLD.
+
+My pilot-day report said *"the pilot-day no-migration rule was broken by the one party it was never
+sent to"* and *"no blame attaches to Material Matrix, who were not told."* **That is wrong, and it is
+wrong because I conflated two different things:**
+
+- **The FREEZE** — a 6 AM–8 PM window — **was sent, and was acknowledged three times.**
+- **The runbook's RULE ONE** — "no migration today, from any track, for any reason" — **was not sent.**
+  That is the one I wrote on 2026-10-06 with the note *"the rule needs sending, not just writing."*
+
+**I reasoned from the unsent rule to the conclusion that nothing had been sent.** Two instruments,
+one conclusion drawn from the weaker. The breach is a breach of an agreed freeze, not a failure to
+communicate.
+
+### THE CONTROLLER'S RULING, which is about us and not about them
+
+> **A FREEZE THAT DEPENDS ON ANOTHER PARTY'S COMPLIANCE IS NOT A CONTROL — IT IS A REQUEST WITH A
+> CALENDAR ON IT.**
+
+The evidence for the ruling is our own behaviour, not theirs:
+
+- **Their change did no harm, and the reason is that their predicate was bucket-scoped** —
+  `bucket_id = 'pdf-files' AND name ~~ 'work-orders/%' AND my_wh_role() IN (admin,assistant,driver)`.
+  It cannot see `org-files`.
+- **We learned it had landed 34 hours later, from an audit, not the same day from a monitor.** The
+  instrument that found it was a human comparing two numbers in a snapshot file.
+- **So the pilot was protected by their scoping and by luck — "scoping and luck, not a control" is my
+  own sentence from Tuesday, and it is the finding.** A control would have told us at 08:39.
+
+**TRIGGER: the next time a freeze is agreed.** A freeze is worth agreeing and worth nothing as
+protection. The control that would make it one is an alarm on the ledger — `max(version)` changing
+inside a window — which nothing currently watches. **Not built tonight; named.**
+
+---
+
+## 2 · THE PUBLIC-GRANT SURFACE — measured by Track X, re-verified here
+
+**Every number below was re-measured independently before being recorded. All three match X exactly.**
+
+```sql
+select count(*) as total,
+       count(*) filter (where has_function_privilege('anon',p.oid,'execute')) as anon_executable,
+       count(*) filter (where has_function_privilege('anon',p.oid,'execute') and p.prosecdef) as anon_and_definer,
+       count(*) filter (where has_function_privilege('anon',p.oid,'execute') and not p.prosecdef) as anon_and_invoker
+from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public';
+--  432 | 194 | 5 | 189
+```
+
+### 2a · "5 of 430 are anon-reachable" understated reachability by 189 functions
+
+**194 of 432 public functions are anon-EXECUTE-able. The 5 is the SECURITY DEFINER *subset*, not the
+reachable set.** The controller's figure was the right number for the wrong question: it answered
+*how many anon-reachable functions bypass RLS*, which is the dangerous subset, and was read as *how
+many anon can call*. **Both are worth knowing and they differ by 189.**
+
+### 2b · CLOSED BY ACCIDENT, NOT BY A CONTROL
+
+**189 functions carry a live PUBLIC execute grant** — `proacl is null`, or an acl whose first entry is
+`=X/...` with no grantee before the `=`. **ALL 189 ARE SECURITY INVOKER. Zero are SECURITY DEFINER**
+(measured; the split is 189 / 0).
+
+They are harmless **only because a SECURITY INVOKER function runs as the caller, so RLS applies to it
+normally.** That is rule 13's exact shape: an absence standing in for a control, with no owner and no
+alarm.
+
+> **TRIGGER: the day anyone converts one of those 189 to SECURITY DEFINER.** On that day the
+> function stops being mediated by RLS and keeps its PUBLIC grant, and nothing in the build would
+> notice. There is no check for this — not in `pilot-readiness.mjs`, not in any sweep.
+
+### 2c · And the protection is a PROJECT-LEVEL DEFAULT, not our migration discipline
+
+`pg_default_acl` for `objtype='f'`, resolved per schema — and **the two entries for `public` disagree
+on `anon`, keyed on which role creates the function:**
+
+| creating role | schema | function default acl | anon by default? |
+|---|---|---|---|
+| **`postgres`** | **`public`** | `postgres=X, authenticated=X, service_role=X` | **NO** |
+| **`supabase_admin`** | **`public`** | `postgres=X, anon=X, authenticated=X, service_role=X` | **YES** |
+| `postgres` | `storage` | `postgres=X, anon=X, authenticated=X, service_role=X` | **YES** |
+
+**So whether a brand-new function in `public` is anon-callable depends on who created it, and that is
+a project setting we did not author and do not own.** Our discipline — measured by X: **163 explicit
+revokes across 55 of 76 files, against 509 `create function` statements** — is belt-and-braces on top
+of it, and it covers 55 files of 76.
+
+**⚠ THIS REFINES CLAUDE.md RULE 7's PREMISE AND THE REFINEMENT IS WORTH HOLDING CAREFULLY.** Rule 7
+says every new security-definer function in `public` is anon-executable the moment it exists unless
+the migration revokes it. **That is true for a function created by `supabase_admin` and NOT true for
+one created by `postgres`** — which is what a migration applied as the ledger owner produces. Rule 7
+stays exactly as it is, for two reasons: it is still right about the **`PUBLIC`** grant (neither
+default grants PUBLIC, so the 189 come from somewhere else and `ALTER DEFAULT PRIVILEGES` genuinely
+cannot remove it), and **a rule whose correctness depends on which role ran the migration is a rule
+you follow unconditionally.**
+
+> **TRIGGER: any change to project default privileges.** Nothing in this repo would detect one.
+
+---
+
+## 3 · R10's FRAMING WAS TOO STRONG — recorded rather than quietly dropped
+
+Track S wrote, repeatedly, that on the Hobby plan **"we can see nothing after an hour."** **That was
+wrong.** Measured 2026-10-07:
+
+- **Raw runtime logs: 1 hour.** A `since: 24h` query and a `since: 60m` query were both **refused by
+  the API** with the retention message; `50m` succeeded. **Earliest retrievable timestamp was
+  18:01:24.67 EDT on a day that started twelve hours earlier.**
+- **Aggregated error clusters: roughly a month.** `get_runtime_errors` answered a **24-hour** query
+  and returned a cluster whose **first occurrence is 2026-09-09** — name, count, affected routes,
+  first/last seen, and a sample message.
+
+**Strictly less than a log line** — no request id, no timing, no surrounding context, **and errors
+only, so a check-in that fails without throwing leaves nothing.** **R10 still FAILS and is still a
+purchase, not code.** But the sentence was wrong and the correction belongs on the record, because the
+difference between "nothing" and "errors only, for a month" changes what is worth asking after an
+incident.
+
+**TRIGGER: before anyone concludes an incident is unknowable.** Ask the aggregated table first.
+
+---
+
+## 4 · THE MONITOR POISONS ITS OWN EVIDENCE
+
+The front-door probe requests `/roadmap/frontdoor-monitor-nonexistent-token`. That path lands in the
+route's `restricted` branch, which **logs at error level**, because `anon` has no EXECUTE on
+`fetch_roadmap_by_token` (verified: `proacl` is `postgres=X | authenticated=X | service_role=X`) and
+the route catches the resulting `42501`.
+
+**So the monitor emits an error-level line on every single run, by construction.** On a one-hour log
+budget that means **the only surviving error in the window is a self-inflicted false positive.**
+Measured on pilot day: 7 logs retained, exactly one at error level, and it was this.
+
+> **Anyone reading those logs cold starts by investigating nothing.**
+
+**RECOMMENDED, NOT MADE** — two options, the first preferred:
+
+1. **Log that branch at `info`.** The `restricted` outcome is an expected state for a logged-out
+   request, not an error; it is the only branch that fires for every anonymous visitor. One line in
+   `src/app/roadmap/[token]/page.tsx`. Keeps the probe honest and stops the noise at the source.
+2. **Point the probe at a path that does not trip a `42501`** — e.g. `/login`, which the monitor
+   already checks. Cheaper but weaker: it stops testing that the roadmap route renders at all.
+
+**TRIGGER: before anyone debugs from Vercel logs.** Until one of those lands, the first error in any
+window is to be ignored until identified.
+
+---
+
+## 5 · Controller errors recorded as rules
+
+**CLAUDE.md 35, 36, 37**, in the existing numbered format:
+
+- **35 — NEVER STATE A SHA IN A DIRECTIVE. INSTRUCT THE READER TO READ IT.** Three directives this
+  week carried a stale `main` (`bd181d3` while production served `ab865f2`).
+- **36 — AN ENUMERATION OF OUTCOMES IS NOT A QUESTION. ASK WHAT HAPPENED.** The four-tap question
+  offered three answers and the true one was a fourth: the test did not run.
+- **37 — A COUNT IN AN INSTRUCTION MUST NOT EXCEED THE SET.** "Read the TEN functions in your
+  ungated set" against a set of 14 — satisfiable by luck; at 8 it would not have been.

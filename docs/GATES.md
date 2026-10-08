@@ -105,6 +105,51 @@ Done-when is a week of field use, and it cannot precede the pilot it measures.**
 item) · and an office view of special trips. **A4.6's refusal is now built but has nothing to
 fire on: crews, crew_people, crew_memberships and work_order_crew_assignments are all 0.**
 
+### PILOT DAY 1 PRODUCED ZERO ROWS — recorded 2026-10-08, and NO GATE IS RE-DATED HERE
+
+**That is the controller's call and Jacob's. This section records the fact and what G6 would need.**
+
+**THE EVIDENCE, every count with its filter:**
+
+```sql
+select count(*) from check_ins    where (created_at  at time zone 'America/New_York')::date = '2026-10-07'; -- 0
+select count(*) from special_trips where (recorded_at at time zone 'America/New_York')::date = '2026-10-07'; -- 0
+select count(*) from field_events  where (occurred_at at time zone 'America/New_York')::date = '2026-10-07'; -- 0
+```
+
+**Zero rows of every kind, in every table, for the whole of 2026-10-07.** All twelve baseline
+measurements in `docs/PILOT_BASELINE_2026-10-07.md` re-ran unchanged. **The last human activity in the
+app was 2026-10-06 10:20:01 EDT** (`packet_opened`, Anderson Reyes). Vercel's retained logs for the
+day held **7 lines, all of them the front-door monitor or Track S's own health check, and zero
+requests to any `/field/` or `/w/` path.** Full record: `docs/PILOT_DAY_1_RESULT_2026-10-07.md`.
+
+**SO G6's DONE-WHEN — "field pilot closes" — IS UNMET FOR REASONS UNRELATED TO THE BUILD.** Nothing
+failed. Nothing was attempted. The build was up all day: the monitor got 200s on `/`, `/login` and
+`/api/health`, and the only error-level line in the window was the monitor's own deliberate probe
+(see `docs/RULINGS_WEEK_OF_2026-10-05.md` §4 — it fires on every run by construction).
+
+### WHAT G6 WOULD NEED — the smallest set of field acts, each with its instrument
+
+**This list is what the re-dating decision gets made against. Every row is gradeable from data once
+the act happens; none can be graded without it (RULE 17 — accepted on the rendered screen).**
+
+| # | field act | instrument that grades it |
+|---|---|---|
+| **1** | **A roofer opens the job on a phone.** | `select count(*) from field_events where event='work_order_opened' and (occurred_at at time zone 'America/New_York')::date = '<day>'` — ≥1 |
+| **2** | **A check-in is submitted once and the screen says so.** | `select count(*), count(client_token) from check_ins where (created_at at time zone 'America/New_York')::date='<day>'` — expect **1 and 1**. A row with a NULL token means the caller did not send one |
+| **3** | **Submit is tapped four times on one form.** | the same query — expect **still 1 row**. Duplicate tokens are impossible by the partial unique index, so **the failure shape is extra rows with NULL tokens**, not shared tokens |
+| **4** | **A special trip is logged in ≤2 taps.** | `select count(*), count(client_token) from special_trips where (recorded_at …)::date='<day>'` — expect **1 and 1** |
+| **5** | **An office-uploaded file opens on the phone.** | `select count(*) from field_events where event='file_opened' and (occurred_at …)::date='<day>'` — ≥1. The open route re-signs at 60 s per click, so this works regardless of page age |
+| **6** | **The packet is left open more than an hour and the thumbnail is looked at.** | **no instrument — this one is a human observation only.** Expect the thumbnail BROKEN (its URL lives one hour, baked into the delivered HTML) and the link still working. **Known, not a defect, and not an abort criterion** |
+
+**Items 1–5 are gradeable from rows; item 6 is a report.** **Item 2 is the one that matters** — it is
+the Done-when nothing has ever exercised, and it is one tap plus one query.
+
+**TWO THINGS THAT ARE NOT BLOCKERS AND SHOULD NOT BE CHASED:** the Materials **and** Sign-off chips
+are grey (`material_items` = 0; `sign_off_at` NULL on both trade and master), and the schedule block
+reads "Not linked to a crew" (`crew_id` NULL — the job reaches the phone through
+`work_order_crew_assignments`, which exists).
+
 ### THE CALENDAR AS IT NOW STANDS — every date and day label verified 2026-10-06, not accepted
 
 **Today is Tuesday 2026-10-06**, from `TZ=America/New_York date`. **Every day label in the table

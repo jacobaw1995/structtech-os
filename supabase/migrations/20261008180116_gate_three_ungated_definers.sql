@@ -1,0 +1,93 @@
+-- THREE SECURITY DEFINER FUNCTIONS WERE REACHABLE CROSS-TENANT. THE GRANT WAS
+-- THE REACHABILITY, SO THE GRANT IS WHAT THIS MIGRATION REMOVES.
+-- 2026-10-08, Track S. Found by Track X reading bodies; every claim re-verified
+-- here before anything changed.
+--
+-- ═══ WHAT WAS MEASURED, AS THE REAL OUTSIDER, BEFORE THE CHANGE ═══
+-- As Material Matrix member c62adbfc — whose RLS reach was proved first and is
+-- genuinely zero: 0 BMR deals and 0 BMR work orders visible — inside one
+-- rolled-back transaction:
+--
+--   work_order_version('d76d8664…')            → REACHED, returned a 64-char
+--       sha256 over BMR's PILOT work order and its materials, schedule and
+--       objective. A cross-tenant change-detection oracle: poll it and you learn
+--       exactly when another tenant's job changed.
+--   qc_photo_on_work_order('d76d8664…', …)     → REACHED, answered false.
+--       A photo-membership oracle. Lower severity because it needs a 16-hex ref
+--       the caller already holds.
+--   create_engagement_from_roadmap('52eaf276…')→ REACHED ITS BODY and raised
+--       from INSIDE it: 'no roadmap found for deal 52eaf276…' (P0001). It is the
+--       only one that WRITES — it inserts engagements, engagement_levels and
+--       engagement_milestones — and even where the insert cannot complete it is
+--       an EXISTENCE ORACLE, because 'deal not found' and 'no roadmap found' are
+--       different answers about a deal id in a tenant you cannot read.
+--
+-- All three bodies were read in full first. **X was right about all three:
+-- none contains auth.uid(), my_org_ids(), has_capability or any other identity
+-- test.** SECURITY DEFINER bypasses RLS, and in a pooled project a grant to
+-- `authenticated` is a grant to every tenant's users at once.
+--
+-- ═══ WHY THE FIX IS A REVOKE AND NOT AN IN-BODY GATE ═══
+-- The codebase has both patterns. The one that fits is decided by CLAUDE.md
+-- rule 7's test — "does anything outside the database call this?" — answered PER
+-- FUNCTION rather than assumed:
+--
+--   · callers in src/:            ZERO, for all three (grepped).
+--   · callers in the database:    create_engagement_from_roadmap ← deal_stage_side_effects
+--                                 work_order_version             ← acknowledge_work_order, fetch_work_order_brief
+--                                 qc_photo_on_work_order         ← qc_items_guard_write, record_qc_item
+--   · ALL FIVE ARE SECURITY DEFINER OWNED BY `postgres` (measured). So each
+--     reaches these three as its owner, and revoking `authenticated` CANNOT
+--     break any of them. This is the measurement rule 7 insists on, and it is
+--     the one Material Matrix's own run of the same test failed on four
+--     functions — so it was taken, not presumed.
+--
+-- THE PATTERN FOLLOWED IS THE ONE RULE 7 NAMES BY EXAMPLE: `default_permissions_for_role`
+-- and `derive_catalog_price`, both of which read `postgres=X/postgres |
+-- service_role=X/postgres` today — `authenticated` revoked because nothing
+-- outside the database calls them. These three are the same case, so they get
+-- the same shape. Nothing new is invented.
+--
+-- AND THE REVOKE DOES NOT MERELY MOVE THE PROBLEM — the surviving paths were
+-- checked, because a gate that pushes a hole one call deeper is not a gate:
+--   acknowledge_work_order  → assert_work_order_level(…, 'trade'), which asserts
+--                             org_id in my_org_ids()
+--   fetch_work_order_brief  → the same assert
+--   record_qc_item          → auth.uid() not null AND w.org_id in my_org_ids()
+--   qc_items_guard_write    → a TRIGGER, not `authenticated`-executable at all,
+--                             plus is_qc_attester(new.org_id)
+--   deal_stage_side_effects → a TRIGGER
+-- Every surviving route is org-gated or unreachable by grant.
+--
+-- AN IN-BODY GATE WAS CONSIDERED AND REJECTED, WITH THE REASON. The obvious
+-- shape is `crew_assert_can_manage`'s: `if p_org_id not in (select my_org_ids())
+-- then raise`. For the two read oracles it is redundant once the grant is gone.
+-- For the WRITER it is actively risky: `deal_stage_side_effects` says in its own
+-- comment that it has no caller-supplied org and relies on the row operation
+-- already being RLS-mediated, and a hard `my_org_ids()` raise inside
+-- create_engagement_from_roadmap would fire on any future privileged path where
+-- auth.uid() is null — a backfill, a cron, a support action. **Adding a predicate
+-- that can misfire on a legitimate path, to a function nothing outside the
+-- database can call any more, trades a closed hole for an open risk.**
+--
+-- RULE 13 — WHAT WOULD HAVE TO CHANGE FOR THIS TO RE-OPEN: somebody grants
+-- EXECUTE on one of these three to `authenticated`. That is a statement about
+-- these functions, visible in the diff that makes it, which is exactly the form
+-- rule 13 asks for — as against the absence that was standing in for a control
+-- until today.
+--
+-- NO BODY IS TOUCHED. No signature changes, so rule 1's overload trap does not
+-- apply and no DROP is needed. Signatures below are VERBATIM from
+-- pg_get_function_identity_arguments() at 2026-10-08 14:01 EDT (rule 2).
+
+begin;
+
+-- `public` and `anon` are belt-and-braces: all three already read
+-- `postgres=X | authenticated=X | service_role=X`, with no leading `=X/postgres`,
+-- so PUBLIC's built-in grant was already revoked and `anon` was never there.
+-- `authenticated` is the one that is load-bearing today and is the removal.
+revoke execute on function public.create_engagement_from_roadmap(p_deal_id uuid) from public, anon, authenticated;
+revoke execute on function public.work_order_version(p_work_order_id uuid) from public, anon, authenticated;
+revoke execute on function public.qc_photo_on_work_order(p_work_order_id uuid, p_photo_ref text) from public, anon, authenticated;
+
+commit;
