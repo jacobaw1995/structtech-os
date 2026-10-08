@@ -21,7 +21,7 @@
 // exit 0 READY (every check PASS) · 1 NOT READY (any FAIL) · 2 UNDETERMINED (no FAIL,
 // but at least one check could not be answered)
 
-import { readFileSync, existsSync, writeFileSync, unlinkSync, statSync } from 'node:fs';
+import { readFileSync, existsSync, writeFileSync, unlinkSync, statSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -348,6 +348,49 @@ if (dbAvailable()) {
   } catch (e) { record('R14', 'UNDETERMINED', 'no ungated SECURITY DEFINER function of ours is reachable by authenticated', 'query failed (' + e.name + ')'); }
 }
 
+// ── R15 A MIGRATION APPLIED SINCE YESTERDAY, FROM EITHER PARTY ─────────────
+// The freeze breach of 2026-10-07 was learned 34 hours later, from a message.
+// Both sides had written a notification step and both had placed it OUTSIDE the
+// apply path — Material Matrix's words: "the notification was the entire control,
+// and I placed it outside the path." This reads the ledger instead, so it needs
+// nobody to send anything.
+//
+// THE WINDOW IS 24 HOURS HERE, NOT ONE. Readiness is run by a person, roughly
+// daily; a one-hour window in a daily check would report QUIET for 23 of every 24
+// migrations and be worse than nothing. The one-hour question belongs to
+// scripts/monitor/migration-watch.mjs, which takes --hours and shares this logic.
+//
+// IT IS "UNREVIEWED", NOT "FAIL", AND THE DISTINCTION IS THE WHOLE DESIGN. Track S
+// applies migrations as ordinary work; a check that goes red every time one lands
+// is a check everybody learns to scroll past, which is exactly how the original
+// notification died. UNREVIEWED says a thing happened that a human has not yet
+// looked at — which is true, and stops being true when they look.
+if (dbAvailable()) {
+  try {
+    const d = new Date(Date.now() - 24 * 3600 * 1000);
+    const pad = (n) => String(n).padStart(2, '0');
+    const cutoff = `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}${pad(d.getUTCSeconds())}`;
+    const total = q('select count(*) from supabase_migrations.schema_migrations').trim();
+    const raw = q("select version || chr(9) || coalesce(name, '') from supabase_migrations.schema_migrations where version >= '" + cutoff + "' order by version").trim();
+    const rows = raw ? raw.split('\n').map((l) => l.trim().split('\t')) : [];
+    const grab = (dir) => (existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith('.sql')).map((f) => f.split('_')[0]) : []);
+    const liveV = new Set(grab('supabase/migrations'));
+    const archV = new Set(grab('supabase/migrations/_archive_pre_baseline'));
+    // Attribution is three-state and the third is reported, never guessed:
+    // created_by cannot do this job — 258 of 267 rows carry one address, wh_ rows
+    // included, because both tracks apply under the same account (measured).
+    const who = (v, n) => (liveV.has(v) || archV.has(v) ? 'OURS' : /^wh_/.test(n || '') ? 'THEIRS' : 'UNATTRIBUTED');
+    if (rows.length === 0) {
+      record('R15', 'PASS', 'no unreviewed migration in the last 24h', `0 new rows of ${total} in the ledger (window: versions >= ${cutoff} UTC)`);
+    } else {
+      const named = rows.map(([v, n]) => `${v} "${n}" [${who(v, n)}]`).join('; ');
+      record('R15', 'UNREVIEWED', 'no unreviewed migration in the last 24h',
+        `${rows.length} applied in the last 24h, of ${total} in the ledger: ${named}` +
+        ' — this says they appeared, never that they were safe. Read them, then this clears on its own as the window moves.');
+    }
+  } catch (e) { record('R15', 'UNDETERMINED', 'no unreviewed migration in the last 24h', `query failed (${e.name})`); }
+}
+
 // ── R10 can we still see what happened after the day ends ───────────────────
 // Runtime logs are the only place a page open or a failed load appears today.
 // Vercel docs (read 2026-09-16): Hobby keeps 1 hour, Pro 1 day; drains Pro only.
@@ -370,7 +413,10 @@ const fails = results.filter((r) => r.verdict === 'FAIL').length;
 // an unreadable check count as ANSWERED — the same defect as the one fixed on
 // 2026-09-27, where R4-R8 did not run and the last line could not say so. A new
 // verdict is not finished until the line that counts verdicts knows it exists.
-const UNANSWERED = new Set(['UNDETERMINED', 'UNREADABLE']);
+// UNREVIEWED joins them 2026-10-08: a migration appeared and no human has looked
+// yet. That is literally unanswered, and classifying it here is the step the
+// tally refuses to let anyone skip (it has been skipped twice).
+const UNANSWERED = new Set(['UNDETERMINED', 'UNREADABLE', 'UNREVIEWED']);
 const ANSWERED_VERDICTS = new Set(['PASS', 'FAIL']);
 // AND THE TALLY NOW REFUSES A VERDICT IT HAS NOT BEEN TOLD ABOUT, rather than
 // silently miscounting it. Twice a new verdict was added and the counting line was
@@ -400,7 +446,7 @@ console.log(`CHECKS PRESENT (${results.length}): ${results.map((r) => r.id).join
 // because the ones that cannot be answered are not the unimportant ones — on
 // 2026-09-27 they were the five that ask what a crew member can actually reach.
 const answered = results.length - unknown;
-console.log(`ANSWERED ${answered} of ${results.length} checks` + (unknown ? `; ${unknown} UNANSWERED: ${unansweredRows.map((r) => `${r.id}(${r.verdict === 'UNREADABLE' ? 'unreadable' : 'not run'})`).join(', ')}` : ''));
+console.log(`ANSWERED ${answered} of ${results.length} checks` + (unknown ? `; ${unknown} UNANSWERED: ${unansweredRows.map((r) => `${r.id}(${r.verdict === 'UNREADABLE' ? 'unreadable' : r.verdict === 'UNREVIEWED' ? 'unreviewed' : 'not run'})`).join(', ')}` : ''));
 if (fails) { console.log(`NOT READY: ${fails} FAIL, ${unknown} UNANSWERED, ${results.length - fails - unknown} PASS — of ${results.length}`); process.exit(1); }
 if (unknown) { console.log(`UNANSWERED: ${unknown} of ${results.length} check(s) could not be answered`); process.exit(2); }
 console.log(`READY: ${results.length} of ${results.length} PASS`); process.exit(0);
