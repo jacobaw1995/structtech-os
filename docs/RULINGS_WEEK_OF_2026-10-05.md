@@ -166,3 +166,71 @@ window is to be ignored until identified.
   offered three answers and the true one was a fourth: the test did not run.
 - **37 — A COUNT IN AN INSTRUCTION MUST NOT EXCEED THE SET.** "Read the TEN functions in your
   ungated set" against a set of 14 — satisfiable by luck; at 8 it would not have been.
+
+---
+
+# CLOSING RULINGS — recorded 2026-10-08 19:49 EDT
+
+## 6 · THE FREEZE: WHAT ACTUALLY HAPPENED, AND THE SYMMETRY IS THE FINDING
+
+**Material Matrix answered in full, unprompted.** Their director **lifted the freeze verbally on
+Wednesday morning, with real authority to do so.** Their engineer accepted the lift, **wrote "tell
+StructTech in one line" as a CLOSING RECOMMENDATION rather than a step on the path**, and issued the
+go. `20261007123837` applied at 08:38:37 EDT.
+
+**Beside that, Track S's own Wednesday sentence:** I wrote Rule One into
+`docs/PILOT_DAY_RUNBOOK_2026-10-07.md` on 2026-10-06 **and wrote beside it that it needed sending,
+because Material Matrix was not reading the runbook.** The note was correct. **It was not acted on in
+time.**
+
+> **BOTH PARTIES COMMITTED THE IDENTICAL ERROR WITHIN 24 HOURS, AND THAT SYMMETRY IS THE FINDING —
+> not either failure on its own.**
+
+Each side wrote down the thing that would have prevented the problem, **in the correct words, as an
+aside.** Neither put it on the path. A single-party failure invites a process fix aimed at that
+party; **two independent instances of one shape in one day say the shape is the defect.** It is
+recorded as CLAUDE.md 38 for exactly that reason.
+
+**And the correction to my 2026-10-07 report stands as already recorded in §1 above: they WERE told.**
+I conflated the freeze — sent and acknowledged three times — with the runbook's Rule One, which was
+not sent, and reasoned from the weaker instrument to a conclusion about the stronger.
+
+## 7 · ACCEPTED FROM MATERIAL MATRIX: THREE DROPS IN A ROLLBACK IS WORSE THAN ONE IN A MIGRATION
+
+**Adopted whole.** Track S found four `DROP POLICY IF EXISTS … ON storage.objects` — three in a
+rollback, one in a proposal — and **took comfort from "zero in applied migrations."**
+
+**That was comfort from the wrong fact.** Material Matrix's reasoning, accepted:
+
+> **A rollback is what gets run in a panic, by whoever is awake, without review.** A migration is
+> read before it applies, in daylight, by someone who chose to open the file. **So an unscoped DROP
+> is MORE dangerous in a rollback than in a migration, not less** — and three of them is three
+> chances for the one that matters.
+
+**We were relieved by the wrong fact.** The scoping shipped 2026-10-08 (`8aedef5`): each of the three
+now asserts the policy exists **and** that its expression carries our own `bucket_id = 'org-files'`
+term, with all three branches proved — including a decoy wearing our exact name over `product-photos`,
+which the loop **refuses**.
+
+**TRIGGER: any `DROP` in any file under `supabase/rollbacks/`.** It is held to a higher standard than
+the same statement in a migration, for the reason above.
+
+## 8 · THE TWO MECHANISMS — one per party, and neither is a note
+
+**Theirs: a freeze file read by their apply path.** A lift becomes **a timestamped commit** rather
+than a sentence in a meeting. Their engineer's "tell StructTech in one line" then has somewhere to
+live that the apply path must pass through, instead of beside it.
+
+**Ours: a monitor on `supabase_migrations.schema_migrations`.** **Track X builds it next.** The
+shape is already measured: on 2026-10-07 the ledger's `max(version)` moved at 08:38:37 EDT and **we
+learned 34 hours later, from an audit, not from an alarm.** A monitor on that one value would have
+told us at 08:39. It is the control the freeze was standing in for.
+
+**Both are CLAUDE.md 38 applied: a control that sits on the path that performs the action.**
+
+### NO FREEZE IS IN FORCE NOW, AND NONE IS NEEDED
+
+The pilot did not run; there is no live field data to protect this week; migrations are back in Track
+S's lane and one shipped today. **Recording this so that a future reader does not find §1's freeze
+language and infer a standing rule that no longer applies.** The next freeze gets the mechanism, not
+the request.

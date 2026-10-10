@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.4"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
@@ -174,11 +174,25 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "check_ins_crew_fk"
+            columns: ["crew_id", "org_id"]
+            isOneToOne: false
+            referencedRelation: "crews"
+            referencedColumns: ["id", "org_id"]
+          },
+          {
             foreignKeyName: "check_ins_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "check_ins_schedule_block_id_fkey"
+            columns: ["schedule_block_id"]
+            isOneToOne: false
+            referencedRelation: "crew_assignment_states"
+            referencedColumns: ["schedule_block_id"]
           },
           {
             foreignKeyName: "check_ins_schedule_block_id_fkey"
@@ -296,17 +310,17 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "crew_memberships_crew"
-            columns: ["crew_id"]
+            columns: ["crew_id", "org_id"]
             isOneToOne: false
             referencedRelation: "crews"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "crew_memberships_person"
-            columns: ["person_id"]
+            columns: ["person_id", "org_id"]
             isOneToOne: false
             referencedRelation: "crew_people"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
         ]
       }
@@ -358,6 +372,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "crew_people_member_login"
+            columns: ["org_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "org_members"
+            referencedColumns: ["org_id", "user_id"]
+          },
+          {
             foreignKeyName: "crew_people_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
@@ -400,10 +421,10 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "crew_person_unavailability_person"
-            columns: ["person_id"]
+            columns: ["person_id", "org_id"]
             isOneToOne: false
             referencedRelation: "crew_people"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
         ]
       }
@@ -991,12 +1012,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "estimate_line_items_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
-          },          {
             foreignKeyName: "estimate_line_items_estimate_id_fkey"
             columns: ["estimate_id"]
             isOneToOne: false
@@ -1008,6 +1023,13 @@ export type Database = {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "estimate_line_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
             referencedColumns: ["id"]
           },
         ]
@@ -1191,6 +1213,53 @@ export type Database = {
           },
           {
             foreignKeyName: "estimates_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      field_events: {
+        Row: {
+          actor_id: string
+          client_sent_at: string | null
+          duration_ms: number | null
+          event: string
+          id: string
+          occurred_at: string
+          org_id: string
+          outcome: string | null
+          subject_ref: string | null
+          work_order_id: string | null
+        }
+        Insert: {
+          actor_id: string
+          client_sent_at?: string | null
+          duration_ms?: number | null
+          event: string
+          id?: string
+          occurred_at?: string
+          org_id: string
+          outcome?: string | null
+          subject_ref?: string | null
+          work_order_id?: string | null
+        }
+        Update: {
+          actor_id?: string
+          client_sent_at?: string | null
+          duration_ms?: number | null
+          event?: string
+          id?: string
+          occurred_at?: string
+          org_id?: string
+          outcome?: string | null
+          subject_ref?: string | null
+          work_order_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "field_events_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -2294,6 +2363,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "purchase_order_lines_material_item_id_fkey"
+            columns: ["material_item_id"]
+            isOneToOne: false
+            referencedRelation: "material_items"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "purchase_order_lines_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
@@ -2305,13 +2381,6 @@ export type Database = {
             columns: ["purchase_order_id"]
             isOneToOne: false
             referencedRelation: "purchase_orders"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "purchase_order_lines_material_item_id_fkey"
-            columns: ["material_item_id"]
-            isOneToOne: false
-            referencedRelation: "material_items"
             referencedColumns: ["id"]
           },
         ]
@@ -2358,17 +2427,17 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "purchase_orders_org_id_fkey"
-            columns: ["org_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "purchase_orders_job_id_fkey"
             columns: ["job_id"]
             isOneToOne: false
             referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_orders_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
           {
@@ -2401,8 +2470,8 @@ export type Database = {
           cleared_at?: string | null
           cleared_by?: string | null
           count_value?: number | null
-          first_actor_id?: string
-          first_occurred_at?: string
+          first_actor_id: string
+          first_occurred_at: string
           id?: string
           kind: string
           occurred_at?: string
@@ -2426,7 +2495,22 @@ export type Database = {
           requirement_key?: string
           work_order_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "qc_items_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qc_items_work_order_id_fkey"
+            columns: ["work_order_id"]
+            isOneToOne: false
+            referencedRelation: "work_orders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       roadmap_items: {
         Row: {
@@ -2535,45 +2619,52 @@ export type Database = {
       }
       schedule_blocks: {
         Row: {
-          ready_by_conflict: boolean
-          ready_by_conflict_reason: string | null
           created_at: string
           crew_id: string | null
           crew_name: string
           end_date: string
           id: string
           org_id: string
+          ready_by_conflict: boolean
+          ready_by_conflict_reason: string | null
           start_date: string
           updated_at: string
           work_order_id: string
         }
         Insert: {
-          ready_by_conflict?: boolean
-          ready_by_conflict_reason?: string | null
           created_at?: string
           crew_id?: string | null
           crew_name: string
           end_date: string
           id?: string
           org_id: string
+          ready_by_conflict?: boolean
+          ready_by_conflict_reason?: string | null
           start_date: string
           updated_at?: string
           work_order_id: string
         }
         Update: {
-          ready_by_conflict?: boolean
-          ready_by_conflict_reason?: string | null
           created_at?: string
           crew_id?: string | null
           crew_name?: string
           end_date?: string
           id?: string
           org_id?: string
+          ready_by_conflict?: boolean
+          ready_by_conflict_reason?: string | null
           start_date?: string
           updated_at?: string
           work_order_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "schedule_blocks_crew_fk"
+            columns: ["crew_id", "org_id"]
+            isOneToOne: false
+            referencedRelation: "crews"
+            referencedColumns: ["id", "org_id"]
+          },
           {
             foreignKeyName: "schedule_blocks_org_id_fkey"
             columns: ["org_id"]
@@ -2589,45 +2680,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      special_trips: {
-        Row: {
-          client_token: string | null
-          created_at: string
-          id: string
-          note: string | null
-          occurred_on: string
-          org_id: string
-          reason_code: string
-          recorded_at: string
-          recorded_by: string
-          work_order_id: string
-        }
-        Insert: {
-          client_token?: string | null
-          created_at?: string
-          id?: string
-          note?: string | null
-          occurred_on: string
-          org_id: string
-          reason_code: string
-          recorded_at?: string
-          recorded_by: string
-          work_order_id: string
-        }
-        Update: {
-          client_token?: string | null
-          created_at?: string
-          id?: string
-          note?: string | null
-          occurred_on?: string
-          org_id?: string
-          reason_code?: string
-          recorded_at?: string
-          recorded_by?: string
-          work_order_id?: string
-        }
-        Relationships: []
       }
       signatures: {
         Row: {
@@ -2668,13 +2720,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "signatures_sign_link_id_fkey"
-            columns: ["sign_link_id"]
-            isOneToOne: false
-            referencedRelation: "estimate_sign_links"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "signatures_estimate_id_fkey"
             columns: ["estimate_id"]
             isOneToOne: false
@@ -2686,6 +2731,13 @@ export type Database = {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signatures_sign_link_id_fkey"
+            columns: ["sign_link_id"]
+            isOneToOne: false
+            referencedRelation: "estimate_sign_links"
             referencedColumns: ["id"]
           },
         ]
@@ -2729,17 +2781,85 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "signed_copy_records_signature_id_fkey"
-            columns: ["signature_id"]
-            isOneToOne: false
-            referencedRelation: "signatures"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "signed_copy_records_estimate_id_fkey"
             columns: ["estimate_id"]
             isOneToOne: false
             referencedRelation: "estimates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signed_copy_records_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signed_copy_records_signature_id_fkey"
+            columns: ["signature_id"]
+            isOneToOne: true
+            referencedRelation: "signatures"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      special_trips: {
+        Row: {
+          client_token: string | null
+          created_at: string
+          id: string
+          note: string | null
+          occurred_on: string
+          org_id: string
+          reason_code: string
+          recorded_at: string
+          recorded_by: string
+          work_order_id: string
+        }
+        Insert: {
+          client_token?: string | null
+          created_at?: string
+          id?: string
+          note?: string | null
+          occurred_on: string
+          org_id: string
+          reason_code: string
+          recorded_at?: string
+          recorded_by: string
+          work_order_id: string
+        }
+        Update: {
+          client_token?: string | null
+          created_at?: string
+          id?: string
+          note?: string | null
+          occurred_on?: string
+          org_id?: string
+          reason_code?: string
+          recorded_at?: string
+          recorded_by?: string
+          work_order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "special_trips_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "special_trips_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "special_trips_work_order_id_fkey"
+            columns: ["work_order_id"]
+            isOneToOne: false
+            referencedRelation: "work_orders"
             referencedColumns: ["id"]
           },
         ]
@@ -2920,6 +3040,150 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      tg_agenda_card: {
+        Row: {
+          chat_id: number | null
+          created_at: string
+          created_by: number | null
+          delivered_to: Json
+          id: number
+          payload: Json
+        }
+        Insert: {
+          chat_id?: number | null
+          created_at?: string
+          created_by?: number | null
+          delivered_to?: Json
+          id?: number
+          payload: Json
+        }
+        Update: {
+          chat_id?: number | null
+          created_at?: string
+          created_by?: number | null
+          delivered_to?: Json
+          id?: number
+          payload?: Json
+        }
+        Relationships: []
+      }
+      tg_agenda_contact: {
+        Row: {
+          active: boolean
+          added_by: number | null
+          created_at: string
+          id: number
+          label: string
+          tg_user_id: number | null
+          username: string | null
+        }
+        Insert: {
+          active?: boolean
+          added_by?: number | null
+          created_at?: string
+          id?: number
+          label: string
+          tg_user_id?: number | null
+          username?: string | null
+        }
+        Update: {
+          active?: boolean
+          added_by?: number | null
+          created_at?: string
+          id?: number
+          label?: string
+          tg_user_id?: number | null
+          username?: string | null
+        }
+        Relationships: []
+      }
+      tg_agenda_group: {
+        Row: {
+          active: boolean
+          added_by: number | null
+          chat_id: number
+          created_at: string
+          title: string | null
+        }
+        Insert: {
+          active?: boolean
+          added_by?: number | null
+          chat_id: number
+          created_at?: string
+          title?: string | null
+        }
+        Update: {
+          active?: boolean
+          added_by?: number | null
+          chat_id?: number
+          created_at?: string
+          title?: string | null
+        }
+        Relationships: []
+      }
+      tg_agenda_sender: {
+        Row: {
+          added_by: number | null
+          created_at: string
+          label: string | null
+          owner: boolean
+          tg_user_id: number
+        }
+        Insert: {
+          added_by?: number | null
+          created_at?: string
+          label?: string | null
+          owner?: boolean
+          tg_user_id: number
+        }
+        Update: {
+          added_by?: number | null
+          created_at?: string
+          label?: string | null
+          owner?: boolean
+          tg_user_id?: number
+        }
+        Relationships: []
+      }
+      tg_agenda_session: {
+        Row: {
+          chat_id: number
+          draft: Json
+          step: string
+          tg_user_id: number
+          updated_at: string
+        }
+        Insert: {
+          chat_id: number
+          draft?: Json
+          step?: string
+          tg_user_id: number
+          updated_at?: string
+        }
+        Update: {
+          chat_id?: number
+          draft?: Json
+          step?: string
+          tg_user_id?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      tg_agenda_update: {
+        Row: {
+          seen_at: string
+          update_id: number
+        }
+        Insert: {
+          seen_at?: string
+          update_id: number
+        }
+        Update: {
+          seen_at?: string
+          update_id?: number
+        }
+        Relationships: []
       }
       ticket_messages: {
         Row: {
@@ -3164,6 +3428,1603 @@ export type Database = {
           },
         ]
       }
+      wh_categories: {
+        Row: {
+          active: boolean | null
+          badge: string | null
+          card_type: string | null
+          catalog_section: string | null
+          created_at: string | null
+          display_order: number | null
+          id: string
+          image_url: string | null
+          microcopy: string | null
+          name: string
+          org_id: string
+          required: boolean | null
+          skip_label: string | null
+          slug: string
+          stage_id: string | null
+          status: string
+          system_id: string
+        }
+        Insert: {
+          active?: boolean | null
+          badge?: string | null
+          card_type?: string | null
+          catalog_section?: string | null
+          created_at?: string | null
+          display_order?: number | null
+          id?: string
+          image_url?: string | null
+          microcopy?: string | null
+          name: string
+          org_id: string
+          required?: boolean | null
+          skip_label?: string | null
+          slug: string
+          stage_id?: string | null
+          status?: string
+          system_id: string
+        }
+        Update: {
+          active?: boolean | null
+          badge?: string | null
+          card_type?: string | null
+          catalog_section?: string | null
+          created_at?: string | null
+          display_order?: number | null
+          id?: string
+          image_url?: string | null
+          microcopy?: string | null
+          name?: string
+          org_id?: string
+          required?: boolean | null
+          skip_label?: string | null
+          slug?: string
+          stage_id?: string | null
+          status?: string
+          system_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wh_categories_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wh_categories_stage_id_fkey"
+            columns: ["stage_id"]
+            isOneToOne: false
+            referencedRelation: "wh_stages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wh_categories_system_id_fkey"
+            columns: ["system_id"]
+            isOneToOne: false
+            referencedRelation: "wh_systems"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wh_category_products: {
+        Row: {
+          category_id: string
+          product_id: string
+        }
+        Insert: {
+          category_id: string
+          product_id: string
+        }
+        Update: {
+          category_id?: string
+          product_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wh_category_products_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "wh_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wh_category_products_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "wh_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wh_colors: {
+        Row: {
+          available_finishes: string[] | null
+          color_family: string | null
+          created_at: string | null
+          display_order: number | null
+          finishes_chosen_at: string | null
+          hex_code: string | null
+          id: string
+          name: string
+          org_id: string
+          status: string
+          swatch_image_url: string | null
+        }
+        Insert: {
+          available_finishes?: string[] | null
+          color_family?: string | null
+          created_at?: string | null
+          display_order?: number | null
+          finishes_chosen_at?: string | null
+          hex_code?: string | null
+          id?: string
+          name: string
+          org_id: string
+          status?: string
+          swatch_image_url?: string | null
+        }
+        Update: {
+          available_finishes?: string[] | null
+          color_family?: string | null
+          created_at?: string | null
+          display_order?: number | null
+          finishes_chosen_at?: string | null
+          hex_code?: string | null
+          id?: string
+          name?: string
+          org_id?: string
+          status?: string
+          swatch_image_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wh_colors_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wh_cost_history: {
+        Row: {
+          changed_by: string | null
+          cost: number
+          created_at: string
+          effective_from: string
+          effective_to: string | null
+          id: string
+          note: string | null
+          org_id: string
+          variation_id: string
+        }
+        Insert: {
+          changed_by?: string | null
+          cost: number
+          created_at?: string
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          note?: string | null
+          org_id?: string
+          variation_id: string
+        }
+        Update: {
+          changed_by?: string | null
+          cost?: number
+          created_at?: string
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          note?: string | null
+          org_id?: string
+          variation_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wh_cost_history_variation_id_fkey"
+            columns: ["variation_id"]
+            isOneToOne: false
+            referencedRelation: "wh_product_variations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wh_drivers: {
+        Row: {
+          active: boolean | null
+          created_at: string | null
+          email: string
+          id: string
+          name: string
+          org_id: string
+          phone: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          created_at?: string | null
+          email: string
+          id?: string
+          name: string
+          org_id?: string
+          phone?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          created_at?: string | null
+          email?: string
+          id?: string
+          name?: string
+          org_id?: string
+          phone?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wh_drivers_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wh_order_access_tokens: {
+        Row: {
+          created_at: string
+          expires_at: string
+          order_id: string
+          org_id: string
+          revoked_at: string | null
+          token: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string
+          order_id: string
+          org_id?: string
+          revoked_at?: string | null
+          token: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          order_id?: string
+          org_id?: string
+          revoked_at?: string | null
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wh_order_access_tokens_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: true
+            referencedRelation: "wh_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wh_order_attachments: {
+        Row: {
+          attached_at: string
+          id: string
+          order_id: string
+          org_id: string
+          user_id: string
+        }
+        Insert: {
+          attached_at?: string
+          id?: string
+          order_id: string
+          org_id: string
+          user_id?: string
+        }
+        Update: {
+          attached_at?: string
+          id?: string
+          order_id?: string
+          org_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wh_order_attachments_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "wh_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wh_order_line_items: {
+        Row: {
+          amount: number | null
+          attributes: Json | null
+          auto_generated: boolean | null
+          category: string | null
+          color_id: string | null
+          description: string | null
+          display_order: number | null
+          finish: string | null
+          id: string
+          is_priceable: boolean | null
+          length_in: number | null
+          order_id: string
+          org_id: string
+          pricing_rule: string | null
+          product_id: string | null
+          quantity: number | null
+          quantity_unit: string | null
+          specs: string | null
+          waste_units: number | null
+        }
+        Insert: {
+          amount?: number | null
+          attributes?: Json | null
+          auto_generated?: boolean | null
+          category?: string | null
+          color_id?: string | null
+          description?: string | null
+          display_order?: number | null
+          finish?: string | null
+          id?: string
+          is_priceable?: boolean | null
+          length_in?: number | null
+          order_id: string
+          org_id?: string
+          pricing_rule?: string | null
+          product_id?: string | null
+          quantity?: number | null
+          quantity_unit?: string | null
+          specs?: string | null
+          waste_units?: number | null
+        }
+        Update: {
+          amount?: number | null
+          attributes?: Json | null
+          auto_generated?: boolean | null
+          category?: string | null
+          color_id?: string | null
+          description?: string | null
+          display_order?: number | null
+          finish?: string | null
+          id?: string
+          is_priceable?: boolean | null
+          length_in?: number | null
+          order_id?: string
+          org_id?: string
+          pricing_rule?: string | null
+          product_id?: string | null
+          quantity?: number | null
+          quantity_unit?: string | null
+          specs?: string | null
+          waste_units?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wh_order_line_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "wh_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wh_order_line_items_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wh_orders: {
+        Row: {
+          amount_paid_cents: number | null
+          created_at: string | null
+          customer_email: string | null
+          customer_id: string | null
+          customer_name: string | null
+          customer_phone: string | null
+          delivery_address: Json | null
+          driver_email: string | null
+          dropped_off_at: string | null
+          freight_amount: number | null
+          fulfillment: string | null
+          id: string
+          job_name: string | null
+          lead_time_text: string | null
+          order_date: string | null
+          order_notes: string | null
+          order_number: string
+          order_total: number | null
+          org_id: string
+          paid_at: string | null
+          payment_status: string
+          pdf_generated_at: string | null
+          pdf_url: string | null
+          pickup_location: string | null
+          printed_at: string | null
+          printed_by_email: string | null
+          return_policy_acknowledged_at: string | null
+          return_policy_text: string | null
+          status: string | null
+          stripe_checkout_session_id: string | null
+          stripe_payment_intent_id: string | null
+          subtotal: number | null
+          system: string | null
+          tax_amount: number | null
+          tax_exempt: boolean
+          tax_exemption_id: string | null
+          tax_rate_percent: number | null
+          webhook_claimed_at: string | null
+          webhook_error: string | null
+          webhook_fired: boolean | null
+          webhook_payload: Json | null
+        }
+        Insert: {
+          amount_paid_cents?: number | null
+          created_at?: string | null
+          customer_email?: string | null
+          customer_id?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          delivery_address?: Json | null
+          driver_email?: string | null
+          dropped_off_at?: string | null
+          freight_amount?: number | null
+          fulfillment?: string | null
+          id?: string
+          job_name?: string | null
+          lead_time_text?: string | null
+          order_date?: string | null
+          order_notes?: string | null
+          order_number: string
+          order_total?: number | null
+          org_id?: string
+          paid_at?: string | null
+          payment_status?: string
+          pdf_generated_at?: string | null
+          pdf_url?: string | null
+          pickup_location?: string | null
+          printed_at?: string | null
+          printed_by_email?: string | null
+          return_policy_acknowledged_at?: string | null
+          return_policy_text?: string | null
+          status?: string | null
+          stripe_checkout_session_id?: string | null
+          stripe_payment_intent_id?: string | null
+          subtotal?: number | null
+          system?: string | null
+          tax_amount?: number | null
+          tax_exempt?: boolean
+          tax_exemption_id?: string | null
+          tax_rate_percent?: number | null
+          webhook_claimed_at?: string | null
+          webhook_error?: string | null
+          webhook_fired?: boolean | null
+          webhook_payload?: Json | null
+        }
+        Update: {
+          amount_paid_cents?: number | null
+          created_at?: string | null
+          customer_email?: string | null
+          customer_id?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          delivery_address?: Json | null
+          driver_email?: string | null
+          dropped_off_at?: string | null
+          freight_amount?: number | null
+          fulfillment?: string | null
+          id?: string
+          job_name?: string | null
+          lead_time_text?: string | null
+          order_date?: string | null
+          order_notes?: string | null
+          order_number?: string
+          order_total?: number | null
+          org_id?: string
+          paid_at?: string | null
+          payment_status?: string
+          pdf_generated_at?: string | null
+          pdf_url?: string | null
+          pickup_location?: string | null
+          printed_at?: string | null
+          printed_by_email?: string | null
+          return_policy_acknowledged_at?: string | null
+          return_policy_text?: string | null
+          status?: string | null
+          stripe_checkout_session_id?: string | null
+          stripe_payment_intent_id?: string | null
+          subtotal?: number | null
+          system?: string | null
+          tax_amount?: number | null
+          tax_exempt?: boolean
+          tax_exemption_id?: string | null
+          tax_rate_percent?: number | null
+          webhook_claimed_at?: string | null
+          webhook_error?: string | null
+          webhook_fired?: boolean | null
+          webhook_payload?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wh_orders_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wh_orders_tax_exemption_id_fkey"
+            columns: ["tax_exemption_id"]
+            isOneToOne: false
+            referencedRelation: "wh_tax_exemptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wh_price_history: {
+        Row: {
+          changed_by: string | null
+          created_at: string
+          effective_from: string
+          effective_to: string | null
+          id: string
+          note: string | null
+          org_id: string
+          price: number
+          price_unit: string | null
+          variation_id: string
+        }
+        Insert: {
+          changed_by?: string | null
+          created_at?: string
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          note?: string | null
+          org_id?: string
+          price: number
+          price_unit?: string | null
+          variation_id: string
+        }
+        Update: {
+          changed_by?: string | null
+          created_at?: string
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          note?: string | null
+          org_id?: string
+          price?: number
+          price_unit?: string | null
+          variation_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wh_price_history_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wh_price_history_variation_id_fkey"
+            columns: ["variation_id"]
+            isOneToOne: false
+            referencedRelation: "wh_product_variations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wh_product_colors: {
+        Row: {
+          color_id: string
+          price_modifier: number | null
+          product_id: string
+        }
+        Insert: {
+          color_id: string
+          price_modifier?: number | null
+          product_id: string
+        }
+        Update: {
+          color_id?: string
+          price_modifier?: number | null
+          product_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wh_product_colors_color_id_fkey"
+            columns: ["color_id"]
+            isOneToOne: false
+            referencedRelation: "wh_colors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wh_product_colors_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "wh_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wh_product_families: {
+        Row: {
+          catalog_section: string | null
+          compatible_systems: string[]
+          created_at: string
+          display_order: number
+          id: string
+          image_url: string | null
+          member_conflicts: Json | null
+          name: string
+          org_id: string
+          product_type: string | null
+          slug: string | null
+          status: string
+          type_id: string | null
+        }
+        Insert: {
+          catalog_section?: string | null
+          compatible_systems?: string[]
+          created_at?: string
+          display_order?: number
+          id?: string
+          image_url?: string | null
+          member_conflicts?: Json | null
+          name: string
+          org_id?: string
+          product_type?: string | null
+          slug?: string | null
+          status?: string
+          type_id?: string | null
+        }
+        Update: {
+          catalog_section?: string | null
+          compatible_systems?: string[]
+          created_at?: string
+          display_order?: number
+          id?: string
+          image_url?: string | null
+          member_conflicts?: Json | null
+          name?: string
+          org_id?: string
+          product_type?: string | null
+          slug?: string | null
+          status?: string
+          type_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wh_product_families_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wh_product_families_type_id_fkey"
+            columns: ["type_id"]
+            isOneToOne: false
+            referencedRelation: "wh_product_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wh_product_families_backup_20260828: {
+        Row: {
+          catalog_section: string | null
+          compatible_systems: string[] | null
+          created_at: string | null
+          display_order: number | null
+          id: string | null
+          image_url: string | null
+          member_conflicts: Json | null
+          name: string | null
+          org_id: string | null
+          product_type: string | null
+          slug: string | null
+          status: string | null
+          type_id: string | null
+        }
+        Insert: {
+          catalog_section?: string | null
+          compatible_systems?: string[] | null
+          created_at?: string | null
+          display_order?: number | null
+          id?: string | null
+          image_url?: string | null
+          member_conflicts?: Json | null
+          name?: string | null
+          org_id?: string | null
+          product_type?: string | null
+          slug?: string | null
+          status?: string | null
+          type_id?: string | null
+        }
+        Update: {
+          catalog_section?: string | null
+          compatible_systems?: string[] | null
+          created_at?: string | null
+          display_order?: number | null
+          id?: string | null
+          image_url?: string | null
+          member_conflicts?: Json | null
+          name?: string | null
+          org_id?: string | null
+          product_type?: string | null
+          slug?: string | null
+          status?: string | null
+          type_id?: string | null
+        }
+        Relationships: []
+      }
+      wh_product_roles: {
+        Row: {
+          created_at: string
+          id: string
+          key: string
+          name: string
+          note: string | null
+          org_id: string
+          product_id: string | null
+          system_slug: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          key: string
+          name: string
+          note?: string | null
+          org_id?: string
+          product_id?: string | null
+          system_slug?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          key?: string
+          name?: string
+          note?: string | null
+          org_id?: string
+          product_id?: string | null
+          system_slug?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wh_product_roles_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wh_product_roles_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "wh_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wh_product_types: {
+        Row: {
+          attributes: Json
+          coverage_mult: number | null
+          created_at: string
+          display_order: number
+          id: string
+          input_mode: string | null
+          key: string
+          name: string
+          org_id: string
+          pack_qty: number | null
+          sold_in_packs: boolean
+          takes_color: boolean
+          takes_finish: boolean
+          takes_gauge: boolean
+          unit_factor: number | null
+          waste_factor: number | null
+        }
+        Insert: {
+          attributes?: Json
+          coverage_mult?: number | null
+          created_at?: string
+          display_order?: number
+          id?: string
+          input_mode?: string | null
+          key: string
+          name: string
+          org_id?: string
+          pack_qty?: number | null
+          sold_in_packs?: boolean
+          takes_color?: boolean
+          takes_finish?: boolean
+          takes_gauge?: boolean
+          unit_factor?: number | null
+          waste_factor?: number | null
+        }
+        Update: {
+          attributes?: Json
+          coverage_mult?: number | null
+          created_at?: string
+          display_order?: number
+          id?: string
+          input_mode?: string | null
+          key?: string
+          name?: string
+          org_id?: string
+          pack_qty?: number | null
+          sold_in_packs?: boolean
+          takes_color?: boolean
+          takes_finish?: boolean
+          takes_gauge?: boolean
+          unit_factor?: number | null
+          waste_factor?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wh_product_types_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wh_product_variations: {
+        Row: {
+          coverage_width_in: number | null
+          created_at: string
+          display_order: number
+          family_id: string
+          finish: string | null
+          gauge: string | null
+          id: string
+          image_url: string | null
+          name: string
+          org_id: string
+          price: number | null
+          price_unit: string | null
+          sku: string | null
+          source_product_id: string | null
+          status: string
+          type_id: string | null
+        }
+        Insert: {
+          coverage_width_in?: number | null
+          created_at?: string
+          display_order?: number
+          family_id: string
+          finish?: string | null
+          gauge?: string | null
+          id?: string
+          image_url?: string | null
+          name: string
+          org_id?: string
+          price?: number | null
+          price_unit?: string | null
+          sku?: string | null
+          source_product_id?: string | null
+          status?: string
+          type_id?: string | null
+        }
+        Update: {
+          coverage_width_in?: number | null
+          created_at?: string
+          display_order?: number
+          family_id?: string
+          finish?: string | null
+          gauge?: string | null
+          id?: string
+          image_url?: string | null
+          name?: string
+          org_id?: string
+          price?: number | null
+          price_unit?: string | null
+          sku?: string | null
+          source_product_id?: string | null
+          status?: string
+          type_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wh_product_variations_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "wh_product_families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wh_product_variations_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wh_product_variations_source_product_id_fkey"
+            columns: ["source_product_id"]
+            isOneToOne: false
+            referencedRelation: "wh_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wh_product_variations_type_id_fkey"
+            columns: ["type_id"]
+            isOneToOne: false
+            referencedRelation: "wh_product_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wh_product_variations_backup_20260828: {
+        Row: {
+          coverage_width_in: number | null
+          created_at: string | null
+          display_order: number | null
+          family_id: string | null
+          finish: string | null
+          gauge: string | null
+          id: string | null
+          image_url: string | null
+          name: string | null
+          org_id: string | null
+          price: number | null
+          price_unit: string | null
+          sku: string | null
+          source_product_id: string | null
+          status: string | null
+          type_id: string | null
+        }
+        Insert: {
+          coverage_width_in?: number | null
+          created_at?: string | null
+          display_order?: number | null
+          family_id?: string | null
+          finish?: string | null
+          gauge?: string | null
+          id?: string | null
+          image_url?: string | null
+          name?: string | null
+          org_id?: string | null
+          price?: number | null
+          price_unit?: string | null
+          sku?: string | null
+          source_product_id?: string | null
+          status?: string | null
+          type_id?: string | null
+        }
+        Update: {
+          coverage_width_in?: number | null
+          created_at?: string | null
+          display_order?: number | null
+          family_id?: string | null
+          finish?: string | null
+          gauge?: string | null
+          id?: string | null
+          image_url?: string | null
+          name?: string | null
+          org_id?: string | null
+          price?: number | null
+          price_unit?: string | null
+          sku?: string | null
+          source_product_id?: string | null
+          status?: string | null
+          type_id?: string | null
+        }
+        Relationships: []
+      }
+      wh_products: {
+        Row: {
+          active: boolean | null
+          base_price: number | null
+          catalog_section: string | null
+          compatible_systems: string[] | null
+          coverage_width_in: number | null
+          created_at: string | null
+          description: string | null
+          display_order: number | null
+          finish: string | null
+          gauge: string | null
+          id: string
+          image_url: string | null
+          name: string
+          org_id: string
+          product_type: string | null
+          sku: string | null
+          unit_size: string | null
+          unit_type: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          base_price?: number | null
+          catalog_section?: string | null
+          compatible_systems?: string[] | null
+          coverage_width_in?: number | null
+          created_at?: string | null
+          description?: string | null
+          display_order?: number | null
+          finish?: string | null
+          gauge?: string | null
+          id?: string
+          image_url?: string | null
+          name: string
+          org_id: string
+          product_type?: string | null
+          sku?: string | null
+          unit_size?: string | null
+          unit_type?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          base_price?: number | null
+          catalog_section?: string | null
+          compatible_systems?: string[] | null
+          coverage_width_in?: number | null
+          created_at?: string | null
+          description?: string | null
+          display_order?: number | null
+          finish?: string | null
+          gauge?: string | null
+          id?: string
+          image_url?: string | null
+          name?: string
+          org_id?: string
+          product_type?: string | null
+          sku?: string | null
+          unit_size?: string | null
+          unit_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wh_products_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wh_products_backup_20260828: {
+        Row: {
+          active: boolean | null
+          base_price: number | null
+          catalog_section: string | null
+          compatible_systems: string[] | null
+          coverage_width_in: number | null
+          created_at: string | null
+          description: string | null
+          display_order: number | null
+          finish: string | null
+          gauge: string | null
+          id: string | null
+          image_url: string | null
+          name: string | null
+          org_id: string | null
+          product_type: string | null
+          sku: string | null
+          unit_size: string | null
+          unit_type: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          base_price?: number | null
+          catalog_section?: string | null
+          compatible_systems?: string[] | null
+          coverage_width_in?: number | null
+          created_at?: string | null
+          description?: string | null
+          display_order?: number | null
+          finish?: string | null
+          gauge?: string | null
+          id?: string | null
+          image_url?: string | null
+          name?: string | null
+          org_id?: string | null
+          product_type?: string | null
+          sku?: string | null
+          unit_size?: string | null
+          unit_type?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          base_price?: number | null
+          catalog_section?: string | null
+          compatible_systems?: string[] | null
+          coverage_width_in?: number | null
+          created_at?: string | null
+          description?: string | null
+          display_order?: number | null
+          finish?: string | null
+          gauge?: string | null
+          id?: string | null
+          image_url?: string | null
+          name?: string | null
+          org_id?: string | null
+          product_type?: string | null
+          sku?: string | null
+          unit_size?: string | null
+          unit_type?: string | null
+        }
+        Relationships: []
+      }
+      wh_saved_cart_lines: {
+        Row: {
+          attributes: Json
+          cart_id: string
+          category_id: string | null
+          color_id: string | null
+          created_at: string
+          description: string | null
+          display_order: number
+          id: string
+          is_priceable: boolean
+          length_in: number | null
+          line_key: string
+          org_id: string
+          pricing_rule: string | null
+          product_id: string | null
+          quantity: number | null
+          quantity_unit: string | null
+          specs: string | null
+          waste_units: number
+        }
+        Insert: {
+          attributes?: Json
+          cart_id: string
+          category_id?: string | null
+          color_id?: string | null
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_priceable?: boolean
+          length_in?: number | null
+          line_key?: string
+          org_id?: string
+          pricing_rule?: string | null
+          product_id?: string | null
+          quantity?: number | null
+          quantity_unit?: string | null
+          specs?: string | null
+          waste_units?: number
+        }
+        Update: {
+          attributes?: Json
+          cart_id?: string
+          category_id?: string | null
+          color_id?: string | null
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_priceable?: boolean
+          length_in?: number | null
+          line_key?: string
+          org_id?: string
+          pricing_rule?: string | null
+          product_id?: string | null
+          quantity?: number | null
+          quantity_unit?: string | null
+          specs?: string | null
+          waste_units?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wh_saved_cart_lines_cart_id_fkey"
+            columns: ["cart_id"]
+            isOneToOne: false
+            referencedRelation: "wh_saved_carts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wh_saved_carts: {
+        Row: {
+          created_at: string
+          finish: string | null
+          id: string
+          mode: string | null
+          name: string
+          org_id: string
+          roof_color_id: string | null
+          system_slug: string | null
+          trim_color_id: string | null
+          trim_match: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          finish?: string | null
+          id?: string
+          mode?: string | null
+          name: string
+          org_id?: string
+          roof_color_id?: string | null
+          system_slug?: string | null
+          trim_color_id?: string | null
+          trim_match?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          finish?: string | null
+          id?: string
+          mode?: string | null
+          name?: string
+          org_id?: string
+          roof_color_id?: string | null
+          system_slug?: string | null
+          trim_color_id?: string | null
+          trim_match?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      wh_settings: {
+        Row: {
+          key: string
+          org_id: string
+          updated_at: string | null
+          value: string | null
+        }
+        Insert: {
+          key: string
+          org_id?: string
+          updated_at?: string | null
+          value?: string | null
+        }
+        Update: {
+          key?: string
+          org_id?: string
+          updated_at?: string | null
+          value?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wh_settings_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wh_spec_files: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          filename: string | null
+          id: string
+          order_id: string
+          org_id: string
+          storage_url: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          filename?: string | null
+          id?: string
+          order_id: string
+          org_id?: string
+          storage_url?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          filename?: string | null
+          id?: string
+          order_id?: string
+          org_id?: string
+          storage_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wh_spec_files_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "wh_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wh_spec_files_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wh_stages: {
+        Row: {
+          active: boolean
+          display_order: number
+          id: string
+          name: string
+          org_id: string
+          status: string
+          system_id: string
+        }
+        Insert: {
+          active?: boolean
+          display_order: number
+          id?: string
+          name: string
+          org_id: string
+          status?: string
+          system_id: string
+        }
+        Update: {
+          active?: boolean
+          display_order?: number
+          id?: string
+          name?: string
+          org_id?: string
+          status?: string
+          system_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wh_stages_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wh_stages_system_id_fkey"
+            columns: ["system_id"]
+            isOneToOne: false
+            referencedRelation: "wh_systems"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wh_systems: {
+        Row: {
+          active: boolean | null
+          created_at: string | null
+          description: string | null
+          display_order: number | null
+          hero_image_url: string | null
+          id: string
+          name: string
+          org_id: string
+          slug: string
+          tagline: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          created_at?: string | null
+          description?: string | null
+          display_order?: number | null
+          hero_image_url?: string | null
+          id?: string
+          name: string
+          org_id: string
+          slug: string
+          tagline?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          created_at?: string | null
+          description?: string | null
+          display_order?: number | null
+          hero_image_url?: string | null
+          id?: string
+          name?: string
+          org_id?: string
+          slug?: string
+          tagline?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wh_systems_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wh_tax_exemptions: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          certificate_ref: string | null
+          certificate_type: string | null
+          created_at: string
+          document_path: string | null
+          expires_on: string | null
+          id: string
+          notes: string | null
+          org_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          certificate_ref?: string | null
+          certificate_type?: string | null
+          created_at?: string
+          document_path?: string | null
+          expires_on?: string | null
+          id?: string
+          notes?: string | null
+          org_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          certificate_ref?: string | null
+          certificate_type?: string | null
+          created_at?: string
+          document_path?: string | null
+          expires_on?: string | null
+          id?: string
+          notes?: string | null
+          org_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      wh_team_members: {
+        Row: {
+          created_at: string
+          driver_active: boolean
+          email: string
+          id: string
+          is_driver: boolean
+          name: string
+          org_id: string
+          phone: string | null
+          role: string
+          status: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          driver_active?: boolean
+          email: string
+          id?: string
+          is_driver?: boolean
+          name: string
+          org_id?: string
+          phone?: string | null
+          role?: string
+          status?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          driver_active?: boolean
+          email?: string
+          id?: string
+          is_driver?: boolean
+          name?: string
+          org_id?: string
+          phone?: string | null
+          role?: string
+          status?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wh_team_members_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wh_variation_colors: {
+        Row: {
+          color_id: string
+          created_at: string
+          id: string
+          org_id: string
+          price_modifier: number | null
+          variation_id: string
+        }
+        Insert: {
+          color_id: string
+          created_at?: string
+          id?: string
+          org_id?: string
+          price_modifier?: number | null
+          variation_id: string
+        }
+        Update: {
+          color_id?: string
+          created_at?: string
+          id?: string
+          org_id?: string
+          price_modifier?: number | null
+          variation_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wh_variation_colors_color_id_fkey"
+            columns: ["color_id"]
+            isOneToOne: false
+            referencedRelation: "wh_colors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wh_variation_colors_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wh_variation_colors_variation_id_fkey"
+            columns: ["variation_id"]
+            isOneToOne: false
+            referencedRelation: "wh_product_variations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wh_variation_pricing: {
+        Row: {
+          needs_price_review: boolean
+          org_id: string
+          pricing_method: string | null
+          pricing_value: number | null
+          review_reason: string | null
+          supplier_cost: number | null
+          updated_at: string
+          updated_by: string | null
+          variation_id: string
+        }
+        Insert: {
+          needs_price_review?: boolean
+          org_id?: string
+          pricing_method?: string | null
+          pricing_value?: number | null
+          review_reason?: string | null
+          supplier_cost?: number | null
+          updated_at?: string
+          updated_by?: string | null
+          variation_id: string
+        }
+        Update: {
+          needs_price_review?: boolean
+          org_id?: string
+          pricing_method?: string | null
+          pricing_value?: number | null
+          review_reason?: string | null
+          supplier_cost?: number | null
+          updated_at?: string
+          updated_by?: string | null
+          variation_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wh_variation_pricing_variation_id_fkey"
+            columns: ["variation_id"]
+            isOneToOne: true
+            referencedRelation: "wh_product_variations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       work_order_acknowledgments: {
         Row: {
           acknowledged_at: string
@@ -3189,7 +5050,22 @@ export type Database = {
           work_order_id?: string
           work_order_version?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "work_order_acknowledgments_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_order_acknowledgments_work_order_id_fkey"
+            columns: ["work_order_id"]
+            isOneToOne: false
+            referencedRelation: "work_orders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       work_order_activity: {
         Row: {
@@ -3348,10 +5224,10 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "work_order_crew_assignments_crew"
-            columns: ["crew_id"]
+            columns: ["crew_id", "org_id"]
             isOneToOne: false
             referencedRelation: "crews"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "work_order_crew_assignments_work_order_id_fkey"
@@ -3393,7 +5269,22 @@ export type Database = {
           updated_at?: string
           work_order_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "work_order_objectives_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_order_objectives_work_order_id_fkey"
+            columns: ["work_order_id"]
+            isOneToOne: false
+            referencedRelation: "work_orders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       work_orders: {
         Row: {
@@ -3505,7 +5396,29 @@ export type Database = {
           vehicle_state: string | null
           work_order_id: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "work_order_crew_assignments_crew"
+            columns: ["crew_id", "org_id"]
+            isOneToOne: false
+            referencedRelation: "crews"
+            referencedColumns: ["id", "org_id"]
+          },
+          {
+            foreignKeyName: "work_order_crew_assignments_work_order_id_fkey"
+            columns: ["work_order_id"]
+            isOneToOne: false
+            referencedRelation: "work_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_orders_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       take_off_lines: {
         Row: {
@@ -3529,6 +5442,38 @@ export type Database = {
         }
         Relationships: []
       }
+      wh_current_prices: {
+        Row: {
+          effective_from: string | null
+          effective_to: string | null
+          price: number | null
+          price_unit: string | null
+          variation_id: string | null
+        }
+        Insert: {
+          effective_from?: string | null
+          effective_to?: string | null
+          price?: number | null
+          price_unit?: string | null
+          variation_id?: string | null
+        }
+        Update: {
+          effective_from?: string | null
+          effective_to?: string | null
+          price?: number | null
+          price_unit?: string | null
+          variation_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wh_price_history_variation_id_fkey"
+            columns: ["variation_id"]
+            isOneToOne: false
+            referencedRelation: "wh_product_variations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       accept_invite: {
@@ -3543,7 +5488,10 @@ export type Database = {
         Args: { p_full_name?: string; p_token: string }
         Returns: undefined
       }
-      acknowledge_work_order: { Args: { p_work_order_id: string }; Returns: Json }
+      acknowledge_work_order: {
+        Args: { p_work_order_id: string }
+        Returns: Json
+      }
       add_check_in_photo: {
         Args: { p_check_in_id: string; p_photo_data_url: string }
         Returns: undefined
@@ -3553,7 +5501,12 @@ export type Database = {
         Returns: undefined
       }
       add_crew_person_unavailability: {
-        Args: { p_ends_on: string; p_person_id: string; p_reason?: string; p_starts_on: string }
+        Args: {
+          p_ends_on: string
+          p_person_id: string
+          p_reason?: string
+          p_starts_on: string
+        }
         Returns: string
       }
       add_deal_note: {
@@ -3599,6 +5552,15 @@ export type Database = {
         }
         Returns: string
       }
+      add_purchase_order_line: {
+        Args: {
+          p_material_item_id: string
+          p_po_id: string
+          p_promised_date?: string
+          p_quantity_ordered?: number
+        }
+        Returns: string
+      }
       add_schedule_block: {
         Args: {
           p_crew_id?: string
@@ -3615,6 +5577,10 @@ export type Database = {
         Args: { p_project_id: string }
         Returns: undefined
       }
+      assert_work_order_level: {
+        Args: { p_expected_kind: string; p_work_order_id: string }
+        Returns: string
+      }
       assign_crew_to_work_order: {
         Args: { p_crew_id: string; p_task?: string; p_work_order_id: string }
         Returns: Json
@@ -3626,6 +5592,19 @@ export type Database = {
       build_roadmap_levels: {
         Args: { p_answers: Json; p_crew: number }
         Returns: Json
+      }
+      can_reach_work_order_files: {
+        Args: { p_org_id: string }
+        Returns: boolean
+      }
+      can_view_financials: { Args: { p_org_id: string }; Returns: boolean }
+      can_view_master_work_order: {
+        Args: { p_org_id: string }
+        Returns: boolean
+      }
+      clear_check_in_hours: {
+        Args: { p_check_in_id: string }
+        Returns: undefined
       }
       clear_qc_item: {
         Args: { p_requirement_key: string; p_work_order_id: string }
@@ -3639,121 +5618,6 @@ export type Database = {
         Args: { p_completed_at?: string; p_deal_id: string }
         Returns: undefined
       }
-      add_purchase_order_line: {
-        Args: {
-          p_po_id: string
-          p_material_item_id: string
-          p_quantity_ordered?: number
-          p_promised_date?: string
-        }
-        Returns: string
-      }
-      create_crew: { Args: { p_name: string; p_org_id: string }; Returns: string }
-      create_crew_person: {
-        Args: {
-          p_full_name: string
-          p_has_vehicle?: boolean
-          p_org_id: string
-          p_phone?: string
-          p_preferred_language?: string
-          p_skills?: string[]
-          p_user_id?: string
-          p_vehicle_note?: string
-        }
-        Returns: string
-      }
-      create_purchase_order: {
-        Args: {
-          p_job_id?: string
-          p_org_id: string
-          p_supplier_name: string
-          p_supplier_org_id?: string
-        }
-        Returns: string
-      }
-      delete_crew: { Args: { p_crew_id: string }; Returns: undefined }
-      delete_crew_person: { Args: { p_person_id: string }; Returns: undefined }
-      delete_crew_person_unavailability: {
-        Args: { p_unavailability_id: string }
-        Returns: undefined
-      }
-      delete_purchase_order: {
-        Args: { p_po_id: string }
-        Returns: undefined
-      }
-      delete_purchase_order_line: {
-        Args: { p_line_id: string }
-        Returns: undefined
-      }
-      fetch_crew_roster: { Args: { p_org_id: string }; Returns: Json }
-      fetch_purchase_order: {
-        Args: { p_po_id: string }
-        Returns: Database["public"]["Tables"]["purchase_orders"]["Row"][]
-      }
-      fetch_work_order_brief: { Args: { p_work_order_id: string }; Returns: Json }
-      is_qc_attester: { Args: { p_org_id: string }; Returns: boolean }
-      list_purchase_orders: {
-        Args: { p_org_id: string; p_job_id?: string }
-        Returns: Database["public"]["Tables"]["purchase_orders"]["Row"][]
-      }
-      qc_photo_on_work_order: {
-        Args: { p_photo_ref: string; p_work_order_id: string }
-        Returns: boolean
-      }
-      record_qc_item: {
-        Args: {
-          p_count_value?: number
-          p_kind: string
-          p_photo_ref?: string
-          p_requirement_key: string
-          p_work_order_id: string
-        }
-        Returns: string
-      }
-      remove_crew_member: {
-        Args: { p_crew_id: string; p_person_id: string }
-        Returns: undefined
-      }
-      rename_crew: { Args: { p_crew_id: string; p_name: string }; Returns: undefined }
-      set_crew_archived: {
-        Args: { p_archived: boolean; p_crew_id: string }
-        Returns: undefined
-      }
-      set_crew_person_archived: {
-        Args: { p_archived: boolean; p_person_id: string }
-        Returns: undefined
-      }
-      set_work_order_objective: {
-        Args: { p_body: string; p_objective_date?: string; p_work_order_id: string }
-        Returns: string
-      }
-      unassign_crew_from_work_order: {
-        Args: { p_assignment_id: string }
-        Returns: undefined
-      }
-      update_crew_person: {
-        Args: { p_patch: Json; p_person_id: string }
-        Returns: undefined
-      }
-      update_purchase_order: {
-        Args: {
-          p_job_id?: string
-          p_po_id: string
-          p_status?: string
-          p_supplier_name?: string
-          p_supplier_org_id?: string
-        }
-        Returns: undefined
-      }
-      update_purchase_order_line: {
-        Args: {
-          p_line_id: string
-          p_quantity_ordered?: number
-          p_promised_date?: string
-        }
-        Returns: undefined
-      }
-      clear_check_in_hours: { Args: { p_check_in_id: string }; Returns: undefined }
       create_check_in: {
         Args: {
           p_blockers?: string
@@ -3765,6 +5629,23 @@ export type Database = {
           p_materials_used?: string
           p_schedule_block_id?: string
           p_work_order_id: string
+        }
+        Returns: string
+      }
+      create_crew: {
+        Args: { p_name: string; p_org_id: string }
+        Returns: string
+      }
+      create_crew_person: {
+        Args: {
+          p_full_name: string
+          p_has_vehicle?: boolean
+          p_org_id: string
+          p_phone?: string
+          p_preferred_language?: string
+          p_skills?: string[]
+          p_user_id?: string
+          p_vehicle_note?: string
         }
         Returns: string
       }
@@ -3806,12 +5687,39 @@ export type Database = {
         Args: { p_deal_id: string }
         Returns: string
       }
+      create_estimate_sign_link: {
+        Args: { p_estimate_id: string; p_valid_days: number }
+        Returns: Json
+      }
       create_job_from_estimate: {
         Args: { p_estimate_id: string }
         Returns: Json
       }
       create_organization: {
         Args: { p_name: string; p_tenant_type: string; p_trade?: string }
+        Returns: string
+      }
+      create_product: {
+        Args: {
+          p_category?: string
+          p_cost?: number
+          p_markup?: number
+          p_name: string
+          p_org_id: string
+          p_price_method?: string
+          p_price_value?: number
+          p_sell?: number
+          p_unit?: string
+        }
+        Returns: string
+      }
+      create_purchase_order: {
+        Args: {
+          p_job_id?: string
+          p_org_id: string
+          p_supplier_name: string
+          p_supplier_org_id?: string
+        }
         Returns: string
       }
       create_roadmap_item: {
@@ -3868,20 +5776,50 @@ export type Database = {
         }
         Returns: string
       }
-      create_work_order_from_estimate: {
-        Args: { p_estimate_id: string }
+      create_wh_order: {
+        Args: {
+          p_line_items?: Json
+          p_order: Json
+          p_org_id?: string
+          p_spec_files?: Json
+        }
+        Returns: Json
+      }
+      create_work_order_agreement: {
+        Args: { p_work_order_id: string }
         Returns: string
+      }
+      crew_assert_can_manage: { Args: { p_org_id: string }; Returns: undefined }
+      crew_check_login: {
+        Args: { p_org_id: string; p_person_id: string; p_user_id: string }
+        Returns: undefined
       }
       crm_follow_up_cadence_days: {
         Args: { p_org_id: string }
         Returns: number[]
       }
+      crm_follow_up_cadence_days_internal: {
+        Args: { p_org_id: string }
+        Returns: number[]
+      }
       crm_stage_config: { Args: { p_org_id: string }; Returns: Json }
+      crm_stage_config_internal: { Args: { p_org_id: string }; Returns: Json }
       crm_stage_entry: {
         Args: { p_org_id: string; p_stage_key: string }
         Returns: Json
       }
+      crm_stage_entry_internal: {
+        Args: { p_org_id: string; p_stage_key: string }
+        Returns: Json
+      }
+      default_permissions_for_role: { Args: { p_role: string }; Returns: Json }
       delete_check_in: { Args: { p_check_in_id: string }; Returns: undefined }
+      delete_crew: { Args: { p_crew_id: string }; Returns: undefined }
+      delete_crew_person: { Args: { p_person_id: string }; Returns: undefined }
+      delete_crew_person_unavailability: {
+        Args: { p_unavailability_id: string }
+        Returns: undefined
+      }
       delete_estimate: { Args: { p_estimate_id: string }; Returns: undefined }
       delete_estimate_line_item: {
         Args: { p_line_item_id: string }
@@ -3891,12 +5829,18 @@ export type Database = {
         Args: { p_material_item_id: string }
         Returns: undefined
       }
+      delete_product: { Args: { p_product_id: string }; Returns: undefined }
       delete_production_packet: {
         Args: { p_production_packet_id: string }
         Returns: undefined
       }
       delete_production_packet_callout: {
         Args: { p_callout_id: string; p_production_packet_id: string }
+        Returns: undefined
+      }
+      delete_purchase_order: { Args: { p_po_id: string }; Returns: undefined }
+      delete_purchase_order_line: {
+        Args: { p_line_id: string }
         Returns: undefined
       }
       delete_roadmap_item: { Args: { p_id: string }; Returns: undefined }
@@ -3908,6 +5852,10 @@ export type Database = {
         Args: { p_schedule_block_id: string }
         Returns: undefined
       }
+      delete_special_trip: {
+        Args: { p_special_trip_id: string }
+        Returns: undefined
+      }
       delete_tracker_item: { Args: { p_item_id: string }; Returns: undefined }
       delete_tracker_project: {
         Args: { p_project_id: string }
@@ -3917,14 +5865,28 @@ export type Database = {
         Args: { p_work_order_id: string }
         Returns: undefined
       }
+      derive_catalog_price: {
+        Args: { p_cost: number; p_markup: number; p_sell: number }
+        Returns: {
+          out_markup: number
+          out_sell: number
+        }[]
+      }
+      estimate_signing_document: {
+        Args: { p_estimate_id: string }
+        Returns: Json
+      }
       fetch_check_in: {
         Args: { p_check_in_id: string }
         Returns: {
           blockers: string | null
           check_in_date: string
+          client_token: string | null
           created_at: string
+          created_by: string | null
+          crew_id: string | null
           crew_name: string
-          hours: number
+          hours: number | null
           id: string
           materials_used: string | null
           org_id: string
@@ -3940,85 +5902,7 @@ export type Database = {
           isSetofReturn: true
         }
       }
-      default_permissions_for_role: { Args: { p_role: string }; Returns: Json }
-      create_product: {
-        Args: {
-          p_category?: string
-          p_cost?: number
-          p_markup?: number
-          p_name: string
-          p_org_id: string
-          p_price_method?: string
-          p_price_value?: number
-          p_sell?: number
-          p_unit?: string
-        }
-        Returns: string
-      }
-      delete_product: { Args: { p_product_id: string }; Returns: undefined }
-      fetch_product: {
-        Args: { p_product_id: string }
-        Returns: {
-          active: boolean
-          category: string | null
-          cost: number | null
-          created_at: string
-          created_by: string | null
-          id: string
-          markup: number | null
-          name: string
-          org_id: string
-          price_method: string | null
-          price_review_reason: string | null
-          price_value: number | null
-          sell: number | null
-          unit: string | null
-          updated_at: string
-        }[]
-        SetofOptions: {
-          from: "*"
-          to: "products"
-          isOneToOne: false
-          isSetofReturn: true
-        }
-      }
-      list_products: {
-        Args: { p_include_inactive?: boolean; p_org_id: string }
-        Returns: {
-          active: boolean
-          category: string | null
-          cost: number | null
-          created_at: string
-          created_by: string | null
-          id: string
-          markup: number | null
-          name: string
-          org_id: string
-          price_method: string | null
-          price_review_reason: string | null
-          price_value: number | null
-          sell: number | null
-          unit: string | null
-          updated_at: string
-        }[]
-        SetofOptions: {
-          from: "*"
-          to: "products"
-          isOneToOne: false
-          isSetofReturn: true
-        }
-      }
-      update_product: {
-        Args: { p_patch: Json; p_product_id: string }
-        Returns: undefined
-      }
-      derive_catalog_price: {
-        Args: { p_cost: number; p_markup: number; p_sell: number }
-        Returns: {
-          out_markup: number
-          out_sell: number
-        }[]
-      }
+      fetch_crew_roster: { Args: { p_org_id: string }; Returns: Json }
       fetch_deal: {
         Args: { p_deal_id: string }
         Returns: {
@@ -4069,23 +5953,6 @@ export type Database = {
           isSetofReturn: true
         }
       }
-      can_view_financials: { Args: { p_org_id: string }; Returns: boolean }
-      can_reach_work_order_files: {
-        Args: { p_org_id: string }
-        Returns: boolean
-      }
-      can_view_master_work_order: {
-        Args: { p_org_id: string }
-        Returns: boolean
-      }
-      work_order_is_my_trade: {
-        Args: { p_work_order_id: string }
-        Returns: boolean
-      }
-      fetch_field_jobs: {
-        Args: { p_org_id: string; p_today?: string }
-        Returns: Json
-      }
       fetch_estimate: {
         Args: { p_estimate_id: string }
         Returns: {
@@ -4121,6 +5988,10 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      fetch_field_jobs: {
+        Args: { p_org_id: string; p_today?: string }
+        Returns: Json
+      }
       fetch_membership_context: {
         Args: never
         Returns: Database["public"]["CompositeTypes"]["membership_context"][]
@@ -4138,12 +6009,39 @@ export type Database = {
           deal_id: string | null
           id: string
           name: string
+          policy: Json
           tenant_type: string
           trade: string | null
         }[]
         SetofOptions: {
           from: "*"
           to: "organizations"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      fetch_product: {
+        Args: { p_product_id: string }
+        Returns: {
+          active: boolean
+          category: string | null
+          cost: number | null
+          created_at: string
+          created_by: string | null
+          id: string
+          markup: number | null
+          name: string
+          org_id: string
+          price_method: string | null
+          price_review_reason: string | null
+          price_value: number | null
+          sell: number | null
+          unit: string | null
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "products"
           isOneToOne: false
           isSetofReturn: true
         }
@@ -4162,6 +6060,28 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "production_packets"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      fetch_purchase_order: {
+        Args: { p_po_id: string }
+        Returns: {
+          created_at: string
+          created_by: string | null
+          id: string
+          job_id: string | null
+          notes: string | null
+          org_id: string
+          reference: string | null
+          status: string
+          supplier_name: string
+          supplier_org_id: string | null
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "purchase_orders"
           isOneToOne: false
           isSetofReturn: true
         }
@@ -4259,6 +6179,39 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      fetch_work_order_agreement: {
+        Args: { p_work_order_id: string }
+        Returns: {
+          colors_finishes: Json
+          created_at: string
+          id: string
+          org_id: string
+          sent_at: string | null
+          sign_token_hash: string | null
+          signature_data: string | null
+          signed_at: string | null
+          signer_name: string | null
+          signer_role: string | null
+          snapshot: Json
+          status: string
+          updated_at: string
+          void_cascade_prior_status: string | null
+          void_cascade_source_id: string | null
+          void_reason: string | null
+          voided_at: string | null
+          work_order_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "work_order_agreements"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      fetch_work_order_brief: {
+        Args: { p_work_order_id: string }
+        Returns: Json
+      }
       fetch_work_order_tree: {
         Args: { p_work_order_id: string }
         Returns: Json
@@ -4275,11 +6228,21 @@ export type Database = {
         Args: { p_capability: string; p_org_id: string }
         Returns: boolean
       }
+      is_manager_role: { Args: { p_role: string }; Returns: boolean }
       is_org_manager: { Args: { p_org_id: string }; Returns: boolean }
       is_pipeline_manager: { Args: never; Returns: boolean }
       is_pipeline_user: { Args: never; Returns: boolean }
       is_platform_admin: { Args: never; Returns: boolean }
+      is_qc_attester: { Args: { p_org_id: string }; Returns: boolean }
       is_staff: { Args: never; Returns: boolean }
+      is_wh_owner: { Args: never; Returns: boolean }
+      job_master_sign_off: {
+        Args: { p_work_order_id: string }
+        Returns: {
+          master_id: string
+          sign_off_at: string
+        }[]
+      }
       list_org_members: {
         Args: { p_org_id: string }
         Returns: {
@@ -4287,11 +6250,70 @@ export type Database = {
           user_id: string
         }[]
       }
+      list_products: {
+        Args: { p_include_inactive?: boolean; p_org_id: string }
+        Returns: {
+          active: boolean
+          category: string | null
+          cost: number | null
+          created_at: string
+          created_by: string | null
+          id: string
+          markup: number | null
+          name: string
+          org_id: string
+          price_method: string | null
+          price_review_reason: string | null
+          price_value: number | null
+          sell: number | null
+          unit: string | null
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "products"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      list_purchase_orders: {
+        Args: { p_job_id?: string; p_org_id: string }
+        Returns: {
+          created_at: string
+          created_by: string | null
+          id: string
+          job_id: string | null
+          notes: string | null
+          org_id: string
+          reference: string | null
+          status: string
+          supplier_name: string
+          supplier_org_id: string | null
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "purchase_orders"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      materialize_take_off: { Args: { p_job_id: string }; Returns: Json }
+      member_display_name: {
+        Args: { p_org_id: string; p_user_id: string }
+        Returns: string
+      }
       my_active_lead_count: { Args: never; Returns: number }
       my_avg_cycle_days: { Args: never; Returns: number }
       my_closes_this_month: { Args: never; Returns: number }
       my_open_pipeline_value: { Args: never; Returns: number }
       my_org_ids: { Args: never; Returns: string[] }
+      my_pipeline_role: {
+        Args: never
+        Returns: Database["public"]["Enums"]["pipeline_user_role"]
+      }
+      my_wh_org_ids: { Args: never; Returns: string[] }
+      my_wh_role: { Args: never; Returns: string }
       my_win_rate: { Args: never; Returns: number }
       order_scope: {
         Args: { p_deal_id: string; p_ordered_at?: string }
@@ -4302,12 +6324,80 @@ export type Database = {
         Args: { p_deal_id: string; p_presented_at?: string }
         Returns: undefined
       }
+      price_from_method: {
+        Args: { p_cost: number; p_method: string; p_value: number }
+        Returns: number
+      }
+      qc_photo_on_work_order: {
+        Args: { p_photo_ref: string; p_work_order_id: string }
+        Returns: boolean
+      }
+      recompute_material_item_ready_by: {
+        Args: { p_material_item_id: string }
+        Returns: undefined
+      }
+      record_field_event: {
+        Args: {
+          p_client_sent_at?: string
+          p_duration_ms?: number
+          p_event: string
+          p_org_id: string
+          p_outcome?: string
+          p_subject_ref?: string
+          p_work_order_id?: string
+        }
+        Returns: number
+      }
+      record_qc_item: {
+        Args: {
+          p_count_value?: number
+          p_kind: string
+          p_photo_ref?: string
+          p_requirement_key: string
+          p_work_order_id: string
+        }
+        Returns: string
+      }
+      record_signed_copy_outcome: {
+        Args: {
+          p_provider_message_id?: string
+          p_signature_id: string
+          p_state: string
+        }
+        Returns: Json
+      }
+      record_signed_copy_outcome_by_link: {
+        Args: {
+          p_provider_message_id?: string
+          p_state: string
+          p_token: string
+        }
+        Returns: Json
+      }
+      record_special_trip: {
+        Args: {
+          p_client_token?: string
+          p_note?: string
+          p_occurred_on?: string
+          p_reason_code: string
+          p_work_order_id: string
+        }
+        Returns: string
+      }
       record_work_order_sign_off: {
         Args: { p_notes?: string; p_work_order_id: string }
         Returns: undefined
       }
       remove_check_in_photo: {
         Args: { p_check_in_id: string; p_photo_data_url: string }
+        Returns: undefined
+      }
+      remove_crew_member: {
+        Args: { p_crew_id: string; p_person_id: string }
+        Returns: undefined
+      }
+      rename_crew: {
+        Args: { p_crew_id: string; p_name: string }
         Returns: undefined
       }
       reorder_estimate_line_items: {
@@ -4324,30 +6414,37 @@ export type Database = {
         Args: { p_work_order_id: string }
         Returns: undefined
       }
+      revoke_estimate_sign_link: {
+        Args: { p_link_id: string }
+        Returns: undefined
+      }
       roadmap_playbook: { Args: { q: string }; Returns: Json }
       role_capability_matrix: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
-          role: string
-          capability: string
           allowed: boolean
+          capability: string
           manager_tier: boolean
+          role: string
         }[]
       }
-      materialize_take_off: { Args: { p_job_id: string }; Returns: Json }
-      create_estimate_sign_link: {
-        Args: { p_estimate_id: string; p_valid_days: number }
-        Returns: Json
+      set_crew_archived: {
+        Args: { p_archived: boolean; p_crew_id: string }
+        Returns: undefined
       }
-      record_signed_copy_outcome: {
-        Args: { p_provider_message_id?: string; p_signature_id: string; p_state: string }
-        Returns: Json
+      set_crew_person_archived: {
+        Args: { p_archived: boolean; p_person_id: string }
+        Returns: undefined
       }
-      record_signed_copy_outcome_by_link: {
-        Args: { p_provider_message_id?: string; p_state: string; p_token: string }
-        Returns: Json
+      set_member_capability: {
+        Args: {
+          p_capability: string
+          p_org_id: string
+          p_user_id: string
+          p_value: boolean
+        }
+        Returns: undefined
       }
-      revoke_estimate_sign_link: { Args: { p_link_id: string }; Returns: undefined }
       set_take_off_decision: {
         Args: {
           p_disposition: string
@@ -4356,35 +6453,29 @@ export type Database = {
         }
         Returns: Json
       }
-      record_special_trip: {
-        Args: {
-          p_client_token?: string
-          p_note?: string
-          p_occurred_on?: string
-          p_reason_code: string
-          p_work_order_id: string
-        }
-        Returns: string
-      }
-      delete_special_trip: {
-        Args: { p_special_trip_id: string }
-        Returns: undefined
-      }
-      set_member_capability: {
-        Args: {
-          p_org_id: string
-          p_user_id: string
-          p_capability: string
-          p_value: boolean
-        }
-        Returns: undefined
-      }
       set_tenant_module: {
         Args: {
           p_config?: Json
           p_enabled?: boolean
           p_module_key: string
           p_org_id: string
+        }
+        Returns: string
+      }
+      set_work_order_objective: {
+        Args: {
+          p_body: string
+          p_objective_date?: string
+          p_work_order_id: string
+        }
+        Returns: string
+      }
+      sign_estimate: {
+        Args: {
+          p_estimate_id: string
+          p_signature_data: string
+          p_signer_name: string
+          p_signer_role: string
         }
         Returns: string
       }
@@ -4398,19 +6489,24 @@ export type Database = {
         }
         Returns: Json
       }
-      signing_link_view: { Args: { p_token: string }; Returns: Json }
       signed_copy_by_link: { Args: { p_token: string }; Returns: Json }
-      sign_estimate: {
-        Args: {
-          p_estimate_id: string
-          p_signature_data: string
-          p_signer_name: string
-          p_signer_role: string
-        }
-        Returns: string
+      signed_copy_link_resolve: { Args: { p_token: string }; Returns: Json }
+      signing_link_resolve: { Args: { p_token: string }; Returns: Json }
+      signing_link_view: { Args: { p_token: string }; Returns: Json }
+      tenant_enforces_stage_gating: {
+        Args: { p_org_id: string }
+        Returns: boolean
+      }
+      tenant_scopes_field_jobs_to_crew: {
+        Args: { p_org_id: string }
+        Returns: boolean
       }
       tracker_status_config: { Args: { p_org_id: string }; Returns: Json }
       tracker_type_config: { Args: { p_org_id: string }; Returns: Json }
+      unassign_crew_from_work_order: {
+        Args: { p_assignment_id: string }
+        Returns: undefined
+      }
       update_check_in: {
         Args: {
           p_blockers?: string
@@ -4420,6 +6516,10 @@ export type Database = {
           p_hours?: number
           p_materials_used?: string
         }
+        Returns: undefined
+      }
+      update_crew_person: {
+        Args: { p_patch: Json; p_person_id: string }
         Returns: undefined
       }
       update_deal_fields: {
@@ -4484,6 +6584,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      update_product: {
+        Args: { p_patch: Json; p_product_id: string }
+        Returns: undefined
+      }
       update_production_packet_callout: {
         Args: {
           p_callout_id: string
@@ -4495,6 +6599,24 @@ export type Database = {
       }
       update_production_packet_notes: {
         Args: { p_notes: string; p_production_packet_id: string }
+        Returns: undefined
+      }
+      update_purchase_order: {
+        Args: {
+          p_job_id?: string
+          p_po_id: string
+          p_status?: string
+          p_supplier_name?: string
+          p_supplier_org_id?: string
+        }
+        Returns: undefined
+      }
+      update_purchase_order_line: {
+        Args: {
+          p_line_id: string
+          p_promised_date?: string
+          p_quantity_ordered?: number
+        }
         Returns: undefined
       }
       update_roadmap_fields: {
@@ -4546,8 +6668,86 @@ export type Database = {
       }
       void_estimate: { Args: { p_estimate_id: string }; Returns: undefined }
       void_work_order: { Args: { p_work_order_id: string }; Returns: undefined }
-    }
+      wh_ack_price_review: {
+        Args: { p_variation_id: string }
+        Returns: undefined
+      }
+      wh_attach_order_by_token: { Args: { p_token: string }; Returns: Json }
+      wh_auth_login_for_email: {
+        Args: { p_email: string }
+        Returns: {
+          created_at: string
+          last_sign_in_at: string
+          user_id: string
+        }[]
+      }
+      wh_catalog_clear_preview: { Args: never; Returns: Json }
+      wh_catalog_delete_scope: {
+        Args: { p_family_ids: string[]; p_product_ids: string[] }
+        Returns: Json
+      }
+      wh_claim_order_delivery: { Args: { p_order_id: string }; Returns: Json }
+      wh_claim_order_send: { Args: { p_order_id: string }; Returns: Json }
+      wh_clear_catalog: { Args: { p_confirm: string }; Returns: Json }
+      wh_clear_colors: { Args: { p_confirm: string }; Returns: Json }
+      wh_colors_clear_preview: { Args: never; Returns: Json }
+      wh_colors_delete_scope: { Args: { p_color_ids: string[] }; Returns: Json }
+      wh_customer_order_json: { Args: { p_order_id: string }; Returns: Json }
+      wh_delete_system: {
+        Args: { p_confirm: string; p_system_id: string }
+        Returns: Json
+      }
+      wh_get_family_pricing: {
+        Args: { p_family_id: string }
+        Returns: {
+          cost_effective_from: string
+          needs_price_review: boolean
+          pricing_method: string
+          pricing_value: number
+          review_reason: string
+          supplier_cost: number
+          variation_id: string
+        }[]
+      }
+      wh_my_attached_orders: { Args: never; Returns: Json }
+      wh_new_order_access_token: { Args: never; Returns: string }
+      wh_order_by_token: { Args: { p_token: string }; Returns: Json }
+      wh_order_id_for_token: { Args: { p_token: string }; Returns: string }
+      wh_release_order_delivery: { Args: { p_order_id: string }; Returns: Json }
+      wh_release_order_send: {
+        Args: { p_order_id: string; p_reason: string }
+        Returns: Json
+      }
+      wh_save_catalog_family: {
+        Args: { p_family: Json; p_variations: Json }
+        Returns: Json
+      }
+      wh_set_coverage_width: {
+        Args: { p_variation_id: string; p_width: number }
+        Returns: undefined
+      }
+      wh_set_unit_size: {
+        Args: { p_unit_size: string; p_variation_id: string }
+        Returns: undefined
+      }
+      wh_set_variation_pricing: {
+        Args: {
+          p_cost: number
+          p_method: string
+          p_note?: string
+          p_value: number
+          p_variation_id: string
+        }
+        Returns: Json
+      }
+      wh_setting_is_protected: { Args: { p_key: string }; Returns: boolean }
+      wh_system_delete_preview: { Args: { p_system_id: string }; Returns: Json }
+      work_order_is_my_trade: {
+        Args: { p_work_order_id: string }
+        Returns: boolean
+      }
       work_order_version: { Args: { p_work_order_id: string }; Returns: string }
+    }
     Enums: {
       lead_activity_action:
         | "created"
@@ -4586,12 +6786,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -4615,11 +6815,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -4640,11 +6840,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -4665,11 +6865,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -4682,11 +6882,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
