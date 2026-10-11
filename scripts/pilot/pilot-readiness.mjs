@@ -391,6 +391,136 @@ if (dbAvailable()) {
   } catch (e) { record('R15', 'UNDETERMINED', 'no unreviewed migration in the last 24h', `query failed (${e.name})`); }
 }
 
+// ── R16 THE SCHEMA BOUNDARY — a platform default, watched like one ─────────
+// A SIBLING TO R12, NOT A WIDENING OF IT, and the reason is that they watch
+// different objects with different failure modes. R12 asks "is a SECURITY
+// DEFINER function reachable" — a property of functions, where the control we
+// own is the grant. This asks "has the schema boundary moved" — a property of
+// schemas, where the thing holding the line is a PLATFORM DEFAULT WE DID NOT
+// AUTHOR. Merging them would put one verdict over two unrelated changes, and a
+// reader seeing it red would not know which had happened.
+//
+// WHAT R12 CANNOT SEE, measured 2026-10-11: its axis is nspname = 'public'.
+// `extensions.http_post` carries proacl {=X/supabase_admin,...} — the leading
+// =X is the PUBLIC grant (CLAUDE.md rule 7's exact mechanism), so anon AND
+// authenticated both hold EXECUTE on it. 73 of the 74 functions in `extensions`
+// are anon-executable that way; 0 are SECURITY DEFINER. None of it is in R12's
+// container.
+//
+// AND THE FRAMING MATTERS MORE THAN THE COUNT. Those 73 are closed only because
+// USAGE on schema `extensions` is false. That is NOT rule 13's "absence standing
+// in for a control" — it is a default Supabase set, the same category as the
+// pg_default_acl rows R13 already watches. So the thing worth watching is not
+// "is http_post granted" (it is, and has been, and that is upstream's choice)
+// but "HAS THE BOUNDARY MOVED". One `grant usage on schema extensions to
+// authenticated` would hand every tenant's users server-side HTTP from inside
+// the database, and nothing else in this suite would notice.
+//
+// THE FOUR CLOSED SCHEMAS ARE EXACTLY THE ONES THAT MATTER, which is why this is
+// worth a check rather than a note:
+//   extensions          http_post — SSRF from inside the database
+//   vault               where the migration-watch webhook secret is to live
+//   supabase_migrations the ledger the migration monitor reads
+//   archive             retired data
+//
+// ACCEPTING A LEGITIMATE CHANGE: edit SCHEMA_USAGE_EXPECTED and say in the commit
+// who changed it and why — the same contract as R13, deliberately a code edit so
+// the change is reviewable in a diff rather than silenced by a flag.
+const SCHEMA_USAGE_EXPECTED = [
+  'archive              anon=false authenticated=false',
+  'auth                 anon=true  authenticated=true',
+  'extensions           anon=false authenticated=false',
+  'graphql              anon=true  authenticated=true',
+  'graphql_public       anon=true  authenticated=true',
+  'public               anon=true  authenticated=true',
+  'realtime             anon=true  authenticated=true',
+  'storage              anon=true  authenticated=true',
+  'supabase_migrations  anon=false authenticated=false',
+  'vault                anon=false authenticated=false',
+];
+if (dbAvailable()) {
+  try {
+    const actual = q(
+      "select coalesce(string_agg(rpad(n.nspname,20) || ' anon=' || rpad(has_schema_privilege('anon',n.nspname,'USAGE')::text,5) ||" +
+      " ' authenticated=' || has_schema_privilege('authenticated',n.nspname,'USAGE')::text, chr(10) order by n.nspname), '(none)')" +
+      " from pg_namespace n where n.nspname not like 'pg_%' and n.nspname <> 'information_schema'")
+      .trim().split('\n').map((l) => l.trim().replace(/\s+/g, ' ')).filter(Boolean);
+    const want = SCHEMA_USAGE_EXPECTED.map((l) => l.trim().replace(/\s+/g, ' '));
+    const added = actual.filter((l) => !want.includes(l));
+    const gone = want.filter((l) => !actual.includes(l));
+    // The size of what was examined, beside the result (rule 24).
+    if (added.length === 0 && gone.length === 0) {
+      record('R16', 'PASS', 'schema USAGE for anon/authenticated is unchanged',
+        `${actual.length} schema(s) examined, all matching the recorded boundary; the 4 closed ones are extensions, vault, supabase_migrations, archive`);
+    } else {
+      record('R16', 'FAIL', 'schema USAGE for anon/authenticated is unchanged',
+        `BOUNDARY MOVED over ${actual.length} schema(s) examined.` +
+        (added.length ? ` NOW: ${added.join(' | ')}.` : '') +
+        (gone.length ? ` WAS: ${gone.join(' | ')}.` : '') +
+        ' If intended, update SCHEMA_USAGE_EXPECTED in this file and say who changed it.');
+    }
+  } catch (e) { record('R16', 'UNDETERMINED', 'schema USAGE for anon/authenticated is unchanged', `query failed (${e.name})`); }
+}
+
+// ── R17 EVERY .rpc() NAME THE APP CALLS IS REACHABLE BY authenticated ──────
+// Track S measured this and recommended it as a standing check: 118 distinct
+// names, all executable, none missing. Reproduced independently here — 173 call
+// sites, 118 distinct, 118 present in pg_proc, 118 executable.
+//
+// WHY IT EARNS A SLOT. Thursday's fix closed three cross-tenant definers by
+// REMOVING the authenticated grant rather than adding a gate. That is the better
+// fix and it has a failure mode: revoke one grant too many and a page 404s at the
+// next click, with nothing between the migration and the user. This is the check
+// that stands there. S's calibration doubled as proof that Thursday broke no
+// caller — create_check_in present, work_order_version correctly absent.
+//
+// THE AXIS LIMIT IS IN THE OUTPUT, NOT ONLY HERE. A check whose blind spot lives
+// in a comment is a check with a hidden blind spot: the number gets quoted, the
+// caveat does not travel with it (CLAUDE.md rule 39). So every run prints how
+// many call sites were literal and how many were not. "0 dynamic" is a fact about
+// the code as it is written TODAY, never a guarantee — one `.rpc(name)` with a
+// variable and this check silently stops covering it.
+//
+// MY EXTRACTION IS NEWLINE-TOLERANT, AND THAT MATTERS: a single-line regex
+// reported 2 dynamic call sites on 2026-10-11, and both were literals wrapped
+// onto the next line. The axis was mine, the defect was mine, and a stricter
+// reader would have gone looking for dynamic dispatch that does not exist.
+if (dbAvailable()) {
+  try {
+    const walk = (d) => readdirSync(d, { withFileTypes: true })
+      .flatMap((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)]));
+    const files = existsSync('src') ? walk('src').filter((f) => /\.tsx?$/.test(f)) : [];
+    let sites = 0, dynamic = 0;
+    const names = new Set();
+    for (const f of files) {
+      const t = readFileSync(f, 'utf8');
+      for (const mm of t.matchAll(/\.rpc\(\s*/g)) {
+        sites++;
+        const after = t.slice(mm.index + mm[0].length, mm.index + mm[0].length + 80);
+        const lit = after.match(/^["'`]([a-z0-9_]+)["'`]/);
+        if (lit) names.add(lit[1]); else dynamic++;
+      }
+    }
+    if (names.size === 0) {
+      record('R17', 'UNDETERMINED', 'every .rpc() name is reachable by authenticated', `no .rpc() call sites found under src/ — ${files.length} file(s) read, which is itself suspect`);
+    } else {
+      const list = [...names].map((n) => `'${n}'`).join(',');
+      const reachable = q(`select count(distinct p.proname) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+        where n.nspname = 'public' and p.proname in (${list}) and has_function_privilege('authenticated', p.oid, 'EXECUTE')`).trim();
+      const unreachable = q(`select coalesce(string_agg(x, ', ' order by x), '') from (
+        select unnest(array[${list}]) as x
+        except
+        select p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+         where n.nspname = 'public' and p.proname in (${list}) and has_function_privilege('authenticated', p.oid, 'EXECUTE')) y`).trim();
+      const axis = `${names.size} distinct name(s) across ${sites} call site(s); ${dynamic} call site(s) had a NON-LITERAL first argument and are INVISIBLE to this check`;
+      record('R17', unreachable ? 'FAIL' : 'PASS', 'every .rpc() name is reachable by authenticated',
+        unreachable
+          ? `UNREACHABLE: ${unreachable} — the app calls these and authenticated cannot execute them. ${axis}`
+          : `${reachable} of ${names.size} reachable. ${axis}`);
+    }
+  } catch (e) { record('R17', 'UNDETERMINED', 'every .rpc() name is reachable by authenticated', `failed (${e.name})`); }
+}
+
 // ── R10 can we still see what happened after the day ends ───────────────────
 // Runtime logs are the only place a page open or a failed load appears today.
 // Vercel docs (read 2026-09-16): Hobby keeps 1 hour, Pro 1 day; drains Pro only.
