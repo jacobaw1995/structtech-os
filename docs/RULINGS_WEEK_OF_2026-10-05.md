@@ -234,3 +234,93 @@ The pilot did not run; there is no live field data to protect this week; migrati
 S's lane and one shipped today. **Recording this so that a future reader does not find §1's freeze
 language and infer a standing rule that no longer applies.** The next freeze gets the mechanism, not
 the request.
+
+---
+
+# 9 · FRIDAY'S TWO MEASURED FACTS — and both correct something already written down
+
+**Verified by Track S from `pg_available_extensions` on `Sat Oct 10 03:4x EDT 2026`, not accepted
+from the controller's reading. All four figures match exactly.**
+
+| extension | default version | installed version | state |
+|---|---|---|---|
+| **`pg_cron`** | **1.6.4** | — | **AVAILABLE, not installed** ✓ |
+| **`pg_net`** | **0.20.0** | — | **AVAILABLE, not installed** ✓ |
+| **`http`** | 1.6 | **1.6** | **INSTALLED** ✓ |
+| **`supabase_vault`** | 0.3.1 | **0.3.1** | **INSTALLED** ✓ |
+| *(context, unasked)* `pgsodium` | 3.1.8 | — | available, not installed |
+| *(context, unasked)* `pg_graphql` | 1.5.11 | **1.5.11** | installed |
+
+`pg_extension` holds **8** installed extensions; **neither `pg_cron` nor `pg_net` is among them.**
+**Nothing was installed today** — see the standing instruction below.
+
+## 9a · THE MONITOR'S DELIVERY PROBLEM DOES NOT REQUIRE VERCEL PRO
+
+**`pg_cron` runs inside the database we already have, at minute granularity, on the free plan.**
+
+**So the six-hour figure was a property of the GitHub Actions cron, not of the problem.** The
+`READINESS_LOG.md` measurements — 23 gaps since 09-30, median **5.61 h**, p90 **6.96 h**, max
+**7.37 h** against an 8 h threshold, **38 minutes of margin** — describe *that scheduler's drift*,
+and they were being read as the cost of scheduling anything. **They are not.** A ledger watch on a
+minute cadence has no drift budget to spend.
+
+## 9b · A MONITOR THAT WATCHES A SYSTEM FROM INSIDE IT CANNOT REPORT THAT SYSTEM BEING DOWN
+
+**This is the limit that decides where `pg_cron` fits and where it must not be used.**
+
+- **FITS — the ledger watch.** The thing being watched is a row in
+  `supabase_migrations.schema_migrations`, **inside the same database as the scheduler.** If the
+  database is down there is no new migration to miss, so the blind spot is not a blind spot.
+- **DOES NOT FIT — a dead-man ping.** *"os.structtek.com has not answered in N minutes"* cannot be
+  raised by a job that stops running when the thing it watches stops. **The external monitor must
+  stay external.**
+
+### ⚠ CORRECTION TO THE THURSDAY NOTE THAT GAVE VERCEL PRO THREE REASONS
+
+The Thursday entry listed Vercel Pro's costs as **log retention · log drains · non-commercial terms
+· no Vercel Cron**, and the scheduler argument was read as applying generally.
+
+**It applies only to the EXTERNAL monitors.** Corrected:
+
+- **Vercel Pro keeps:** **1-hour log retention**, **no log drains**, and **non-commercial Hobby terms
+  while serving a paying client.** Those are unchanged and `R10` still FAILS on the first two.
+- **Vercel Pro loses:** the *scheduler* argument, for anything a `pg_cron` job could run — which is
+  the ledger watch. It keeps the scheduler argument for the dead-man ping, by 9b.
+
+**Jacob's list item 2 stands, on narrower grounds than it was written.**
+
+## 9c · THE COST, AND IT IS WHY NOTHING IS INSTALLED TODAY
+
+**`pg_cron` runs SQL. The existing monitor is Node.** So a `pg_cron` path is **a second
+implementation in a second language** — against **Track X's own principle that what is exercised
+should be what runs.** `scripts/monitor/migration-watch.mjs` (merged to main today) is the Node one;
+a SQL twin would be a second thing to keep true, and the one that fires at 3 a.m. would be the one
+nobody has read recently.
+
+**X is designing against that constraint and has not reported. NOTHING IS INSTALLED TODAY, and
+installing before the design exists is exactly the shape recorded as CLAUDE.md 38** — a control put
+in place ahead of the path it is meant to sit on.
+
+**TRIGGER for revisiting: Track X's design report.** Not a date.
+
+## 9d · AND THE LEDGER MOVED FOUR TIMES WHILE THIS WAS BEING DISCUSSED
+
+Measured today, `version > '20261008180116'`, stamps converted **once** from UTC:
+
+| version | EDT | whose |
+|---|---|---|
+| `20261008235148` `wh_settings_read_admin_only` | **Thu 19:51:48** | Material Matrix |
+| `20261009013905` `wh_order_drop_off_confirm_and_retract` | Thu 21:39:05 | Material Matrix |
+| `20261009015711` `wh_orders_read_driver_sees_own_or_unclaimed` | Thu 21:57:11 | Material Matrix |
+| `20261010073707` `wh_order_children_read_follow_the_order` | **Sat 03:37:07** | Material Matrix |
+
+**Four, all theirs, none ours.** Ledger now **271 rows — 112 Material Matrix, 159 ours.**
+
+**The first landed six minutes after Thursday's session read its clock at 19:45:39. The fourth landed
+68 SECONDS AFTER THIS SESSION'S FIRST COMMAND.**
+
+**R15 caught it on its first run on main, against a real event rather than a fixture** — which is the
+positive control rule 20 asks for, supplied by reality instead of by a mutant. **Reported, not
+investigated** (rule 9: a delta you did not cause is identified, not diagnosed). The surfaces that
+would tell us whether it touched ours all PASS: **R12** 0 offenders of 231 definers, **R13**
+`pg_default_acl` unchanged, **R14** 0 ours ungated.
