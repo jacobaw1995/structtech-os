@@ -134,14 +134,27 @@ jobs:
       # visible notice when it is absent, so this never fails a run while the
       # account does not exist and works the moment it does — no second edit.
       #
-      # It runs on `success()` only. Pinging after a FAILED door check would
-      # tell the dead-man's service "alive" at the exact moment the monitor is
-      # reporting an outage, which is the one time the two signals must not be
-      # merged. A red run emails; this is for silence.
+      # THREE STATES, NOT TWO — CHANGED 2026-10-11 AFTER THIS EXACT FAILURE.
+      # It ran on `success()` only, and the reasoning written here was that a ping
+      # after a failed door check would say "alive" while the monitor was reporting
+      # an outage. True, and not the whole picture: ONE signal was carrying TWO
+      # independent facts — "am I alive" and "is the door up" — so its ABSENCE
+      # could mean either, and a reader could not tell which.
+      #
+      # Proved in production, by me. On 2026-10-10 a file I put in scripts/monitor/
+      # tripped the no-external-binaries guard, four consecutive scheduled runs went
+      # red, and nothing pinged for twelve hours. The front door was FINE throughout.
+      # What Healthchecks saw — silence — is identical to what it would see if
+      # os.structtek.com were down, and those two need opposite responses.
+      #
+      #   success  -> plain ping        "I ran, the door is up"
+      #   failure  -> /fail ping + body "I ran, something is wrong HERE"
+      #   silence  -> Healthchecks      "I did not run at all"
       - name: dead-man's ping (skips until DEADMAN_PING_URL exists)
-        if: success() && github.event_name == 'schedule'
+        if: always() && github.event_name == 'schedule'
         env:
           DEADMAN_PING_URL: ${{ secrets.DEADMAN_PING_URL }}
+          JOB_STATUS: ${{ job.status }}
         run: |
           # Explicit rather than inherited. GitHub's default `run` shell is
           # `bash -e`, so a failing curl would abort anyway — but exercising
@@ -153,14 +166,37 @@ jobs:
           set -euo pipefail
           if [ -z "${DEADMAN_PING_URL:-}" ]; then
             echo "::notice title=dead-man's ping not configured::DEADMAN_PING_URL is not set, so nothing is watching for this workflow's SILENCE. The drift check catches degradation; only this catches death. See scripts/monitor/README-deadman.md."
-            exit 0
+            # Even with no ping configured, a failed run must not leave a GREEN step.
+            # The job is already red from the earlier failure, so this is cosmetic —
+            # and a green step on a failed run is the exact misreading this step exists
+            # to prevent, so it should not model the thing it warns about.
+            [ "$JOB_STATUS" = "success" ] && exit 0 || exit 1
           fi
-          # --fail so an HTTP error is a real failure; -sS to stay quiet but
-          # still print the error. The URL is a secret and is never echoed.
+          # The URL is a secret and is never echoed — not on the success path, not on
+          # the failure path, not in an error message. Only the suffix is ever printed.
+          if [ "$JOB_STATUS" = "success" ]; then
+            TARGET="$DEADMAN_PING_URL"
+            BODY="ok door=up run=${GITHUB_RUN_ID:-?}"
+            WHAT="alive+ok"
+          else
+            # Healthchecks treats /fail as an IMMEDIATE alert instead of waiting out the
+            # grace period. Right here: a monitor that KNOWS it is broken should not make
+            # anyone wait 8 hours to find out, which is what silence costs — and did cost,
+            # for twelve hours on 2026-10-10.
+            TARGET="${DEADMAN_PING_URL%/}/fail"
+            BODY="FAIL monitor-self status=${JOB_STATUS} run=${GITHUB_RUN_ID:-?} - the MONITOR failed; this is NOT a statement about the front door"
+            WHAT="alive+failing"
+          fi
+          # --fail so an HTTP error is a real failure; -sS to stay quiet but still print it.
           curl --fail --silent --show-error --max-time 20 \
                --retry 3 --retry-delay 5 --retry-all-errors \
-               -o /dev/null "$DEADMAN_PING_URL"
-          echo "dead-man's ping delivered."
+               --data-raw "$BODY" \
+               -o /dev/null "$TARGET"
+          echo "dead-man's ping delivered: $WHAT"
+          # A failed run must still FAIL after signalling. Signalling is not absolution;
+          # swallowing the status here would turn a red run green — trading a visible
+          # failure for a silent one, which is the defect this step just had.
+          [ "$JOB_STATUS" = "success" ] || exit 1
 
   failure-path-proof:
     # Not on the schedule — this is the guard on the guard.  It runs whenever
