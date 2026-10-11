@@ -619,3 +619,26 @@ more than nothing:**
 So of six: **two could not have alarmed, one provably did, three are unmeasurable
 from here.** The question "fired and nobody read it, or never fired at all" is
 answerable for exactly one of the six from this side.
+
+### cron drift — measured 2026-10-11 19:47 America/New_York
+
+*Written by `scripts/pilot/cron-drift-figures.mjs --write`, never typed. Every line
+carries its window, so a quoted line is still true (rule 42).*
+
+```
+WINDOW 2026-09-03→2026-10-11, n=192 gaps  (193 successful scheduled runs of 204)
+  median  4.51h   over 2026-09-03→2026-10-11, n=192 gaps
+  p90     6.59h   over 2026-09-03→2026-10-11, n=192 gaps
+  p99     15.10h   over 2026-09-03→2026-10-11, n=192 gaps
+  MAX     25.76h   over 2026-09-03→2026-10-11, n=192 gaps
+  margin at the MAX vs the 8h threshold: -1066 minutes   over 2026-09-03→2026-10-11, n=192 gaps
+  alert windows (gap > 8h): 7   over 2026-09-03→2026-10-11, n=192 gaps
+     10.2h  2026-09-07T10:24Z -> 2026-09-07T20:36Z
+     9.6h  2026-09-13T04:53Z -> 2026-09-13T14:27Z
+     15.1h  2026-09-28T06:59Z -> 2026-09-28T22:05Z
+     21.7h  2026-10-05T00:59Z -> 2026-10-05T22:41Z
+     11.3h  2026-10-06T10:24Z -> 2026-10-06T21:39Z
+     15.0h  2026-10-07T01:35Z -> 2026-10-07T16:34Z
+     25.8h  2026-10-10T07:12Z -> 2026-10-11T08:58Z
+  hours since the last success: 0.1h  (no open window)
+```

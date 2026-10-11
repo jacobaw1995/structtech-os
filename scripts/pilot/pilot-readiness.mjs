@@ -429,6 +429,13 @@ if (dbAvailable()) {
 const SCHEMA_USAGE_EXPECTED = [
   'archive              anon=false authenticated=false',
   'auth                 anon=true  authenticated=true',
+  // ADDED 2026-10-11. Track S installed pg_cron 1.6.4 for the migration-ledger
+  // watch, which created schema `cron`. Verified independently before accepting:
+  // anon USAGE false, authenticated USAGE false — the same closed shape as
+  // extensions, vault, supabase_migrations and archive. S left the check RED on
+  // purpose rather than editing a constant that lives in this file, which is the
+  // contract working: the acceptance is a diff somebody signs, not a silent pass.
+  'cron                 anon=false authenticated=false',
   'extensions           anon=false authenticated=false',
   'graphql              anon=true  authenticated=true',
   'graphql_public       anon=true  authenticated=true',
@@ -451,7 +458,7 @@ if (dbAvailable()) {
     // The size of what was examined, beside the result (rule 24).
     if (added.length === 0 && gone.length === 0) {
       record('R16', 'PASS', 'schema USAGE for anon/authenticated is unchanged',
-        `${actual.length} schema(s) examined, all matching the recorded boundary; the 4 closed ones are extensions, vault, supabase_migrations, archive`);
+        `${actual.length} schema(s) examined, all matching the recorded boundary; the 5 closed ones are archive, cron, extensions, supabase_migrations, vault`);
     } else {
       record('R16', 'FAIL', 'schema USAGE for anon/authenticated is unchanged',
         `BOUNDARY MOVED over ${actual.length} schema(s) examined.` +
@@ -497,7 +504,14 @@ if (dbAvailable()) {
       for (const mm of t.matchAll(/\.rpc\(\s*/g)) {
         sites++;
         const after = t.slice(mm.index + mm[0].length, mm.index + mm[0].length + 80);
-        const lit = after.match(/^["'`]([a-z0-9_]+)["'`]/);
+        // A CONCATENATED NAME IS NOT A NAME, AND THIS IS THE ONE THAT BITES.
+        // `.rpc("create_" + verb)` matched the literal and captured `create_` —
+        // a FABRICATED name, reported as unreachable, while the dynamic counter
+        // stayed 0 so the output looked complete. That is worse than the blind
+        // spot it hides behind: an invisible call site is a gap, a truncated one
+        // is a wrong answer. Measured 2026-10-11: 0 exist in src/ today, so this
+        // is fixed before it bites rather than after.
+        const lit = after.match(/^["'`]([a-z0-9_]+)["'`]\s*([,)]|$)/);
         if (lit) names.add(lit[1]); else dynamic++;
       }
     }
@@ -512,7 +526,13 @@ if (dbAvailable()) {
         except
         select p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
          where n.nspname = 'public' and p.proname in (${list}) and has_function_privilege('authenticated', p.oid, 'EXECUTE')) y`).trim();
-      const axis = `${names.size} distinct name(s) across ${sites} call site(s); ${dynamic} call site(s) had a NON-LITERAL first argument and are INVISIBLE to this check`;
+      // THE AXIS, IN THE OUTPUT. Two forms are named explicitly because they fail
+      // differently: a non-literal argument is COUNTED (a gap you can see), while a
+      // wrapper — any helper that takes a name and forwards it to .rpc — produces no
+      // `.rpc(` match at all and is therefore not even in the denominator.
+      const axis = `${names.size} distinct name(s) across ${sites} call site(s); `
+        + `${dynamic} with a NON-LITERAL first argument (counted, not resolved); `
+        + `a WRAPPER that forwards a name to .rpc would not appear in ${sites} at all — measured 0 of each in src/ on 2026-10-11`;
       record('R17', unreachable ? 'FAIL' : 'PASS', 'every .rpc() name is reachable by authenticated',
         unreachable
           ? `UNREACHABLE: ${unreachable} — the app calls these and authenticated cannot execute them. ${axis}`

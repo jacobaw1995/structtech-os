@@ -2,7 +2,14 @@
 // The scheduled-run gap distribution, with its WINDOW attached to every number.
 // Track X, 2026-10-11.
 //
-//   node scripts/pilot/cron-drift-figures.mjs [--since YYYY-MM-DD]
+//   node scripts/pilot/cron-drift-figures.mjs [--since YYYY-MM-DD] [--write]
+//
+// --write APPENDS the same block to scripts/pilot/READINESS_LOG.md. That is the
+// point of the flag, not a convenience: the repo's record and the API's record
+// had DIFFERENT WINDOWS, so two readers could both be right and disagree — the
+// log said 7.37h max / 0 breaches over 09-30→10-08 while the API knew 25.76h max
+// and 7 breaches over the full history. Hand-copying is what let them drift, so
+// the figures are written by the thing that computes them.
 //
 // WHY THIS EXISTS, AND IT IS NOT CONVENIENCE. "38 minutes of margin" was written
 // into READINESS_LOG on 2026-09-30, quoted in six controller directives, and was
@@ -34,9 +41,11 @@
 // alert that should have fired was READ by anyone.
 
 import { execFileSync } from 'node:child_process';
+import { appendFileSync } from 'node:fs';
 
 const args = process.argv.slice(2);
 const since = args.includes('--since') ? args[args.indexOf('--since') + 1] : null;
+const write = args.includes('--write');
 const PERIOD_H = 1, GRACE_H = 7, THRESHOLD_H = PERIOD_H + GRACE_H;
 
 const raw = execFileSync('gh', ['run', 'list', '--workflow=frontdoor-monitor.yml', '--limit', '400',
@@ -55,16 +64,30 @@ const WIN = `${d(ok[0])}→${d(ok[ok.length - 1])}, n=${gaps.length} gaps`;
 
 // EVERY LINE CARRIES THE WINDOW. Not a header the reader may not copy — the window
 // is in the same sentence as the figure, so a quoted line is still true.
-console.log(`WINDOW ${WIN}  (${ok.length} successful scheduled runs of ${runs.length})`);
+const OUT = [];
+const say = (l) => { OUT.push(l); console.log(l); };
+say(`WINDOW ${WIN}  (${ok.length} successful scheduled runs of ${runs.length})`);
 for (const [label, v] of [['median', med], ['p90', pct(90)], ['p99', pct(99)], ['MAX', gaps[gaps.length - 1]]]) {
-  console.log(`  ${label.padEnd(7)} ${v.toFixed(2)}h   over ${WIN}`);
+  say(`  ${label.padEnd(7)} ${v.toFixed(2)}h   over ${WIN}`);
 }
 const worst = gaps[gaps.length - 1];
-console.log(`  margin at the MAX vs the ${THRESHOLD_H}h threshold: ${((THRESHOLD_H - worst) * 60).toFixed(0)} minutes   over ${WIN}`);
+say(`  margin at the MAX vs the ${THRESHOLD_H}h threshold: ${((THRESHOLD_H - worst) * 60).toFixed(0)} minutes   over ${WIN}`);
 const over = ok.slice(1).map((b, i) => [ok[i], b, (b - ok[i]) / 3600000]).filter(([, , h]) => h > THRESHOLD_H);
-console.log(`  alert windows (gap > ${THRESHOLD_H}h): ${over.length}   over ${WIN}`);
-for (const [a, b, h] of over) console.log(`     ${h.toFixed(1)}h  ${a.toISOString().slice(0, 16)}Z -> ${b.toISOString().slice(0, 16)}Z`);
+say(`  alert windows (gap > ${THRESHOLD_H}h): ${over.length}   over ${WIN}`);
+for (const [a, b, h] of over) say(`     ${h.toFixed(1)}h  ${a.toISOString().slice(0, 16)}Z -> ${b.toISOString().slice(0, 16)}Z`);
 // An OPEN window is not in the closed set above and is the one that matters now.
 const sinceLast = (Date.now() - ok[ok.length - 1]) / 3600000;
-console.log(`  hours since the last success: ${sinceLast.toFixed(1)}h` +
+say(`  hours since the last success: ${sinceLast.toFixed(1)}h` +
   (sinceLast > THRESHOLD_H ? `  *** AN ALERT WINDOW IS OPEN NOW and is not counted above — a closed gap needs a later success to measure against ***` : '  (no open window)'));
+
+// ── the record, written by the thing that measures it ──────────────────────
+if (write) {
+  const stamp = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit',
+    day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date()).replace(',', '');
+  appendFileSync('scripts/pilot/READINESS_LOG.md',
+    `\n### cron drift — measured ${stamp} America/New_York\n\n` +
+    '*Written by `scripts/pilot/cron-drift-figures.mjs --write`, never typed. Every line\n' +
+    'carries its window, so a quoted line is still true (rule 42).*\n\n' +
+    '```\n' + OUT.join('\n') + '\n```\n');
+  console.log('\nappended to scripts/pilot/READINESS_LOG.md');
+}
