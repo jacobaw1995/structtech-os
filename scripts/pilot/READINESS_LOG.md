@@ -552,3 +552,70 @@ notice, and the first sign would be a production page failing to construct a Sup
 variables as normal variables (the anon key is public by design and the URL is in every request), leave
 `RESEND_API_KEY` Sensitive since it genuinely is a secret and R2b now reports it honestly, and add both
 `NEXT_PUBLIC_` names to R2's `REQUIRED_ENV` so their absence is visible.
+
+---
+
+# 2026-10-11 — THE 38 MINUTES WAS A FACT ABOUT EIGHT DAYS IN SEPTEMBER
+
+**Controller ruling, recorded here because this file is where the bad figure
+lives: A MARGIN MEASURED ON A CHOSEN WINDOW IS A FACT ABOUT THE WINDOW.**
+
+The line above dated 2026-09-30 reads *"the worst gap since 09-30 is 7.37 h
+against an 8 h threshold — 38 minutes of margin."* **Every number in it is
+correctly computed and the sentence is false of the instrument.** It is true of
+2026-09-30→10-08 and of nothing wider. Quoted in six controller directives.
+
+**The full window, measured 2026-10-11 — and every figure now carries its
+container, because that is the only thing that stops this recurring:**
+
+| | over 2026-09-03→2026-10-10, n=188 gaps |
+|---|---|
+| median | **4.49 h** |
+| p90 | **6.33 h** |
+| p99 | **14.98 h** |
+| **MAX** | **21.71 h** |
+| **margin at the MAX vs the 8 h threshold** | **−822 minutes** |
+| alert windows (gap > 8 h) | **6** |
+
+**Not 38 minutes of margin. Negative by thirteen and a half hours.**
+
+**And a SEVENTH window is open right now and is not in that six** — a closed gap
+needs a later success to measure against, so an ongoing outage is invisible to
+the count that is supposed to report outages. Last successful scheduled run
+**2026-10-10 03:12 EDT; 22.5 hours ago; threshold breached 14.5 hours ago.** That
+is my own outage, still open at the time of writing.
+
+## The source fix
+
+`scripts/pilot/cron-drift-figures.mjs` emits every percentile with its window **on
+the same line**, so a quoted line is still true. A header the reader may not copy
+is not enough — rule 39 is that the caveat does not travel with the number, so the
+container has to be *in* the number. **Paste its output here rather than typing a
+median by hand; a hand-typed median is how the 38 minutes got in.**
+
+It lives in `scripts/pilot/`, not `scripts/monitor/`, because it shells out to
+`gh` and that directory is asserted to need no external binary — the same rule
+that my misplaced file broke on 2026-10-09, applied this time before making the
+mistake rather than after.
+
+## Did Healthchecks actually alert? What the instrument says, and what it cannot
+
+**I cannot query Healthchecks.** No API key exists in any env file or in the repo,
+and `DEADMAN_PING_URL` is a GitHub secret whose value is unreadable by me and by
+any workflow log, by design. That is the missing instrument, named rather than
+worked around. **Jacob's mailbox reading is the independent one and should stay
+independent.**
+
+**What I can bound from my own data, which is narrower than the question and
+more than nothing:**
+
+| window | could it have alerted? |
+|---|---|
+| 09-07 (10.2 h) · 09-13 (9.6 h) | **NO — the check did not exist.** Its own counter reads "Total pings 70 → 71 **since Sep 15**" |
+| **09-28 (15.1 h)** | **YES, CONFIRMED SENT** — DOWN 10:59:51 EDT, UP 18:05:35, to jacob@structtek.com |
+| 10-04 (21.7 h) · 10-06 (11.3 h) · 10-06→07 (15.0 h) | **UNKNOWN to me.** No ping was sent during any of them, so the 8 h threshold was exceeded in all three; whether Healthchecks delivered is the half I cannot see |
+| the open seventh | **UNKNOWN**, same reason |
+
+So of six: **two could not have alarmed, one provably did, three are unmeasurable
+from here.** The question "fired and nobody read it, or never fired at all" is
+answerable for exactly one of the six from this side.
