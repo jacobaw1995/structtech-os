@@ -105,6 +105,56 @@ Done-when is a week of field use, and it cannot precede the pilot it measures.**
 item) · and an office view of special trips. **A4.6's refusal is now built but has nothing to
 fire on: crews, crew_people, crew_memberships and work_order_crew_assignments are all 0.**
 
+### STATE AS OF SUNDAY 2026-10-11 — G6 IS TUESDAY AND THERE IS STILL NO PILOT. NO GATE IS RE-DATED HERE.
+
+**That remains the controller's call and Jacob's.** This records the state the decision gets made
+against.
+
+**NO FIELD ROWS EXIST.** Re-measured 2026-10-11:
+
+```sql
+select count(*) from check_ins;      -- 1, created 2026-10-04, pre-pilot
+select count(*) from special_trips;  -- 0
+-- and nothing at all on 2026-10-07, the pilot day: 0 check_ins, 0 special_trips, 0 field_events
+```
+
+**So G6's Done-when — "field pilot closes" — is unmet for reasons unrelated to the build.** Nothing
+failed. Nothing was attempted. Full record: `docs/PILOT_DAY_1_RESULT_2026-10-07.md`.
+
+**READINESS IS AT ITS BEST EVER BY COUNT, AND THE "ONLY FAIL IS A PURCHASE" CLAIM IS NOW FALSE.**
+Measured on main at 01:49 EDT: **`2 FAIL, 2 UNANSWERED, 14 PASS — of 18`**.
+
+| | |
+|---|---|
+| **R10** FAIL | Vercel plan `hobby` — **a purchase, not code** |
+| **R16** FAIL | **Track S moved a schema boundary: `create extension pg_cron` created the `cron` schema.** Verified safe (`anon` USAGE false, `authenticated` USAGE false) but **R16 correctly refuses to decide that itself.** Clears when Track X records `cron` in the expected set — one line in its own file |
+| **R2b** UNREADABLE | two `NEXT_PUBLIC_SUPABASE_*` are typed Sensitive, so the check cannot read them |
+| **R15** UNREVIEWED | 4 migrations in the last 24 h of 274 — 2 theirs, 2 ours |
+
+**14 PASS of 18 is the highest ever recorded, and the board carries two reds rather than one.** The
+second is eight hours old, is mine, and has a one-line owner-side fix.
+
+### THE SIX FIELD ACTS AND THEIR INSTRUMENTS — restated so the decision has something concrete
+
+**Every row is gradeable from rows once the act happens; none can be graded without it (RULE 17).**
+
+| # | field act | instrument |
+|---|---|---|
+| **1** | **A roofer opens the job on a phone.** | `select count(*) from field_events where event='work_order_opened' and (occurred_at at time zone 'America/New_York')::date = '<day>'` — expect ≥1 |
+| **2** | **A check-in is submitted once and the screen says so.** | `select count(*), count(client_token) from check_ins where (created_at at time zone 'America/New_York')::date='<day>'` — expect **1 and 1**. A row with a NULL token means the caller did not send one |
+| **3** | **Submit is tapped four times on one form.** | the same query — expect **still 1 row**. Duplicate tokens are impossible by the partial unique index, so **the failure shape is extra rows with NULL tokens** |
+| **4** | **A special trip is logged in ≤2 taps.** | `select count(*), count(client_token) from special_trips where (recorded_at at time zone 'America/New_York')::date='<day>'` — expect **1 and 1** |
+| **5** | **An office-uploaded file opens on the phone.** | `select count(*) from field_events where event='file_opened' and (occurred_at …)::date='<day>'` — expect ≥1. The open route re-signs at 60 s per click, so page age does not matter |
+| **6** | **The packet is left open over an hour and the thumbnail is looked at.** | **no instrument — a human observation only.** Expect the **thumbnail broken** (its URL lives one hour, baked into the delivered HTML) and the **link still working**. Known, not a defect, not an abort criterion |
+
+**Items 1–5 are gradeable from rows; item 6 is a report. Item 2 is the one that matters** — it is the
+Done-when nothing has ever exercised, and it is one tap plus one query.
+
+**TWO THINGS THAT ARE NOT BLOCKERS AND SHOULD NOT BE CHASED:** the **Materials and Sign-off** chips are
+both grey (`material_items` = 0; `sign_off_at` NULL on trade and master), and the schedule block reads
+**"Not linked to a crew"** (`crew_id` NULL — the job reaches the phone through
+`work_order_crew_assignments`, which exists).
+
 ### PILOT DAY 1 PRODUCED ZERO ROWS — recorded 2026-10-08, and NO GATE IS RE-DATED HERE
 
 **That is the controller's call and Jacob's. This section records the fact and what G6 would need.**

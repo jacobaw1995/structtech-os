@@ -324,3 +324,129 @@ positive control rule 20 asks for, supplied by reality instead of by a mutant. *
 investigated** (rule 9: a delta you did not cause is identified, not diagnosed). The surfaces that
 would tell us whether it touched ours all PASS: **R12** 0 offenders of 231 definers, **R13**
 `pg_default_acl` unchanged, **R14** 0 ours ungated.
+
+---
+
+# 10 · SUNDAY — THE LEDGER WATCH IS BUILT, AND ITS DELIVERY HALF IS NOT PROVED
+
+**Track S, `Sun Oct 11 01:35–01:50 EDT 2026`.** `pg_cron` **1.6.4** installed; the detector built to
+Track X's specification; **`20261011053800_migration_watch_cron`** applied 01:39:05 EDT.
+
+## 10a · THE PRECONDITION PASSED AND WAS NOT SUFFICIENT
+
+The directive's precondition — *does `vault.secrets` contain a row named `migration_watch_webhook`* —
+**HELD.** One row, created **2026-10-11 00:36:04 EDT**, description "POST target for the migration
+ledger monitor". **The value was never read or printed.**
+
+**And the monitor still cannot deliver.** Measured, by shape only:
+
+```
+length=38 · scheme=(none) · path_segments=0 · has_trailing_slash=false
+```
+
+**38 characters, no URL scheme, no slashes — it is not a URL.** It is the identifier portion without
+the host. `http_post` on it fails before any request is made.
+
+**ISOLATED WITH A CONTROL, so this is not a guess about my own code:**
+- `http_post('https://os.structtek.com/api/health', …)` → **HTTP 405.** A real response: transport
+  works end to end.
+- `http_post('aaaaaaaa-bbbb-…', …)` → **`Could not resolve host`** — a TRANSPORT failure, **the exact
+  failure the monitor reports (`http=transport`)**.
+- `http_set_curlopt` returns `t` for both options.
+
+**So the mechanism is right and the stored value is not a URL.**
+
+> **THE PRECONDITION CHECKED FOR A NAME AND THE CONTROL NEEDS A VALUE.** This is rules 28–29 in a new
+> costume: presence is not usability, and a vault row's name tells you nothing about its contents.
+> **A precondition on a credential should assert its SHAPE, not its existence** — here, that it starts
+> `https://` and contains a host.
+
+**THE ONE-LINE FIX, for Jacob, in the SQL editor — the full ping URL, not the identifier:**
+
+```sql
+select vault.update_secret(
+  (select id from vault.secrets where name = 'migration_watch_webhook'),
+  'https://hc-ping.com/<the-uuid-you-stored>'   -- scheme + host + path
+);
+```
+
+**Until then the monitor behaves exactly as designed under delivery failure, which is the one thing
+that could be proved:** the watermark is **held** and the consecutive-failure count **rises** — 6 and
+climbing by 01:44 EDT. A failed POST does not lose the row.
+
+## 10b · WHAT WAS PROVED, AND WHAT WAS NOT
+
+| half | verdict | evidence |
+|---|---|---|
+| **Scheduling** | **MEASURED** | `cron.job_run_details`: ticks at **:00 of every minute**, runs 14–87 ms, 5 consecutive runs 01:40–01:44 |
+| **Detection** | **MEASURED, 3 SECONDS** | no-op `20261011054242` ledgered at **T0 = 01:42:57 EDT**; the next tick ran at **01:43:00**; `alerting_branch_taken = t` asserted at that watermark |
+| **Watermark held on failure** | **MEASURED** | watermark unchanged at `20261010075730` across 6 failed deliveries |
+| **Delivery** | **NOT PROVED** | the stored secret is not a URL. **X's bound of ≤60 s + HTTP round trip remains a bound for this half** |
+
+**THE 3 SECONDS IS A SAMPLE, NOT A PROPERTY, and the mechanism says why (rule 21):** a row lands at a
+uniformly random point inside the minute, so detection latency is **uniform on (0, 60] s**. This trial
+drew 3 s because the row landed 3 s before a tick. **Had it landed at 01:43:01 the same code would
+have taken 59 s.** Expected ≈30 s, worst case 60 s, plus the round trip.
+
+**THE COMBINED SCHEDULING+DELIVERY TEST — the only one X said matters — IS INCOMPLETE and is reported
+as incomplete rather than as a partial pass.**
+
+## 10c · THE MUTANT
+
+`scripts/pilot/ledger-watch-fixture/run.sh`, rolled back. **PHASE 1** the real comparison fires on a
+genuinely new row (274 ledger rows examined, size printed). **PHASE 2** the comparison is flipped
+`>` → `<` **in the last definition of the function** (rule 22), the mutation is **asserted present in
+`prosrc`**, and the mutant returns **`quiet`** on that same new row. **So PHASE 1 can fail, and
+therefore means something.** Real function restored, verified in a new connection.
+
+## 10d · R16 FAILED, I CAUSED IT, AND THE CHECK IS RIGHT
+
+Installing `pg_cron` created the **`cron` schema**, which R16's expected boundary did not contain. **It
+caught my own change within minutes, on its first run on main.**
+
+**Verified independently:** `cron` grants **`anon` USAGE = false, `authenticated` USAGE = false** —
+the same shape as `extensions` and `vault`. **The boundary moved in the safe direction**, and R16 is
+right to refuse to decide that for itself.
+
+**WHO CHANGED IT AND WHY: Track S, 2026-10-11 01:36:50 EDT, `create extension pg_cron` under the
+controller's authorization, conditioned on the vault precondition.** The expected-boundary constant
+lives in `scripts/pilot/pilot-readiness.mjs`, **which is Track X's file — so Track S has not edited
+it.** The one-line change X needs is to add `cron` with `anon=false, authenticated=false`.
+**R16 stays red until X makes it, and that is the correct state**: an expectation confirmed by its
+causer and recorded by its owner (CLAUDE.md 45 — the guard was right).
+
+## 10e · R17 IS WIDER THAN MY OWN RECOMMENDATION, AND IT FOUND A CALL SITE I COULD NOT
+
+Yesterday Track S recommended this check and measured **118 call-site names, 118 reachable, 0
+unreachable**, stating one limit: the axis sees only literal first arguments.
+
+**R17 reads 119.** `src/` is unchanged since — so **the difference is the axis, not the code.** The
+name mine missed is **`fetch_membership_context`**, at `src/app/select-workspace/page.tsx:17` and
+`src/lib/workspace/context.ts:49`, both written with `.rpc(` on one line and the name on the next.
+**My regex required them on the same line and I did not state that limit.**
+
+**So yesterday's zero was correct about the 118 it examined and silently excluded one call site.** The
+conclusion survives — R17 reports **119 of 119 reachable, and 0 call sites with a non-literal first
+argument** — but the denominator was one short, and **I stated one blind spot while having two**
+(rule 18). X's instrument is better than the recommendation that asked for it.
+
+## 10f · THE HISTORY SWEEP'S ZERO, WITH ITS AXIS
+
+**ZERO on seven high-confidence secret shapes.** **AXIS: 1,329 blobs across 426 commits and 12 refs —
+GIT HISTORY, not the working tree.** A working-tree scan and a history scan answer different
+questions, and only the second one speaks to a repository that has been public.
+
+**AND TWO OF EIGHT DETECTORS FAILED THEIR OWN CONTROL FIRST.** That is the part that makes the zero
+worth anything: **a zero from a sweep whose detectors were never shown firing is not a zero** (rule
+20). Two were fixed before the run that produced the result.
+
+**Consequence: the repo is still PUBLIC and nothing has leaked. So "make it private" is HYGIENE, not
+an incident** — it stays on `docs/controller/JACOBS_LIST.md` at its existing priority and does not
+become urgent.
+
+## 10g · THE FOUR CLOSING CORRECTIONS
+
+Recorded as **CLAUDE.md 42–45**: a margin measured on a chosen window is a fact about the window · a
+count of a shared resource is stale the moment another party can write to it · a monitor whose
+heartbeat rides its success path cannot report its own death · a guard that fails is more often right
+than the file that tripped it.
