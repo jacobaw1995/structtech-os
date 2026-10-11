@@ -12,6 +12,17 @@
 // depends on the party who broke the rule choosing to mention it is not a control.
 // This one reads the ledger, so it does not need anybody to send anything.
 //
+//
+// LIVES IN scripts/pilot/, NOT scripts/monitor/, AND THAT IS NOT FILING TIDINESS.
+// The front-door workflow asserts that everything in scripts/monitor/ needs NO
+// external binary — the Material Matrix failure mode, where `cmp` was missing
+// from the build image and "command not found" was reported as a finding. This
+// script reads the database through db.mjs, which shells out to `psql`, so it
+// genuinely cannot satisfy that guarantee. Putting it there broke the front-door
+// monitor for four consecutive runs on 2026-10-10 (09:46 to 21:57 EDT) and I did
+// it. THE GUARD WAS RIGHT AND THE FILE WAS IN THE WRONG PLACE — moving it is the
+// fix; relaxing the grep would have been the regression.
+//
 // ── WHAT I VERIFIED RATHER THAN ACCEPTED ───────────────────────────────────
 // THE VERSION IS THE ONLY TIME SIGNAL THERE IS. The ledger's columns are
 // version, statements, name, created_by, idempotency_key, rollback — measured,
@@ -79,9 +90,8 @@
 // appeared, and it always names the version, so a reader never has to work out
 // whether they are looking at an alarm or at a monitor testing itself.
 
-import { execFileSync } from 'node:child_process';
 import { readdirSync, existsSync } from 'node:fs';
-import { q, dbAvailable } from '../pilot/db.mjs';
+import { q, dbAvailable } from './db.mjs';
 
 const args = process.argv.slice(2);
 const hours = args.includes('--hours') ? Number(args[args.indexOf('--hours') + 1]) : 1;
