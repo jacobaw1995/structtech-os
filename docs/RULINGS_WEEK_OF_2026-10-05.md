@@ -450,3 +450,180 @@ Recorded as **CLAUDE.md 42–45**: a margin measured on a chosen window is a fac
 count of a shared resource is stale the moment another party can write to it · a monitor whose
 heartbeat rides its success path cannot report its own death · a guard that fails is more often right
 than the file that tripped it.
+
+---
+
+## 11a · THE LEDGER WATCH IS PROVED END TO END — and 10a is now closed, not revised
+
+**Measured by Track S from the state table and `cron.job_run_details`, not taken from
+the controller's reading. `TZ=America/New_York date` = `Sun Oct 11 20:06:16 EDT 2026`.**
+
+| what | reading | instrument |
+|---|---|---|
+| watermark | **`20261011054851`** (was `20261010075730`) | `public.migration_watch_state` |
+| `consecutive_failures` | **0** (was 15 and climbing) | same |
+| `last_ok_at` | `2026-10-12 00:06:00.155895+00` — **50 s old at the read** | same |
+| `alerting` now | **false** — `max(version) = watermark`, so the comparison is quiet | ledger vs state |
+| cron, last 8 ticks | `:00` of every minute, 0.38–0.49 s | `cron.job_run_details` |
+| the comparison in the live body | **`v_max > v_watermark` INTACT, no mutation marker** | `pg_proc.prosrc` |
+| the 2xx guard | **`v_status between 200 and 299` PRESENT** | `pg_proc.prosrc` |
+
+**THE WATERMARK IS THE PROOF, AND IT IS A PROOF RATHER THAN A REPORT.** The only
+statement that writes `watermark` sits inside `if v_status between 200 and 299`.
+So `watermark = 20261011054851` **cannot** have been reached by any path except a
+2xx response to a POST. **Delivery is proved by the value, not by a success message**
+— which is the whole reason the advance was put behind the status code in the first
+place. **The combined scheduling+delivery test that §10b reported INCOMPLETE is
+COMPLETE.** §10a is not revised: it was true when written, and the thing it was
+waiting on has happened.
+
+**AND THE FIRST SUCCESSFUL DELIVERY WAS AN ALERT, WHICH FOLLOWS FROM THE SAME VALUE.**
+The watermark could only have moved *to* `20261011054851` by the branch that names
+that version — the `/fail` POST carrying `MIGRATION 20261011054851 [UNATTRIBUTED]`.
+The quiet branch does not advance it past the ledger. **So the watch's first live
+output in its entire existence was a true alert about a foreign migration**:
+Material Matrix's `20261011054851 wh_revoke_view_dml_and_anon_team_read`, applied
+**2026-10-11 01:48:51 EDT, unannounced**, 46 seconds before Track S's own commit that
+night. **Not a fixture, not a test row, not ours.**
+
+**THE TIMING, BOUNDED BY AN INDEPENDENT INSTRUMENT.** `vault.secrets.updated_at` for
+`migration_watch_webhook` reads **`2026-10-11 23:57:34.371658+00` = 19:57:34 EDT**
+(created `04:36:04+00`, so `updated_at > created_at` — the row was edited, not
+replaced). The next tick ran **`23:58:00.089626+00`**. So the first successful
+delivery was **26 seconds** after the fix landed, and is bounded to
+`[23:58:00, 00:03:00]` UTC — the controller's own 00:03:48 reading saw roughly the
+sixth success, not the first. **The exact first-success timestamp is NOT recoverable:
+`last_ok_at` is a single row overwritten every minute, so the state table knows only
+the latest.** Read the secret's `updated_at` instead; that one is durable. *(Name and
+timestamps only were read. The value was never read, printed, or measured.)*
+
+## 11b · THE ROOT CAUSE, WHICH IS THE CONTROLLER'S — AND THE RULE IS REAL BECAUSE SHAPE IS ASSERTABLE WITHOUT DISCLOSURE
+
+**The vault held a controller PLACEHOLDER, 63 characters, stored verbatim because it
+was a syntactically valid string literal.** Nothing in `vault.update_secret`, in
+Postgres, or in the watch had any reason to object: a placeholder that parses is
+indistinguishable from a value that works, right up to the moment something tries to
+*use* it. **A PLACEHOLDER THAT IS SYNTACTICALLY VALID WILL BE EXECUTED.**
+
+**The precondition Track S was told to check asserted a NAME when it needed to assert
+a SHAPE** — and the whole weight of that distinction is that **shape is assertable
+without disclosure**, which is what makes it a rule rather than an excuse. Not one of
+these needs the value to leave the database:
+
+```sql
+-- all three answerable without reading, printing, or returning the secret
+select decrypted_secret ~ '^https?://'            -- has a scheme
+     , decrypted_secret !~ '[[:space:]]'          -- no stray whitespace
+     , position('/' in decrypted_secret) > 0      -- has a path separator
+from vault.decrypted_secrets where name = 'migration_watch_webhook';
+```
+
+Each returns a boolean. **The 38-character, scheme-less, slash-less string Track S
+measured on Sunday morning would have failed the first and third of those at
+`00:36`, nineteen hours before anybody noticed** — and the measurement Track S *did*
+make (length and character class, never content) is itself the demonstration that
+shape-without-disclosure is possible, because that is exactly what it was.
+
+**The honest division of the 18 h 17 m.** The placeholder was the controller's. The
+precondition's wording was the controller's. **The decision to report DELIVERY NOT
+PROVED rather than blending it into a partial pass was Track S's, and it is the only
+reason the gap was eighteen hours instead of however long a green-looking monitor
+would have gone unexamined.** §10a called the precondition insufficient before the
+cause was known; this is that paragraph's cause.
+
+## 11c · AND THE SCHEDULER SAID `succeeded` 1,098 TIMES WHILE NOTHING WAS DELIVERED
+
+**Unasked, and it is the finding Track S would least want a future reader to miss.**
+
+```
+runs_before_fix | runs_after_fix | succeeded_while_delivery_failed
+           1098 |             10 |                            1098
+```
+
+Every run from `2026-10-11 05:40:00 UTC` to the fix at `23:57:34 UTC` — **1,098 of
+1,098** — reports `status = 'succeeded'` in `cron.job_run_details`, and all 1,098 of
+them delivered nothing. **The status is not wrong. It is answering a different
+question**: the statement ran and returned a row. It *must* read `succeeded`, because
+`migration_watch_tick()` catches the `http_post` exception by design, so a transport
+failure is an ordinary return.
+
+**A reader grading this monitor on its scheduler's own run table would have certified
+it healthy for its entire dead period, at a perfect 1,098 for 1,098** — and would
+have had a green table, a live cron job, and sub-second durations to show for it. The
+only instruments that could see the truth are the two the function writes itself,
+`last_ok_at` and `consecutive_failures`, because those sit on the **delivery** path
+while the run status sits on the **invocation** path one layer above it. Recorded as
+**CLAUDE.md 51**, the twin of 44: there a heartbeat rode its own success path, here a
+success flag rode a layer above the thing that failed.
+
+## 11d · X'S FIGURES — VERIFIED TWICE, AND THE SEVENTH WINDOW IS NOT QUITE THE OUTAGE
+
+**Verified against `scripts/pilot/READINESS_LOG.md` AND re-derived from the GitHub API
+by running `scripts/pilot/cron-drift-figures.mjs` with no `--write`. Every figure the
+directive supplied matches both, to the digit:**
+
+```
+WINDOW 2026-09-03→2026-10-11, n=192 gaps  (193 successful scheduled runs of 204)
+  median 4.51h · p90 6.59h · p99 15.10h · MAX 25.76h
+  margin at the MAX vs the 8h threshold: -1066 minutes
+  alert windows (gap > 8h): 7 — the seventh 2026-10-10T07:12Z -> 2026-10-11T08:58Z (25.8h)
+```
+
+The only line that differs between the log and my run is **`hours since the last
+success: 0.1h` → `0.4h`**, which is the one figure that *should* differ: it is live.
+**The script writing its own figures is what made this verification cheap** — there
+was no hand-typed median to reconcile, which is the specific failure that put "38
+minutes" into six directives.
+
+**THE ONE CORRECTION, AND IT IS SMALL AND REAL. "That gap IS the front-door monitor's
+own outage" over-identifies by about 7.5 hours.** Measured from the run list:
+
+| | |
+|---|---|
+| last success before | `2026-10-10T07:12:45Z` — **the gap's start** |
+| first failure | `2026-10-10T07:41:21Z` (**push**) — 28 m 36 s *after* the gap opened |
+| scheduled failures | `13:46:42Z`, `18:39:56Z`, `22:36:53Z`, `2026-10-11T01:57:22Z` |
+| next success | `2026-10-11T08:58:20Z` — **the gap's end**, 7 h 01 m after the last failure |
+
+**The gap CONTAINS the outage and exceeds it at both ends.** First-failure to
+last-failure is **18.27 h**; the gap is **25.76 h**. The extra 7.5 hours are not
+failure at all — 28 minutes of ordinary interval before the breakage, and **seven
+hours in which GitHub simply did not schedule a run.** So the seventh window measures
+the outage *plus* the scheduler's own sparsity, and the gap's start is "last time it
+worked," never "the moment it broke."
+
+**AND THAT CORRECTS TWO RULES TRACK S WROTE THIS MORNING, not the directive.**
+Rule 44 read "failed from **2026-10-10 09:46 EDT**" — that is the first failing
+*scheduled* run (`13:46:42Z`). **The monitor's first failing run of any kind was the
+push run at `07:41:21Z` = `03:41:21 EDT`, 6 h 05 m earlier**, and its log shows the
+identical cause: `scripts/monitor/migration-watch.mjs:82: import { execFileSync }
+from 'node:child_process'` tripping the grep guard. Rule 45's "four consecutive runs"
+is likewise the **scheduled** count of **five** total failures. Both corrected in
+place with the measurement beside them. **Dating an outage from the first run of
+whichever trigger you happened to look at understates it by however long the other
+trigger has been failing.**
+
+## 11e · X STATED ONE BLIND SPOT WHILE HAVING THREE — and one of them its axis cannot close
+
+Recorded as X reported it, because the third is the one that matters:
+
+1. **the single-line limit** — `.rpc(` and the name on separate lines. This is the one
+   Track S hit from the other side on 10-10 (118 vs 119, `fetch_membership_context`),
+   and it is **closed**.
+2. **concatenation** — a name built by concatenation yielded a **truncated** name,
+   reported unreachable, with the dynamic counter left at 0 so the output read
+   complete. **Closed**, and it is CLAUDE.md 46–47's source.
+3. **the WRAPPER form, which that axis CANNOT close.** A helper that forwards a name
+   into `.rpc` produces **no `.rpc(` match at the call site at all** — so a wrapped
+   call is **absent from the 173**, not miscounted among them. No widening of a
+   `.rpc(`-keyed extractor reaches it, because the thing it keys on is not there.
+
+**X measured that no wrapper exists in `src/` by grepping for the shape, and said
+plainly that this is a weaker claim than the extractor having looked.** That sentence
+is the reason this section exists. An absence established by a *second, differently
+shaped* search is evidence; an absence established by the *same* search is a tautology
+— and the difference between them is exactly what rule 18 asks every sweep to state
+about itself. R17's own output now carries it: *"a WRAPPER that forwards a name to
+.rpc would not appear in 173 at all — measured 0 of each in src/ on 2026-10-11."*
+**Three blind spots, two closed, one named and bounded by an instrument that is
+honest about being the weaker one.**

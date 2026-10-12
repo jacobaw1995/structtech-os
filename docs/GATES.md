@@ -134,6 +134,40 @@ Measured on main at 01:49 EDT: **`2 FAIL, 2 UNANSWERED, 14 PASS — of 18`**.
 **14 PASS of 18 is the highest ever recorded, and the board carries two reds rather than one.** The
 second is eight hours old, is mine, and has a one-line owner-side fix.
 
+#### SAME DAY, 18 h 19 m LATER — R16 IS GREEN AND THE READING IS `1 FAIL, 2 UNANSWERED, 15 PASS — of 18`
+
+**Measured on main at 2026-10-11 20:08 EDT, after merging `84cfbc2`. STILL NO GATE RE-DATED, and no
+field row has appeared: the four queries above are unchanged.** G6's Done-when is still unmet for the
+same reason, which is not a build reason.
+
+```
+CHECKS PRESENT (18): R1, R2, R2b, R3, R4.1, R5.1, R6.1, R7.1, R8.1, R9, R11, R12, R13, R14, R15, R16, R17, R10
+ANSWERED 16 of 18 checks; 2 UNANSWERED: R2b(unreadable), R15(unreviewed)
+NOT READY: 1 FAIL, 2 UNANSWERED, 15 PASS — of 18
+```
+
+**R16 PASS** — Track X recorded `cron` in the expected boundary after verifying the grants itself and
+confirming the delta was `cron` alone (10 expected against 11 actual: one added, none missing). Its
+text now reads *"11 schema(s) examined, all matching the recorded boundary; the 5 closed ones are
+archive, cron, extensions, supabase_migrations, vault."* **The red was mine, the fix was X's, and
+Track S did not edit X's file at any point** — which is why the clearing is a record of the boundary
+moving deliberately rather than of a constant being loosened to make a check quiet.
+
+**R15 now reads 3 migrations in the last 24 h of 275**, not 4 of 274 — the window moved past one of
+Material Matrix's and the ledger took on `20261011054851`.
+
+**ON "THE ONLY FAIL IS A PURCHASE" — IT IS TRUE AGAIN AS OF 2026-10-11 20:08 EDT, AND IT IS NOT
+RECORDED HERE AS A STANDING CLAIM.** It was true before 2026-10-11 01:36 EDT, false for the 18 h 31 m
+that `pg_cron`'s schema sat outside R16's recorded boundary, and true again now. **A sentence that has
+flipped twice in one day carries its timestamp or it is not quotable** — and the next `create
+extension`, by either party, flips it again within three minutes of somebody running readiness. The
+durable statement is the one about the shape of the board: **of 18 checks, exactly one failure is a
+thing no executor session can close, and it is `R10` — Vercel plan `hobby`, 1 hour of runtime log
+retention, no log drains.** That one has not changed since it was first recorded.
+
+**15 PASS of 18 is the highest ever recorded.** The two UNANSWERED are unchanged and both are honest:
+R2b cannot read a Sensitive value and says so; R15 measures recency and not review and says so.
+
 ### THE SIX FIELD ACTS AND THEIR INSTRUMENTS — restated so the decision has something concrete
 
 **Every row is gradeable from rows once the act happens; none can be graded without it (RULE 17).**
